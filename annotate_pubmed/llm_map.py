@@ -1,13 +1,15 @@
-import os
-import re
+import argparse
 import gc
 import glob
-import ast
-import argparse
-import pandas as pd
-from vllm import LLM, SamplingParams
-import torch
+import os
+import re
+
 import numpy as np
+import pandas as pd
+
+# NOTE: torch and vllm are imported lazily inside run_llm_over_cross_shards so the
+# deterministic helpers (prompt building, answer parsing, sharding) can be imported and
+# unit-tested without the GPU stack installed.
 
 
 def build_llm_prompt(tiab, candidate_lines):
@@ -112,7 +114,6 @@ def run_llm_over_cross_shards(
     temperature=0.0,
     top_p=1.0,
     max_tokens=2048,
-    save_pickle=False,  
     shard_index=None,
     num_shards=None,
     save_every=1000,
@@ -128,6 +129,9 @@ def run_llm_over_cross_shards(
     - Shard-aware: if shard_index/num_shards are provided, each worker processes
       its subset of shard files (index % num_shards == shard_index).
     """
+    import torch
+    from vllm import LLM, SamplingParams
+
     os.makedirs(out_dir or shards_dir, exist_ok=True)
     out_dir = out_dir or shards_dir
 
@@ -193,7 +197,8 @@ def run_llm_over_cross_shards(
 
             # If it’s a string, try JSON then literal_eval
             if isinstance(x, str):
-                import json, ast
+                import ast
+                import json
                 obj = None
                 try:
                     obj = json.loads(x)
@@ -275,10 +280,10 @@ def parse_args():
     p.add_argument("--llm_model", required=True, type=str)
     p.add_argument("--out_dir", type=str, default=None)
     p.add_argument("--batch_size", type=int, default=32)
-    p.add_argument("--temperature", type=float, default=0.8)
-    p.add_argument("--top_p", type=float, default=0.95)
+    p.add_argument("--temperature", type=float, default=0.0,
+                   help="Mapping is treated as deterministic; default 0.0.")
+    p.add_argument("--top_p", type=float, default=1.0)
     p.add_argument("--max_tokens", type=int, default=2048)
-    p.add_argument("--save_pickle", action="store_true")  # kept for API compatibility
     p.add_argument("--shard_index", type=int, default=None)
     p.add_argument("--num_shards", type=int, default=None)
     p.add_argument("--save_every", type=int, default=1000)
@@ -296,7 +301,6 @@ if __name__ == "__main__":
         temperature=args.temperature,
         top_p=args.top_p,
         max_tokens=args.max_tokens,
-        save_pickle=args.save_pickle,
         shard_index=args.shard_index,
         num_shards=args.num_shards,
         save_every=args.save_every,

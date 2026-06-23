@@ -2,55 +2,57 @@
 import argparse
 import gc
 import os
+import re
 import traceback
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
 from datasets import load_dataset
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-# Enable TF32 matmul on Ampere/Hopper GPUs
-if torch.cuda.is_available():
-    # Optional: only enable on devices with SM >= 8.0 (Ampere+)
-    major, _ = torch.cuda.get_device_capability(0)
-    if major >= 8:
-        torch.set_float32_matmul_precision('high')
-        # Optional: also allow TF32 for convs 
-        torch.backends.cudnn.allow_tf32 = True
+# vLLM
+from vllm import LLM
 
+# -------------------
+# Config
+# -------------------
 
-BERT_MODEL_PATH = "path_to_lit_dd_BERT"
+MODEL_ID = os.environ.get("MODEL_ID", "path_to_lit_dd_BERT")
 
-INPUT_DIR = "path_to_pubmed_download/parquet_download_files"
-PROCESSED_DIR = "bert_processed"
+INPUT_DIR = "data/pubmed_download/parquet_download_files"
+PROCESSED_DIR = "data/bert_processed"
 
-ROW_BATCH_SIZE = 8192     # CPU-side batch (streaming)
-PRED_BATCH_SIZE = 32      # GPU batch size
-MAX_LENGTH = 512
-PARQUET_COMPRESSION = "zstd"  # change to "snappy" for faster IO (bigger files)
+ROW_BATCH_SIZE = 8192     # rows pulled from streaming dataset at a time (CPU-side)
+PRED_BATCH_SIZE = 1024    # how many strings to send to vLLM per call (tune per GPU)
+MAX_LENGTH = 512          # truncate at this length inside vLLM
+PARQUET_COMPRESSION = "zstd"  # "snappy" for faster IO, larger files
 SKIP_IF_EXISTS = True
 
-def get_device(device_str: Optional[str] = None) -> str:
-    if device_str:
-        return device_str
-    return "cuda" if torch.cuda.is_available() else "cpu"
-
-def load_model_and_tokenizer(device_str: Optional[str] = None) -> Tuple[AutoTokenizer, AutoModelForSequenceClassification, str]:
-    tokenizer = AutoTokenizer.from_pretrained(BERT_MODEL_PATH, use_fast=True)
-    model = AutoModelForSequenceClassification.from_pretrained(BERT_MODEL_PATH)
-    model.eval()
-    device = get_device(device_str)
-    model.to(device)
-
-    if device.startswith("cuda"):
+# Optional CUDA perf toggles; harmless if not available.
+if torch.cuda.is_available():
+    try:
+        # TF32 is not directly used by vLLM here, but enabling is harmless.
         torch.backends.cuda.matmul.allow_tf32 = True
-        try:
-            torch.set_float32_matmul_precision("high")
-        except Exception:
-            pass
-    return tokenizer, model, device
+        torch.backends.cudnn.allow_tf32 = True
+        # Not critical for vLLM, but won't harm.
+        torch.set_float32_matmul_precision("high")
+    except Exception:
+        pass
+
+def _token_overhead(tokenizer) -> int:
+    # Estimate how many special tokens are added (e.g., [CLS], [SEP])
+    sample = "x"
+    with_special = tokenizer.encode(sample, add_special_tokens=True)
+    without_special = tokenizer.encode(sample, add_special_tokens=False)
+    return max(0, len(with_special) - len(without_special))
+
+def _truncate_to_token_limit(tokenizer, text: str, max_tokens: int) -> str:
+    # Truncate by tokens: encode without specials, slice, decode back
+    ids = tokenizer.encode(text, add_special_tokens=False)
+    if len(ids) > max_tokens:
+        ids = ids[:max_tokens]
+    return tokenizer.decode(ids, skip_special_tokens=True)
 
 def safe_pubdate_gt_1980(x: Dict[str, Any]) -> bool:
     try:
@@ -60,34 +62,47 @@ def safe_pubdate_gt_1980(x: Dict[str, Any]) -> bool:
         pd = -1
     return (x.get("languages") == "eng") and (pd > 1980)
 
+
 def make_tiab(x: Dict[str, Any]) -> Dict[str, Any]:
     title = x.get("title", "") or ""
     abstract = x.get("abstract", "") or ""
     x["tiab"] = f"{title} {abstract}".strip()
     return x
 
-@torch.inference_mode()
-def predict_batch(tokenizer, model, device, texts: List[str], pred_bs: int = PRED_BATCH_SIZE) -> List[int]:
+
+def argmax_index(values: List[float]) -> int:
+    # Argmax over logits; no softmax needed for the predicted class.
+    # Using pure Python to avoid extra tensor roundtrips.
+    max_i, max_v = 0, float("-inf")
+    for i, v in enumerate(values):
+        if v > max_v:
+            max_i, max_v = i, v
+    return max_i
+
+
+def predict_batch_vllm(
+    llm: LLM,
+    texts: List[str],
+    pred_bs: int = PRED_BATCH_SIZE,
+    tokenizer=None,
+    text_token_limit: Optional[int] = None,
+) -> List[int]:
     preds: List[int] = []
-    amp_dtype = torch.bfloat16 if (device.startswith("cuda") and torch.cuda.is_bf16_supported()) else torch.float16
     for i in range(0, len(texts), pred_bs):
-        chunk = texts[i:i + pred_bs]
-        enc = tokenizer(
-            chunk,
-            padding=True,
-            truncation=True,
-            max_length=MAX_LENGTH,
-            return_tensors="pt",
-        )
-        for k in enc:
-            enc[k] = enc[k].pin_memory()
-        enc = {k: v.to(device, non_blocking=True) for k, v in enc.items()}
-        with torch.autocast(device_type="cuda", dtype=amp_dtype, enabled=device.startswith("cuda")):
-            logits = model(**enc).logits
-        preds.extend(torch.argmax(logits, dim=-1).detach().cpu().tolist())
-        del enc, logits
+        sub = texts[i:i + pred_bs]
+        if tokenizer is not None and text_token_limit is not None:
+            sub = [_truncate_to_token_limit(tokenizer, t, text_token_limit) for t in sub]
+
+        results = llm.classify(sub)
+        for out in results:
+            logits = getattr(out.outputs, "probs", None)
+            preds.append(-1 if logits is None else argmax_index(logits))
     return preds
 
+
+# -------------------
+# Schema utilities 
+# -------------------
 
 def get_output_schema(parquet_path: str) -> pa.Schema:
     base = pq.read_schema(parquet_path)
@@ -98,7 +113,12 @@ def get_output_schema(parquet_path: str) -> pa.Schema:
         fields.append(pa.field("bert_predict", pa.int64()))
     return pa.schema(fields)
 
-def table_from_batch_with_schema(batch: Dict[str, List[Any]], preds: List[int], schema: pa.Schema) -> pa.Table:
+
+def table_from_batch_with_schema(
+    batch: Dict[str, List[Any]],
+    preds: List[int],
+    schema: pa.Schema
+) -> pa.Table:
     if len(preds) > 0:
         n = len(preds)
     elif batch:
@@ -127,12 +147,13 @@ def table_from_batch_with_schema(batch: Dict[str, List[Any]], preds: List[int], 
     table = pa.Table.from_arrays([columns[f.name] for f in schema], schema=schema)
     return table
 
-def process_one_parquet(
+
+def process_one_parquet_with_tokenizer(
     parquet_path: str,
     out_dir: str,
+    llm: LLM,
     tokenizer,
-    model,
-    device: str,
+    text_token_limit: int,
 ) -> bool:
     os.makedirs(out_dir, exist_ok=True)
     base = os.path.basename(parquet_path)
@@ -170,16 +191,19 @@ def process_one_parquet(
                 texts = batch.get("tiab", [])
                 if not texts:
                     continue
-                preds = predict_batch(tokenizer, model, device, texts)
+
+                preds = predict_batch_vllm(llm, texts, tokenizer=tokenizer, text_token_limit=text_token_limit)
                 table = table_from_batch_with_schema(batch, preds, out_schema)
+
                 if writer is None:
                     writer = pq.ParquetWriter(out_path, schema=out_schema, compression=PARQUET_COMPRESSION)
+
                 writer.write_table(table)
                 total_rows += table.num_rows
 
                 del batch, table, preds, texts
                 gc.collect()
-                if device.startswith("cuda"):
+                if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             except Exception:
                 file_failed = True
@@ -224,15 +248,37 @@ def process_one_parquet(
 
     return True
 
+
+
+def load_vllm_engine(model_id: str, max_length: int, tp_size: int = 1) -> LLM:
+    llm = LLM(
+        model=model_id,
+        task="classify",
+        dtype=torch.float16,
+        max_seq_len_to_capture=max_length, 
+        tensor_parallel_size=tp_size,
+    )
+    return llm
+
+
 def process_all_parquets(
     input_dir: str,
     processed_dir: str,
+    model_id: str,
+    max_length: int = MAX_LENGTH,
     shard: int = 0,
     num_shards: int = 1,
-    device: Optional[str] = None,
     fail_fast: bool = False,
+    tp_size: int = 1,
 ):
-    tokenizer, model, device = load_model_and_tokenizer(device)
+    llm = load_vllm_engine(model_id, max_length, tp_size=tp_size)
+
+    # Get tokenizer once and compute safe text token budget
+    tokenizer = llm.get_tokenizer()
+    overhead = _token_overhead(tokenizer)
+    text_token_limit = max(1, max_length - overhead)
+    print(f"Token budget: max_length={max_length}, overhead={overhead}, text_token_limit={text_token_limit}")
+
     files = sorted([os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith(".parquet")])
     if not files:
         print(f"No parquet files found in {input_dir}")
@@ -243,7 +289,7 @@ def process_all_parquets(
     for path in files:
         print(f"[shard {shard}/{num_shards}] Processing: {path}")
         try:
-            ok = process_one_parquet(path, processed_dir, tokenizer, model, device)
+            ok = process_one_parquet_with_tokenizer(path, processed_dir, llm, tokenizer, text_token_limit)
             if not ok:
                 if fail_fast:
                     raise RuntimeError(f"Stopping due to error on file: {path}")
@@ -256,26 +302,58 @@ def process_all_parquets(
             if fail_fast:
                 raise
 
-    del model, tokenizer
+    del llm, tokenizer
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
+
+
 def parse_args():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--model", type=str, default=MODEL_ID, help="ModernBERT classifier model id or path for vLLM")
     ap.add_argument("--shard", type=int, default=0, help="Shard index for file list")
     ap.add_argument("--num_shards", type=int, default=1, help="Total number of shards")
-    ap.add_argument("--device", type=str, default=None, help="Device string, e.g., cuda:0, cuda:1")
+    ap.add_argument("--max_length", type=int, default=MAX_LENGTH, help="Max sequence length for vLLM (truncation)")
     ap.add_argument("--fail_fast", action="store_true", help="Stop on first error instead of skipping the parquet file")
+    ap.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="CUDA device(s) to use, e.g. '0' or '0,1' or 'cuda:0'. "
+             "If unset, uses CUDA_VISIBLE_DEVICES or all GPUs."
+    )
     return ap.parse_args()
+
+def normalize_device_arg(device: Optional[str]) -> Optional[str]:
+    if device is None:
+        return None
+    # Accept forms like "cuda:0", "cuda:0,1", "0", "0,1"
+    dev = device.strip()
+    dev = re.sub(r"^cuda:", "", dev)  # remove leading "cuda:"
+    dev = dev.replace(" ", "")
+    if not re.fullmatch(r"\d+(,\d+)*", dev):
+        raise ValueError(f"Invalid --device value: {device}. Use e.g. '0' or '0,1' or 'cuda:0'")
+    return dev
 
 if __name__ == "__main__":
     args = parse_args()
+    visible = normalize_device_arg(args.device)
+    if visible is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = visible
+
+    vis_env = os.environ.get("CUDA_VISIBLE_DEVICES", None)
+    tp_size = 1
+    if vis_env:
+        tp_size = len([v for v in vis_env.split(",") if v.strip() != ""])
+
     process_all_parquets(
         INPUT_DIR,
         PROCESSED_DIR,
+        model_id=args.model,
+        max_length=args.max_length,
         shard=args.shard,
         num_shards=args.num_shards,
-        device=args.device,
         fail_fast=args.fail_fast,
+        tp_size=tp_size,  # pass through
     )

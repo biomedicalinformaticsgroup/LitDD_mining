@@ -1,8 +1,10 @@
 import os
-import pandas as pd
-from glob import glob
-import pubmed_parser as pp
 import traceback
+from glob import glob
+
+import pandas as pd
+import pubmed_parser as pp
+
 
 def process_file_to_parquet(xml_file, output_directory):
     base_name = os.path.splitext(os.path.splitext(os.path.basename(xml_file))[0])[0]

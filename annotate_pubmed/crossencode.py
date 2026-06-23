@@ -1,16 +1,51 @@
 #!/usr/bin/env python3
-import os
-import gc
-import argparse
-import traceback
-from typing import List, Tuple, Optional, Dict, Any
-import heapq
+"""Cross-encoder ranking of (TIAB, G2P_LGMDE) candidate pairs.
 
-import torch
-import polars as pl
+Cross-encoder similarity scoring
+--------------------------------
+For every BERT-positive PubMed abstract (``tiab``) and every G2P record we
+assemble a single ``(TIAB, G2P_LGMDE)`` text pair, where ``G2P_LGMDE`` is the
+record concatenated as
+``g2p_id - gene symbol - gene mim - hgnc id - previous gene symbols -
+disease name - disease mim - disease MONDO - allelic requirement -
+cross cutting modifier - confidence - inferred variant consequence -
+variant types - molecular mechanism - molecular mechanism categorisation``
+(see ``build_g2p_lgmde_list`` below).
+
+The cross-encoder is a single transformer (a fine-tuned ``ncbi/MedCPT-Cross-
+Encoder``) that ingests the joined pair via ``[CLS] tiab [SEP] g2p_lgmde
+[SEP]`` and a 1-logit classification head. ``model.predict`` applies a
+sigmoid on top of that logit and returns a relevance score in ``[0, 1]`` —
+higher means more semantically related. We retain the top-5 scoring G2P
+records per TIAB; those candidates are passed to the LLM mapping stage and
+the score itself is later thresholded in ``final_data_clean.py``
+(default cutoff 0.9).
+
+Computationally we score the ``N × M`` pair grid in row-blocks: G2P records
+are broken into ``g_block_size`` chunks, each (text, candidate) batch is
+predicted in ``pair_batch_size`` micro-batches, and per-text min-heaps keep
+only the top-5 across all G2P chunks.
+"""
+from __future__ import annotations
+
+import argparse
+import gc
+import heapq
+import os
+import traceback
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
 import numpy as np
-from sentence_transformers import CrossEncoder
-import pandas as pd  
+import pandas as pd
+import polars as pl
+
+# NOTE: torch and sentence_transformers are imported lazily inside the functions that
+# need them, so the pure ranking helpers (top-k heap update, pair building, G2P LGMDE
+# string construction) can be imported and unit-tested without the GPU stack installed.
+# Type-only imports keep the forward-ref annotations resolvable without a runtime import.
+if TYPE_CHECKING:
+    import torch  # noqa: F401
+    from sentence_transformers import CrossEncoder  # noqa: F401
 
 
 DEFAULT_MODEL_PATH = "path_to_litdd_crossencoder"
@@ -20,12 +55,14 @@ PARQUET_COMPRESSION = "zstd"
 SKIP_IF_EXISTS = True
 
 def get_device(device_str: Optional[str] = None) -> str:
+    import torch
     if device_str:
         return device_str
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def pick_torch_dtype(dtype_str: str = "auto") -> Optional[torch.dtype]:
+def pick_torch_dtype(dtype_str: str = "auto") -> Optional["torch.dtype"]:
+    import torch
     if dtype_str == "fp32":
         return torch.float32
     if dtype_str == "fp16":
@@ -44,7 +81,10 @@ def load_crossencoder(
     model_path: str,
     device_str: Optional[str] = None,
     dtype_str: str = "auto",
-) -> Tuple[CrossEncoder, str]:
+) -> Tuple["CrossEncoder", str]:
+    import torch
+    from sentence_transformers import CrossEncoder
+
     device = get_device(device_str)
     dtype = pick_torch_dtype(dtype_str)
     model_kwargs = {}
@@ -161,13 +201,14 @@ def update_topk_heaps_from_block(
 
 
 def crossencode_topk_for_chunk(
-    model: CrossEncoder,
+    model: "CrossEncoder",
     chunk_texts: List[str],
     g2p_list: List[str],
     top_k: int = 5,
     pair_batch_size: int = 256,
     g_block_size: int = 2048,
 ) -> List[List[Dict[str, Any]]]:
+    import torch
 
     C = len(chunk_texts)
     if C == 0:
@@ -222,6 +263,8 @@ def process_shard(
     skip_if_exists: bool = SKIP_IF_EXISTS,
     compression: str = PARQUET_COMPRESSION,
 ) -> bool:
+    import torch
+
     os.makedirs(out_dir, exist_ok=True)
 
     base = os.path.basename(input_parquet)

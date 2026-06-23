@@ -1,7 +1,9 @@
 import os
 import subprocess
-from lxml import html
+
 import requests
+from lxml import html
+
 
 def get_file_links(base_url):
     response = requests.get(base_url)
