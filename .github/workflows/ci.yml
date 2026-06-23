@@ -1,0 +1,35 @@
+name: CI
+
+# Lightweight CI: lint + CPU unit tests for the deterministic pipeline logic.
+# Uses uv as the package manager/runner. The heavy GPU stages (BERT/cross-encoder
+# inference, vLLM LLM mapping) are not exercised here; the deterministic helpers were
+# written with lazy GPU imports so they test on CPU without torch/vllm.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.11"
+
+      - name: Lint (ruff)
+        run: uvx ruff check .
+
+      - name: Unit tests (CPU only)
+        run: >-
+          uv run --no-project
+          --with numpy --with pandas --with polars --with pyarrow --with pytest
+          pytest tests/ -q

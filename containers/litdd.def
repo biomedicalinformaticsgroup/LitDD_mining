@@ -1,0 +1,44 @@
+# Apptainer / Singularity definition for the LitDD GPU stack (EIDF / HPC standard).
+#
+# What this builds: a container with the CUDA 12.1 runtime, Python, a Java runtime (for
+# the cadmus full-text fetcher), and the pinned torch + vLLM + LitDD dependency stack,
+# so the pipeline runs reproducibly on HPC GPUs without installing CUDA/torch by hand.
+#
+#   apptainer build litdd.sif containers/litdd.def
+#   apptainer exec --nv litdd.sif python annotate_pubmed/bert_predict_vllm.py --help
+#       (--nv exposes the host GPUs to the container)
+#
+# Scope: covers the primary training/inference/analysis env. The optional RAPIDS GPU
+# visualisation stage uses a separate environment (see environment.yml / README) and is
+# not included here.
+Bootstrap: docker
+From: nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+# Copy the pinned requirements into the image so the build uses tested versions.
+%files
+    requirements.txt /opt/litdd/requirements.txt
+
+# Build-time setup: system packages, then the pinned Python stack.
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-venv git \
+        openjdk-17-jre-headless ca-certificates wget
+    rm -rf /var/lib/apt/lists/*
+
+    python3 -m pip install --no-cache-dir --upgrade pip
+    # torch against the CUDA 12.1 wheels, then the rest of the pinned stack
+    python3 -m pip install --no-cache-dir torch==2.4.* --index-url https://download.pytorch.org/whl/cu121
+    python3 -m pip install --no-cache-dir -r /opt/litdd/requirements.txt
+
+# Runtime environment variables.
+%environment
+    export PYTHONUNBUFFERED=1
+    export HF_HOME=/tmp/hf_cache
+
+# `apptainer run litdd.sif <args>` -> `python3 <args>`
+%runscript
+    exec python3 "$@"
+
+%labels
+    Description LitDD literature-mapping pipeline (CUDA 12.1 + torch + vLLM)

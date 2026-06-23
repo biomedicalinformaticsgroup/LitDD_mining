@@ -1,35 +1,43 @@
+# Pinned to the development versions used in the manuscript (see README "Software").
+# Series pins (==X.Y.*) reflect the tested minor versions and avoid the unbounded
+# resolution that lower-bound (>=) pins allow for the tightly-coupled CUDA/torch/vLLM stack.
+# For a fully hash-locked file, run `pip-compile --generate-hashes` in the dev environment.
+#
+# NOTE: install torch separately against your CUDA build first, e.g.
+#   pip install torch==2.4.* --index-url https://download.pytorch.org/whl/cu121
+
 # Core ML / NLP
-torch>=2.1
-transformers>=4.40
-datasets>=2.18
-sentence-transformers>=3.0
-evaluate>=0.4
+torch==2.4.*
+transformers==4.44.*
+datasets==2.20.*
+sentence-transformers==3.0.*
+evaluate==0.4.*
 vllm==0.10.1.1
 
 # Data handling
-pandas>=2.0
-numpy>=1.24
-polars>=0.20
-pyarrow>=15.0
-scikit-learn>=1.3
+pandas==2.2.*
+numpy==1.26.*
+polars==1.5.*
+pyarrow==17.*
+scikit-learn==1.5.*
 
 # PubMed / literature ingestion
-pubmed_parser>=0.4
-lxml>=4.9
-requests>=2.31
+pubmed_parser==0.5.*
+lxml==5.2.*
+requests==2.32.*
 
 # Ontology / graph
-networkx>=3.1
-node2vec>=0.4.6
-owlready2>=0.46
+networkx==3.3.*
+node2vec==0.4.6
+owlready2==0.46
 
 # HPO annotation
-FastHPOCR>=1.0
+FastHPOCR==1.0.*
 
 # Visualisation (GPU UMAP/HDBSCAN via RAPIDS optional)
-umap-learn>=0.5
-datamapplot>=0.3
-matplotlib>=3.7
+umap-learn==0.5.*
+datamapplot==0.4.*
+matplotlib==3.8.*
 
 # Utilities
-tqdm>=4.66
+tqdm==4.66.*

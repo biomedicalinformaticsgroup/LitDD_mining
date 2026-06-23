@@ -1,0 +1,48 @@
+# Primary conda environment for LitDD: dataset building, BERT / cross-encoder
+# fine-tuning + inference, LLM mapping (vLLM), HPO annotation, and CPU analysis.
+# Pins mirror requirements.txt and the development versions in the README ("Software").
+#
+#   conda env create -f environment.yml
+#   conda activate litdd
+#
+# NOTE ON PER-STAGE ENVIRONMENTS: the pipeline does not run end-to-end in one env.
+#  - The CUDA/torch/vLLM stack is tightly coupled; vLLM pins the torch build, so this
+#    file installs torch against a CUDA 12.1 wheel (adjust the index URL to your CUDA).
+#  - The OPTIONAL GPU visualisation step (RAPIDS cuML / cuPy 24.x for GPU UMAP/HDBSCAN)
+#    requires a SEPARATE conda env (Python 3.10) installed per the official RAPIDS
+#    instructions — it is incompatible with these pins. The visualisation scripts fall
+#    back to CPU umap-learn/hdbscan in this env.
+#  - The `cadmus` full-text fetcher needs a Java runtime (openjdk below).
+# For an exact lockfile of any single stage, run `conda env export` / `pip freeze`
+# (or `pip-compile --generate-hashes`) inside that stage's environment.
+name: litdd
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - openjdk>=8        # Java runtime for the cadmus PMC full-text fetcher
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu121
+      - torch==2.4.*
+      - transformers==4.44.*
+      - datasets==2.20.*
+      - sentence-transformers==3.0.*
+      - evaluate==0.4.*
+      - vllm==0.10.1.1
+      - pandas==2.2.*
+      - numpy==1.26.*
+      - polars==1.5.*
+      - pyarrow==17.*
+      - scikit-learn==1.5.*
+      - pubmed_parser==0.5.*
+      - lxml==5.2.*
+      - requests==2.32.*
+      - networkx==3.3.*
+      - node2vec==0.4.6
+      - owlready2==0.46
+      - FastHPOCR==1.0.*
+      - umap-learn==0.5.*       # CPU fallback for the GPU (RAPIDS) visualisation stage
+      - datamapplot==0.4.*
+      - matplotlib==3.8.*
+      - tqdm==4.66.*
