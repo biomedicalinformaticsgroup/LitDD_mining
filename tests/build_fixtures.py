@@ -3,6 +3,8 @@
 
 Reads from the (large) reference clean_pipeline data to slice tiny self-contained
 fixtures into tests/fixtures/. Run once whenever the source data is regenerated.
+Point it at the reference data via the LITDD_REF_DIR environment variable, e.g.
+  LITDD_REF_DIR=/path/to/clean_pipeline python tests/build_fixtures.py
 
 Outputs (all under tests/fixtures/):
   llm_shard_sample.parquet
@@ -13,12 +15,13 @@ Outputs (all under tests/fixtures/):
 from __future__ import annotations
 
 import gzip
+import os
 from pathlib import Path
 
 import pandas as pd
 import pyarrow.parquet as pq
 
-REF = Path("/home/eidf128/eidf128/shared/export/michael/ddg2p_pubmed2diseasemodel_CLEAN/clean_pipeline")
+REF = Path(os.environ.get("LITDD_REF_DIR", "reference_data/clean_pipeline"))
 LLM = REF / "annotate_pubmed/data/crossencoded_shards_llm/pubmed_bert_positive_crossencoded_shard0-of-4__llm.parquet"
 G2P = REF / "train_test/G2P_DD_2025-02-15.csv"
 GENE2PUBTATOR = REF / "annotate_pubmed/data/gene2pubtator3"

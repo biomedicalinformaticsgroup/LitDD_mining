@@ -10,6 +10,7 @@ cross-encoder CV search can build the candidate corpus end-to-end on CPU.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -17,10 +18,8 @@ from sklearn.model_selection import train_test_split
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC_ANNOTATED = ROOT / "train_test" / "annotated_pmid.csv"
-SRC_G2P = Path(
-    "/home/eidf128/eidf128/shared/export/michael/ddg2p_pubmed2diseasemodel_CLEAN"
-    "/clean_pipeline/train_test/G2P_DD_2025-02-15.csv"
-)
+# Point at the reference clean_pipeline via LITDD_REF_DIR (no absolute path shipped).
+SRC_G2P = Path(os.environ.get("LITDD_REF_DIR", "reference_data/clean_pipeline")) / "train_test" / "G2P_DD_2025-02-15.csv"
 OUT = Path(__file__).resolve().parent / "data"
 OUT.mkdir(parents=True, exist_ok=True)
 
