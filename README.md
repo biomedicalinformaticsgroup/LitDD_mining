@@ -28,9 +28,9 @@ add HPO phenotype annotations and 2D visualisations of the literature space.
 ### Software
 - Python 3.10 or 3.11
 - CUDA 12.x with a compatible NVIDIA driver
-- Java 8+ runtime (only required for the `cadmus` PMC full-text fetcher; a
-  bundled JRE is included under `cadmus/jre1.8.0_471/`)
-- Python package versions are pinned in requirements.txt. 
+- A Java runtime (only required for the `cadmus` full-text fetcher used by the
+  optional HPO step; install via `openjdk` in `environment.yml` / the container)
+- Python package versions are pinned in `requirements.txt` (and `environment.yml`).
   Versions used during development:
   - torch 2.4, transformers 4.44, datasets 2.20, sentence-transformers 3.0
   - vllm 0.10.1.1
@@ -43,22 +43,47 @@ add HPO phenotype annotations and 2D visualisations of the literature space.
 
 ## Installation
 
+This project uses [uv](https://docs.astral.sh/uv/) for environment and package
+management.
+
 ```bash
-# 1. Create a Python environment
-python3 -m venv .venv
+# 1. Create the environment (Python 3.11)
+uv venv --python 3.11
 source .venv/bin/activate
 
 # 2. Install PyTorch matching your CUDA version (see https://pytorch.org)
-pip install torch --index-url https://download.pytorch.org/whl/cu121
+uv pip install torch==2.4.* --index-url https://download.pytorch.org/whl/cu121
 
-# 3. Install the remaining dependencies
-pip install -r requirements.txt
+# 3. Install the remaining pinned dependencies
+uv pip install -r requirements.txt
 ```
 
+Dependency versions are pinned in `requirements.txt`; a conda `environment.yml`
+mirroring the same versions is also provided. Run scripts with `uv run`
+(e.g. `uv run python annotate_pubmed/crossencode.py --help`) or after activating
+the venv.
+
 Typical install time on a normal desktop computer: **15–30 minutes**, dominated
-by the PyTorch and vLLM downloads. RAPIDS cuML (optional, used by the
-visualisation scripts for GPU UMAP) is best installed via conda following the
-official RAPIDS instructions.
+by the PyTorch and vLLM downloads. RAPIDS cuML (optional, used by the GPU
+visualisation path) is installed in a **separate** conda environment (Python 3.10,
+RAPIDS 24.x) per the official RAPIDS instructions — it is incompatible with the
+pinned versions here; `visualisation/ce_tsne.py` falls back to CPU `umap-learn`.
+
+### Containers
+
+For HPC, build the Apptainer/Singularity image (or use the Dockerfile):
+
+```bash
+apptainer build litdd.sif containers/litdd.def
+apptainer exec --nv litdd.sif python annotate_pubmed/bert_predict_vllm.py --help
+```
+
+### Reproducibility / compute
+
+The PubMed-scale run is **single-node, multi-GPU** (vLLM tensor parallelism +
+per-shard scripts), not a distributed cluster job. Continuous integration
+(`.github/workflows/ci.yml`) runs ruff lint and the CPU unit tests via uv on
+every push.
 
 ## Demo
 
@@ -88,33 +113,183 @@ The pipeline runs in sequence. Working directories for each step are noted.
    - `crossencode.py` — scores `(abstract, G2P record)` pairs using
      `models/finetuned_ncbi_medcpt_cross/` and emits the top-5 candidates.
 
+   **How the similarity score is generated.** Each candidate G2P record is
+   serialised into a flat string `g2p_id - gene symbol - gene mim - hgnc id -
+   previous gene symbols - disease name - disease mim - disease MONDO -
+   allelic requirement - cross cutting modifier - confidence - inferred
+   variant consequence - variant types - molecular mechanism - molecular
+   mechanism categorisation` (`G2P_LGMDE`). For each abstract `tiab` we form
+   the pair `(tiab, G2P_LGMDE)` and pass it through the fine-tuned cross-
+   encoder (a single transformer that ingests the joined pair via
+   `[CLS] tiab [SEP] g2p_lgmde [SEP]` and a 1-logit classification head).
+   `model.predict` applies a sigmoid on the logit and returns a relevance
+   score in `[0, 1]`. We retain the top-5 highest-scoring G2P records per
+   abstract; the score is later thresholded in `final_data_clean.py`
+   (default cutoff 0.9).
+
 4. **LLM mapping** (`annotate_pubmed/`)
    - `llm_map.py` — runs `DeepSeek-R1-Distill-Qwen-14B` under vLLM to pick the
      final G2P ID(s) for each abstract from the top-5 candidates.
+     Defaults are deterministic (`temperature=0.0`, `top_p=1.0`).
 
 5. **Final clean / dataset assembly** (`annotate_pubmed/`)
-   - `final_data_clean.py` and `create_final_dataset_and_plot.ipynb`.
+   - `final_data_clean.py` filters `(PMID, G2P_ID)` pairs by
+     (a) the `top5_cross` score, (b) presence in the G2P CSV (no LLM
+     hallucinations), and (c) gene-symbol overlap with PubTator's GNorm2
+     annotations resolved through `gene_info.gz`.
 
 6. **HPO phenotype annotation** (`hpo_annotations/`)
-   - `extract_hpo.py` — annotates abstracts/full text with HPO terms via
-     FastHPOCR and the included `hp.obo` / `hp.index`.
+   - `run_cadmus.py` — fetch full text for the mapped PMIDs via
+     [cadmus](https://github.com/biomedicalinformaticsgroup/cadmus). The full
+     text itself is **not** redistributed here (publisher permissions); this
+     regenerates it from PMIDs.
+   - `get_fulltext_df.py` — assemble the cadmus output into a `content_text` parquet.
+   - `extract_hpo.py` — annotate with HPO terms via FastHPOCR (build `hp.index`
+     from `hp.obo` once with `--build_index`), emitting weighted (frequency-
+     preserving) and unweighted HPO profiles per G2P disease.
 
 7. **Visualisation** (`visualisation/`)
-   - `mapped_pmid_2d_space.py` / `mapped_pmid_2d_space_v2.py` — UMAP/t-SNE
-     embeddings of mapped PMIDs and Mondo layers (uses RAPIDS cuML where
-     available, falls back to CPU `umap-learn`).
-   - `gene_pathway_nodes_clean.ipynb` — gene/pathway graph.
+   - `ce_tsne.py` — UMAP (cuML where available, else CPU `umap-learn`) + HDBSCAN
+     clustering of the cross-encoder embeddings → 2D coords + cluster labels.
+   - `datamap_plot.py` — MONDO-labelled `datamapplot` static figure and
+     interactive HTML of the literature space.
 
 ### Training and evaluation
 
-- **Train/test split and fine-tuning** — `train_test/`
-  - `bert_finetune_vals.py`, `crossencode_finetune.py`, `mine_hard_negatives.py`,
-    `run_pipeline.py`.
-- **5-fold cross-validation** — `cross_validation/`
-  - End-to-end driver: `bash run_cv5.sh` (creates folds, trains BERT + cross-
-    encoder per fold, runs LLM eval, and aggregates metrics).
-- **Benchmarking** — `benchmarking/`
-  - `run_bert_benchmark.py`, `run_cross_encoder_benchmark.py`.
+The training data are in `train_test/annotated_pmid.csv` (columns:
+`pmid, g2p_lgmde, label`).
+
+#### Train / test split
+
+`train_test/final_traintest_dataset.py` produces an **80 / 20** group-
+stratified split at the PMID-grouping level (so the same PMID/abstract never
+appears in both halves) and writes three HuggingFace `save_to_disk` directories:
+
+| Directory          | Purpose                                          |
+|--------------------|--------------------------------------------------|
+| `ds_bert_train`    | Train portion for the BERT classifier            |
+| `ds_cross_train`   | Train portion for the cross-encoder (= `ds_bert_train`) |
+| `ds_test`          | Held-out test set — only touched once, after refit |
+
+Inspect the split sizes without writing files:
+
+```bash
+python train_test/final_traintest_dataset.py --dry_run
+```
+
+#### Methodology — CV-on-train + refit + held-out test
+
+There is no separate validation set. We follow the standard "CV for hyper-
+parameter selection, single held-out test" protocol:
+
+  1. **Build the 80/20 split** (above).
+  2. **Hyperparameter selection** by 5-fold `StratifiedGroupKFold` cross-
+     validation on the *training* set only. The grouping column (`tiab` by
+     default) prevents the same abstract from appearing in both the train
+     and validation halves of any fold. Each `(learning_rate, weight_decay,
+     ...)` combination in the grid is scored by mean fold F1; the best is
+     written to a JSON file.
+  3. **Refit** on the *full* training set with the selected hyperparameters.
+  4. **Evaluate once** on the untouched test set.
+
+The test set is never loaded during steps 2 or 3.
+
+#### Run order
+
+The simplest entry point is the runner at the repo root:
+
+```bash
+./run_pipeline.sh --demo    # 100-row sample, tiny CPU models, ~5 min
+./run_pipeline.sh --full    # full data, full models, multi-hour on A100
+```
+
+Both modes execute the same script sequence (defaults assume you run from
+the repo root). The individual commands, in order:
+
+```bash
+# 1. 80/20 group-stratified split (writes train_test/{ds_bert_train, ds_cross_train, ds_test})
+python train_test/final_traintest_dataset.py --group_col pmid
+
+# 2a. CV hyperparameter search for the BERT classifier (training set only)
+python cross_validation/cv_hp_search_bert.py \
+    --lr_grid 1e-5 3e-5 \
+    --wd_grid 0.1 0.3 \
+    --epochs_grid 5
+# → writes cross_validation/bert_hp_search.json
+
+# 2b. Refit BERT on the full training set and evaluate once on the test set
+python train_test/bert_finetune.py \
+    --hp_json cross_validation/bert_hp_search.json
+
+# 3a. Mine hard negatives on the train split (needs the G2P CSV)
+python train_test/mine_hard_negatives.py \
+    --g2p_csv train_test/G2P_DD_2025-02-15.csv
+
+# 3b. CV hyperparameter search for the cross-encoder
+python cross_validation/cv_hp_search_crossencoder.py \
+    --g2p_corpus_csv train_test/G2P_DD_2025-02-15.csv
+
+# 3c. Refit cross-encoder on the full hard-negatives train, eval once on ds_test
+python train_test/crossencode_finetune.py \
+    --hp_json cross_validation/crossencoder_hp_search.json
+```
+
+The CV scripts default to a small grid (BERT: `lr × weight_decay` = 4 combos
+× 5 folds = 20 trainings, ≈ tens of GPU-hours on 1× A100; cross-encoder:
+`lr × epochs` = 2 × 5 = 10 trainings). Override `--lr_grid`, `--wd_grid`,
+`--epochs_grid` to widen.
+
+#### Demo
+
+`./run_pipeline.sh --demo` exercises every step end-to-end on 100 rows
+sampled from the real annotated dataset, using tiny CPU-friendly substitutes
+for each of the three models. See [`demo/README.md`](demo/README.md) for
+details and outputs.
+
+#### Baseline benchmarking — `benchmarking/`
+
+Reviewer note: an earlier draft of `run_bert_benchmark.py` evaluated each
+baseline by loading the pretrained checkpoint with a freshly-initialised
+classification head (`num_labels=2, ignore_mismatched_sizes=True`) and never
+fine-tuning. Such a head has never seen any training data and therefore
+predicts near-randomly on a 2-class task — that is why the published baseline
+F1 ≈ 15% looked anomalously low. The current `run_bert_benchmark.py`
+**applies the same CV-on-train + refit + held-out-test protocol to every
+baseline** as it does to LitDD-BERT, which is the standard for fair
+comparison on a binary classification task.
+
+```bash
+# Cheapest: re-use the HP set selected for LitDD-BERT for every baseline
+python benchmarking/run_bert_benchmark.py \
+    --hp_json cross_validation/bert_hp_search.json \
+    --litdd_model_path lit_dd_BERT_best \
+    --skip_existing
+
+# Most rigorous: per-baseline CV HP search (slow — multiplies CV cost by number of baselines)
+python benchmarking/run_bert_benchmark.py \
+    --cv_hp_search \
+    --litdd_model_path lit_dd_BERT_best
+
+# Cross-encoder top-K reranker comparison
+python benchmarking/run_cross_encoder_benchmark.py \
+    --models path/to/finetuned_ncbi_medcpt_cross ncbi/MedCPT-Cross-Encoder
+```
+
+### Tests
+
+The `tests/` directory contains a CPU-only test suite (no GPU/torch/vLLM
+required): unit tests for the deterministic logic in `llm_map.py`
+(prompt building, answer parsing) and `crossencode.py` (top-5 selection, G2P
+LGMDE string building), plus an end-to-end test of `final_data_clean.py` on tiny
+fixtures. The same suite runs in CI.
+
+```bash
+# build the fixtures for the final_data_clean test once
+uv run python tests/build_fixtures.py
+
+# run the whole suite
+uv run --with numpy --with pandas --with polars --with pyarrow --with pytest pytest tests/ -q
+```
 
 ### Models
 
