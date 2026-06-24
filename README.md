@@ -177,6 +177,18 @@ Inspect the split sizes without writing files:
 python train_test/final_traintest_dataset.py --dry_run
 ```
 
+**Stricter held-out validation.** `--group_col` selects the leakage-control axis,
+including **gene-held-out** (`--group_col gene`) and **disease-held-out**
+(`--group_col g2p_id`) splits, where no gene / no G2P disease entry appears in
+both train and test. These are stronger generalisation tests than a TIAB-level
+split (which can overestimate when the same gene/disease context appears on both
+sides). The same CV → refit → held-out-test protocol then runs on the chosen split:
+
+```bash
+python train_test/final_traintest_dataset.py --group_col gene    # gene-held-out
+python train_test/final_traintest_dataset.py --group_col g2p_id   # disease-held-out
+```
+
 #### Methodology — CV-on-train + refit + held-out test
 
 There is no separate validation set. We follow the standard "CV for hyper-
