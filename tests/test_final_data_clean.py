@@ -29,7 +29,7 @@ GENE_INFO = FIX / "gene_info_sample.gz"
 
 
 def run_cleaner(out_csv: Path, score_cutoff: float, gene_info: bool = True,
-                debug: bool = False) -> subprocess.CompletedProcess:
+                debug: bool = False, no_gene_check: bool = False) -> subprocess.CompletedProcess:
     cmd = [
         sys.executable, str(SCRIPT),
         "--llm_file", str(LLM),
@@ -40,6 +40,8 @@ def run_cleaner(out_csv: Path, score_cutoff: float, gene_info: bool = True,
     ]
     if gene_info:
         cmd += ["--gene_info", str(GENE_INFO)]
+    if no_gene_check:
+        cmd.append("--no_gene_check")
     if debug:
         cmd.append("--debug")
     return subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -190,3 +192,16 @@ def test_streaming_memory(tmp_path, fixtures_present):
     peak_kb = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     # On Linux ru_maxrss is in KB
     assert peak_kb < 1_000_000, f"peak child RSS {peak_kb} KB > 1 GB"
+
+
+def test_no_gene_check_retains_more(tmp_path, fixtures_present):
+    """--no_gene_check (R2-C1/R3.4) relaxes the gene-mention filter, so it can only
+    RETAIN more mappings than the default, and reports the attrition it would impose."""
+    on = tmp_path / "gene_on.csv"
+    off = tmp_path / "gene_off.csv"
+    run_cleaner(on, score_cutoff=0.9)
+    res = run_cleaner(off, score_cutoff=0.9, no_gene_check=True)
+    n_on, n_off = len(read_output(on)), len(read_output(off))
+    assert n_off >= n_on, "relaxing the gene filter must not drop mappings"
+    assert n_off > n_on, "fixtures should include gene-filtered mappings to retain"
+    assert "Gene-filter" in res.stdout  # attrition is reported for R2-C1/R3.4

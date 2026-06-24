@@ -56,6 +56,10 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--score_cutoff", type=float, default=0.9,
                    help="Minimum top5_cross score to keep a row (default 0.9).")
+    p.add_argument("--no_gene_check", action="store_true",
+                   help="Skip the gene-mention filter (R2-C1/R3.4): keep a mapping even if "
+                        "no linked gene is found in the abstract. Quantifies the filter's "
+                        "attrition and produces the relaxed corpus for recall comparison.")
     p.add_argument("--output_csv", required=True, help="Output CSV (PMID, G2P_IDs).")
     p.add_argument("--debug", action="store_true")
     return p.parse_args()
@@ -180,6 +184,7 @@ def main() -> int:
     pubtator_genes = load_pubtator_genes(args.gene2pubtator, set(pmid_to_llm), gene_info)
 
     total = kept = 0
+    dropped_hallucinated = dropped_score = dropped_gene = 0
     with open(args.output_csv, "w", newline="", encoding="utf-8") as out_f:
         writer = csv.writer(out_f)
         writer.writerow(["PMID", "G2P_IDs"])
@@ -197,30 +202,43 @@ def main() -> int:
                 total += 1
                 # 1. valid G2P ID (no LLM hallucination)
                 if g2p not in valid_g2p_ids:
+                    dropped_hallucinated += 1
                     if args.debug:
                         print(f"  {g2p}\tHALLUCINATED")
                     continue
                 # 2. score cutoff (always applied if cutoff > 0)
                 score = scores.get(g2p)
                 if args.score_cutoff > 0 and (score is None or score < args.score_cutoff):
+                    dropped_score += 1
                     if args.debug:
                         s = "None" if score is None else f"{score:.2f}"
                         print(f"  {g2p}\tSCORE_BELOW_CUTOFF (score={s} < {args.score_cutoff})")
                     continue
-                # 3. gene match (always applied — pulled out of score_cutoff conditional)
+                # 3. gene match. By default a mapping needs a linked gene mentioned in the
+                #    abstract; --no_gene_check keeps it anyway (and we count the attrition).
                 if not any(g in mentioned for g in g2p_genes[g2p]):
+                    dropped_gene += 1
                     if args.debug:
                         print(f"  {g2p}\tGENE_NOT_MENTIONED (g2p_genes={g2p_genes[g2p]})")
-                    continue
+                    if not args.no_gene_check:
+                        continue
                 kept += 1
                 writer.writerow([pmid, g2p])
                 if args.debug:
                     print(f"  {g2p}\tVALID")
 
-    print(f"[INFO] Loaded:           {args.llm_file}")
-    print(f"[INFO] Total mappings:   {total}")
-    print(f"[INFO] Valid mappings:   {kept}")
-    print(f"[INFO] Wrote:            {args.output_csv}")
+    passed_score = total - dropped_hallucinated - dropped_score
+    print(f"[INFO] Loaded:               {args.llm_file}")
+    print(f"[INFO] Total mappings:       {total}")
+    print(f"[INFO] Dropped hallucinated: {dropped_hallucinated}")
+    print(f"[INFO] Dropped below score:  {dropped_score}")
+    gene_pct = (100 * dropped_gene / passed_score) if passed_score else 0.0
+    tag = "would drop" if args.no_gene_check else "dropped"
+    print(f"[INFO] Gene-filter {tag}:   {dropped_gene} "
+          f"({gene_pct:.1f}% of score-passing mappings)  [R2-C1/R3.4 attrition]")
+    print(f"[INFO] Valid mappings:       {kept}"
+          f"{'  (gene check OFF)' if args.no_gene_check else ''}")
+    print(f"[INFO] Wrote:                {args.output_csv}")
     return 0
 
 
