@@ -147,6 +147,28 @@ def stratified_sample(units: pd.DataFrame, n: int, primary_cols, floor: int, rng
     return out.sample(frac=1, random_state=rng.integers(1 << 31)).reset_index(drop=True)
 
 
+def ensure_min_post_cutoff(sample: pd.DataFrame, units: pd.DataFrame, cutoff_year: int,
+                           min_post: int, rng) -> pd.DataFrame:
+    """Guarantee at least `min_post` records published at/after `cutoff_year` (for an
+    adequately-powered post-cutoff / LLM-contamination check, R3.1), swapping in extra
+    post-cutoff units for pre-cutoff ones to keep the sample size constant."""
+    key = ["pmid", "assigned_g2p_id"]
+    s_yr = pd.to_numeric(sample["year"], errors="coerce")
+    need = min_post - int((s_yr >= cutoff_year).sum())
+    if need <= 0:
+        return sample
+    sampled = set(map(tuple, sample[key].values))
+    pool = units[pd.to_numeric(units["year"], errors="coerce") >= cutoff_year]
+    pool = pool[~pool[key].apply(tuple, axis=1).isin(sampled)]
+    if pool.empty:
+        return sample
+    add = pool.sample(n=min(need, len(pool)), random_state=rng.integers(1 << 31))
+    pre = sample[s_yr < cutoff_year]
+    drop = pre.sample(n=min(len(add), len(pre)), random_state=rng.integers(1 << 31))
+    sample = pd.concat([sample.drop(index=drop.index), add], ignore_index=True)
+    return sample.sample(frac=1, random_state=rng.integers(1 << 31)).reset_index(drop=True)
+
+
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--input", required=True, help="Deployed-corpus parquet (e.g. final_tiab_mappings.parquet)")
@@ -157,6 +179,10 @@ def parse_args():
     ap.add_argument("--floor", type=int, default=40, help="Minimum units per primary cell")
     ap.add_argument("--primary", nargs="+", default=["confidence", "gene_multiplicity"],
                     help="Strata used for allocation (oversampled)")
+    ap.add_argument("--cutoff_year", type=int, default=2024,
+                    help="LLM knowledge-cutoff year; guarantee --min_post_cutoff records at/after it (R3.1)")
+    ap.add_argument("--min_post_cutoff", type=int, default=80,
+                    help="Minimum post-cutoff records for an adequately-powered contamination check")
     ap.add_argument("--seed", type=int, default=42)
     return ap.parse_args()
 
@@ -172,6 +198,9 @@ def main():
     print(f"Corpus mappings: {len(units)} (from {df['pmid'].nunique()} PMIDs)")
 
     sample = stratified_sample(units, args.n, args.primary, args.floor, rng)
+    if args.min_post_cutoff:
+        sample = ensure_min_post_cutoff(sample, units, args.cutoff_year, args.min_post_cutoff, rng)
+    n_post = int((pd.to_numeric(sample["year"], errors="coerce") >= args.cutoff_year).sum())
     sample.insert(0, "audit_id", [f"A{i:04d}" for i in range(len(sample))])
     overlap_ids = set(sample["audit_id"].sample(n=min(args.overlap, len(sample)),
                                                 random_state=rng.integers(1 << 31)))
@@ -194,7 +223,7 @@ def main():
     sample[key_cols].to_csv(out / "audit_key.csv", index=False)
 
     print(f"Wrote {len(worksheet)} units to {out}/audit_worksheet.csv "
-          f"({len(overlap_ids)} in overlap)")
+          f"({len(overlap_ids)} in overlap; {n_post} post-cutoff >= {args.cutoff_year})")
     print("Verdict values:", VERDICT_HELP, "| error categories:", ", ".join(ERROR_CATS))
     print("\nStratum coverage:")
     for col in ["confidence", "recency", "disease_volume", "gene_multiplicity"]:
