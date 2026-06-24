@@ -62,7 +62,11 @@ def _precision_row(label: str, verdicts: pd.Series) -> dict:
             "ci95_low": lo, "ci95_high": hi}
 
 
-def score_precision(audit_dir: Path, corpus_n: int):
+def _precision_for(df: pd.DataFrame, mask) -> dict:
+    return _precision_row("", df.loc[mask, "verdict"].astype(str))
+
+
+def score_precision(audit_dir: Path, corpus_n: int, cutoff_year=None):
     ws = audit_dir / "audit_worksheet.csv"
     key = audit_dir / "audit_key.csv"
     if not ws.exists() or not key.exists():
@@ -89,6 +93,20 @@ def score_precision(audit_dir: Path, corpus_n: int):
           f"(95% CI {overall['ci95_low']:.3f}-{overall['ci95_high']:.3f}); "
           f"implied false positives at corpus size {corpus_n:,}: "
           f"~{int(round(fp_rate * corpus_n)):,}")
+
+    # Post-cutoff precision (R3.1): does precision hold on abstracts the LLM could not
+    # have memorised (published at/after the model's knowledge cutoff)?
+    if cutoff_year is not None and "year" in df.columns:
+        yr = pd.to_numeric(df["year"], errors="coerce")
+        post = _precision_for(df, yr >= cutoff_year)
+        pre = _precision_for(df, yr < cutoff_year)
+        print(f"\n=== Post-cutoff precision (R3.1), cutoff={cutoff_year} ===")
+        print(f"  post-cutoff (>= {cutoff_year}): precision {post['precision']:.3f} "
+              f"(95% CI {post['ci95_low']:.3f}-{post['ci95_high']:.3f}), n={post['n_judged']}")
+        print(f"  pre-cutoff  (<  {cutoff_year}): precision {pre['precision']:.3f} "
+              f"(95% CI {pre['ci95_low']:.3f}-{pre['ci95_high']:.3f}), n={pre['n_judged']}")
+        print("  (similar precision either side argues against memorisation/contamination "
+              "inflating the result.)")
 
     # Error categories among incorrect, by gene multiplicity (R2-D1/D2)
     inc = df[df["verdict"].astype(str).str.strip().str.lower() == "incorrect"]
@@ -143,13 +161,16 @@ def parse_args():
     ap.add_argument("--audit_dir", default="revision/precision_audit")
     ap.add_argument("--corpus_n", type=int, default=68705,
                     help="Deployed corpus size, for the implied false-positive count")
+    ap.add_argument("--cutoff_year", type=int, default=None,
+                    help="If set, also report precision for records at/after this year "
+                         "(LLM knowledge-cutoff contamination check, R3.1; e.g. 2024)")
     return ap.parse_args()
 
 
 def main():
     args = parse_args()
     d = Path(args.audit_dir)
-    score_precision(d, args.corpus_n)
+    score_precision(d, args.corpus_n, args.cutoff_year)
     score_audit_iaa(d)
     score_trainlabel_iaa(d)
 
