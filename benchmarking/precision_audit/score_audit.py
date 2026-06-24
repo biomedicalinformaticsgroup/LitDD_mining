@@ -96,6 +96,14 @@ def score_precision(audit_dir: Path, corpus_n: int, cutoff_year=None):
 
     # Post-cutoff precision (R3.1): does precision hold on abstracts the LLM could not
     # have memorised (published at/after the model's knowledge cutoff)?
+    #
+    # Model: deepseek-ai/DeepSeek-R1-Distill-Qwen-14B. It is the Qwen2.5-14B base
+    # (config.json: qwen2) with DeepSeek-R1 reasoning distilled on top — the distillation
+    # adds reasoning traces, not a knowledge refresh, so the binding *knowledge* cutoff is
+    # Qwen2.5-14B's pretraining cutoff of ~end of 2023 (Dec 2023). Publications from 2024
+    # onward are therefore post-cutoff (cutoff_year=2024). (The full DeepSeek-R1 model is
+    # 2024-07; our distill is Qwen2.5-based, so 2024 is correct. Use cutoff_year=2025 for an
+    # even-safer margin that is post both dates.)
     if cutoff_year is not None and "year" in df.columns:
         yr = pd.to_numeric(df["year"], errors="coerce")
         post = _precision_for(df, yr >= cutoff_year)
@@ -162,8 +170,10 @@ def parse_args():
     ap.add_argument("--corpus_n", type=int, default=68705,
                     help="Deployed corpus size, for the implied false-positive count")
     ap.add_argument("--cutoff_year", type=int, default=None,
-                    help="If set, also report precision for records at/after this year "
-                         "(LLM knowledge-cutoff contamination check, R3.1; e.g. 2024)")
+                    help="If set, report precision for records at/after this year "
+                         "(LLM-contamination check, R3.1). Use 2024: the model "
+                         "(DeepSeek-R1-Distill-Qwen-14B, Qwen2.5-14B base) has a knowledge "
+                         "cutoff ~Dec 2023, so 2024+ is post-cutoff. 2025 = extra-safe margin.")
     return ap.parse_args()
 
 

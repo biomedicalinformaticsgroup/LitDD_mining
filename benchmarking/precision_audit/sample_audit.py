@@ -180,7 +180,10 @@ def parse_args():
     ap.add_argument("--primary", nargs="+", default=["confidence", "gene_multiplicity"],
                     help="Strata used for allocation (oversampled)")
     ap.add_argument("--cutoff_year", type=int, default=2024,
-                    help="LLM knowledge-cutoff year; guarantee --min_post_cutoff records at/after it (R3.1)")
+                    help="Guarantee --min_post_cutoff records at/after this year for the "
+                         "LLM-contamination check (R3.1). Model DeepSeek-R1-Distill-Qwen-14B "
+                         "(Qwen2.5-14B base) has a knowledge cutoff ~Dec 2023, so 2024+ is "
+                         "post-cutoff; use 2025 for a margin that is also post DeepSeek-R1's 2024-07.")
     ap.add_argument("--min_post_cutoff", type=int, default=80,
                     help="Minimum post-cutoff records for an adequately-powered contamination check")
     ap.add_argument("--seed", type=int, default=42)
