@@ -97,13 +97,17 @@ def parse_args():
     ap.add_argument("--batch_size", type=int, default=100, help="PMIDs per PubTator3 request")
     ap.add_argument("--api_key", default=os.getenv("NCBI_API_KEY"), help="NCBI API key (higher rate limit)")
     ap.add_argument("--sleep", type=float, default=None, help="Seconds between requests (default: 0.11 with key, 0.34 without)")
+    ap.add_argument("--workers", type=int, default=1,
+                    help="Concurrent requests (I/O-bound, so still ~1 CPU; 6 cuts a 130k-PMID job to ~30 min)")
     return ap.parse_args()
 
 
 def main():
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
     args = parse_args()
     sleep = args.sleep if args.sleep is not None else (0.11 if args.api_key else 0.34)
-    session = make_session()
 
     pmids = read_pmids(args.pmids)
     # Resume: skip PMIDs already written.
@@ -114,25 +118,41 @@ def main():
             done = {ln.split("\t", 1)[0] for ln in f if ln.strip()}
         print(f"Resuming: {len(done)} PMIDs already in {args.out}")
     todo = [p for p in pmids if p not in done]
-    print(f"PMIDs: {len(pmids)} total, {len(todo)} to fetch, batch_size={args.batch_size}")
+    batches = [todo[i:i + args.batch_size] for i in range(0, len(todo), args.batch_size)]
+    print(f"PMIDs: {len(pmids)} total, {len(todo)} to fetch, "
+          f"{len(batches)} batches, workers={args.workers}")
 
-    n_pmids_with_genes = n_lines = 0
+    lock = threading.Lock()
+    counters = {"pmids": 0, "lines": 0, "batches": 0}
+    local = threading.local()
+
+    def get_session() -> requests.Session:
+        if not hasattr(local, "session"):
+            local.session = make_session()
+        return local.session
+
     with opener(args.out, "at") as out_f:
-        for i in range(0, len(todo), args.batch_size):
-            batch = todo[i:i + args.batch_size]
-            res = fetch_genes(session, batch, args.api_key, sleep)
-            for pmid, genes in res.items():
-                if genes:
-                    n_pmids_with_genes += 1
-                for gene_id, symbol in genes:
-                    out_f.write(f"{pmid}\tGene\t{gene_id}\t{symbol}\n")
-                    n_lines += 1
-            out_f.flush()
-            if (i // args.batch_size) % 20 == 0:
-                print(f"  {min(i + len(batch), len(todo))}/{len(todo)} PMIDs, "
-                      f"{n_lines} gene mentions so far", flush=True)
+        def handle(batch):
+            res = fetch_genes(get_session(), batch, args.api_key, sleep)
+            lines = [f"{pmid}\tGene\t{gid}\t{sym}\n" for pmid, genes in res.items() for gid, sym in genes]
+            with lock:
+                out_f.writelines(lines)
+                out_f.flush()
+                counters["lines"] += len(lines)
+                counters["pmids"] += sum(1 for g in res.values() if g)
+                counters["batches"] += 1
+                if counters["batches"] % 20 == 0:
+                    print(f"  {counters['batches']}/{len(batches)} batches, "
+                          f"{counters['lines']} gene mentions so far", flush=True)
 
-    print(f"Done: {n_lines} gene mentions for {n_pmids_with_genes} PMIDs -> {args.out}")
+        if args.workers > 1:
+            with ThreadPoolExecutor(max_workers=args.workers) as pool:
+                list(pool.map(handle, batches))
+        else:
+            for b in batches:
+                handle(b)
+
+    print(f"Done: {counters['lines']} gene mentions for {counters['pmids']} PMIDs -> {args.out}")
 
 
 if __name__ == "__main__":
