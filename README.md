@@ -137,6 +137,12 @@ The pipeline runs in sequence. Working directories for each step are noted.
      (a) the `top5_cross` score, (b) presence in the G2P CSV (no LLM
      hallucinations), and (c) gene-symbol overlap with PubTator's GNorm2
      annotations resolved through `gene_info.gz`.
+   - `--no_gene_check` disables (c) to quantify the gene-mention filter's
+     attrition and produce the relaxed corpus (R2-C1/R3.4).
+   - `pubtator_genes_api.py` fetches gene annotations per PMID from the
+     PubTator3 API and writes them in `gene2pubtator3` format, so the
+     gene-mention check can use fresh per-abstract annotations (and avoid the
+     bulk file's coverage gaps) — `--gene2pubtator pubtator_api_genes.tsv.gz`.
 
 6. **HPO phenotype annotation** (`hpo_annotations/`)
    - `run_cadmus.py` — fetch full text for the mapped PMIDs via
