@@ -160,6 +160,9 @@ def parse_args():
                     help="MONDO obographs JSON (purl.obolibrary.org/obo/mondo.json) — for the leaf filter")
     ap.add_argument("--exclude_pmids", default=None,
                     help="CSV with a pmid column (e.g. annotated train/test set) to exclude from all truth sets")
+    ap.add_argument("--exclude_meta", default=None,
+                    help="truth_meta.csv (pmid,lang,source) — drop non-English + GeneReviews/StatPearls "
+                         "truth PMIDs (the mined corpus excludes these too)")
     ap.add_argument("--out_dir", default="revision/external_recall")
     return ap.parse_args()
 
@@ -184,6 +187,17 @@ def main():
         before = len(ts)
         ts = ts[~ts["pmid"].isin(excl)]
         print(f"[exclude_pmids] dropped {before - len(ts)} train/test pairs ({len(excl)} PMIDs excluded)")
+
+    if args.exclude_meta:
+        meta = pd.read_csv(args.exclude_meta, dtype=str).fillna("")
+        non_eng = set(meta.loc[(~meta["lang"].str.contains("eng", case=False)) & (meta["lang"].str.strip() != ""), "pmid"])
+        books = set(meta.loc[meta["source"].str.contains("GeneReviews|StatPearls", case=False), "pmid"])
+        before = len(ts)
+        ts = ts[~ts["pmid"].isin(non_eng | books)]
+        n_gr = int(meta["source"].str.contains("GeneReviews", case=False).sum())
+        n_sp = int(meta["source"].str.contains("StatPearls", case=False).sum())
+        print(f"[exclude_meta] dropped {before - len(ts)} pairs: {len(non_eng)} non-English PMIDs, "
+              f"{n_gr} GeneReviews + {n_sp} StatPearls (not original research / not in mined corpus)")
 
     ts.to_csv(out / "truthsets.csv", index=False)
     print(f"\nWrote {len(ts):,} (key, pmid) ground-truth pairs -> {out}/truthsets.csv")

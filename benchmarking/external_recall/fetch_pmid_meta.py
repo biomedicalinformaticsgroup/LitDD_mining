@@ -40,7 +40,10 @@ def fetch(sess, pmids, api_key):
         d = res[pid]
         year = (d.get("pubdate", "") or "")[:4]
         pubtypes = "|".join(d.get("pubtype", []) or [])
-        out.append((pid, year, pubtypes, d.get("title", "")))
+        lang = "|".join(d.get("lang", []) or [])
+        # GeneReviews/StatPearls are NCBI Bookshelf chapters: empty `source`, name in `booktitle`
+        source = d.get("booktitle", "") or d.get("source", "") or d.get("fulljournalname", "")
+        out.append((pid, year, pubtypes, lang, source, d.get("title", "")))
     return out
 
 
@@ -71,17 +74,33 @@ def main():
     print(f"{len(pmids)} PMIDs, {len(todo)} to fetch")
     sess = session()
     sleep = 0.11 if args.api_key else 0.34
+    cols = ["pmid", "year", "pubtypes", "lang", "source", "title"]
+
+    def checkpoint(rows):
+        df = pd.DataFrame(rows, columns=cols)
+        if os.path.exists(args.out):
+            df = pd.concat([pd.read_csv(args.out, dtype=str), df], ignore_index=True).drop_duplicates("pmid")
+        df.to_csv(args.out, index=False)
+
     rows = []
     for i in range(0, len(todo), args.batch_size):
-        rows += fetch(sess, todo[i:i + args.batch_size], args.api_key)
+        for attempt in range(4):  # tolerate transient 5xx without losing progress
+            try:
+                rows += fetch(sess, todo[i:i + args.batch_size], args.api_key)
+                break
+            except Exception as e:  # noqa: BLE001 - network flakiness; checkpoint and retry
+                if attempt == 3:
+                    print(f"  batch {i} failed ({e}); checkpointing, rerun to resume")
+                    checkpoint(rows)
+                    raise
+                time.sleep(5)
         time.sleep(sleep)
         if i % (args.batch_size * 10) == 0:
+            checkpoint(rows)
+            rows = []
             print(f"  {min(i + args.batch_size, len(todo))}/{len(todo)}", flush=True)
-    df = pd.DataFrame(rows, columns=["pmid", "year", "pubtypes", "title"])
-    if done:
-        df = pd.concat([pd.read_csv(args.out, dtype=str), df], ignore_index=True)
-    df.to_csv(args.out, index=False)
-    print(f"Wrote {len(df)} rows -> {args.out}")
+    checkpoint(rows)
+    print(f"Wrote -> {args.out}")
 
 
 if __name__ == "__main__":
