@@ -4,8 +4,9 @@ why is each curated paper not recalled, and is the gap a model failure or a corp
 
 For every (g2p_id, pmid) in the truth set that the deployed map does not recover, the miss
 is categorised (reusing measure_recall.classify_miss):
-  not_in_corpus : the PMID never reached the BERT-positive corpus (gene-seeded search +
-                  BERT screen). This is the corpus-coverage boundary, not a ranking error.
+  litdd_bert_negative : LitDD's BERT (run over all of PubMed) classified the PMID negative,
+                  so it never entered the ranking/LLM stages. Many are papers with no
+                  molecular confirmation (phenotype defined, causative gene unpublished).
   mapped_other  : the pipeline mapped the PMID, but to a different (usually sibling) G2P id.
   below_score   : mapped to the right id but cross-encoder < cutoff (recoverable via threshold).
   gene_filtered : right id at/above cutoff but dropped by the gene-in-TIAB filter.

@@ -13,7 +13,7 @@ Two corpus variants:
   relaxed  : score>=cutoff only, gene-mention filter OFF (from the complete pipeline df)
 (A third, API-gene, slots in once the PubTator3 fetch lands.)
 
-Each deployed miss is categorised (not_in_corpus / llm_no_match / mapped_other /
+Each deployed miss is categorised (litdd_bert_negative / llm_no_match / mapped_other /
 below_score / gene_filtered) so a miss is explained rather than asserted.
 """
 from __future__ import annotations
@@ -99,7 +99,7 @@ def recall_stats(truth: dict[str, set[str]], mined: dict[str, set[str]], restric
 
 def classify_miss(g2p, pmid, state, cutoff) -> str:
     if pmid not in state:
-        return "not_in_corpus"
+        return "litdd_bert_negative"  # LitDD's BERT classified the PMID negative (over all PubMed)
     mapped = state[pmid]
     if not mapped:
         return "llm_no_match"
@@ -115,7 +115,7 @@ def parse_args():
     ap.add_argument("--complete_df", required=True, help="pipeline_df_complete.parquet")
     ap.add_argument("--score_cutoff", type=float, default=CUT)
     ap.add_argument("--pmid_years", default=None,
-                    help="CSV (pmid,year) for truth PMIDs not in the corpus (from fetch_pmid_meta.py)")
+                    help="CSV (pmid,year) for BERT-negative truth PMIDs (from fetch_pmid_meta.py)")
     ap.add_argument("--min_year", type=int, default=None,
                     help="Exclude truth PMIDs published before this year (LitDD filters pubdate>1980; use 1981)")
     ap.add_argument("--out_dir", default="revision/external_recall")
@@ -151,16 +151,16 @@ def main():
             combined[g] |= ps
     truth_by_src["combined"] = combined
 
-    corpus_pmids = set(state)  # PMIDs that reached the corpus (BERT-positive)
+    bert_positive_pmids = set(state)  # PMIDs LitDD's BERT classified positive
     variants = {"deployed": mined_deployed(args.litdd_map),
                 "relaxed": mined_relaxed(state, args.score_cutoff)}
 
     rows = []
     for src, truth in truth_by_src.items():
         for vname, mined in variants.items():
-            # scope=all : all curated PMIDs; scope=in_corpus : only curated PMIDs the
-            # pipeline could see (excludes out-of-input papers, e.g. non-case-report citations)
-            for scope, restrict in (("all", None), ("in_corpus", corpus_pmids)):
+            # scope=all : all curated PMIDs; scope=bert_positive : only curated PMIDs LitDD's
+            # BERT classified positive (excludes BERT-negative papers, e.g. no molecular confirmation)
+            for scope, restrict in (("all", None), ("bert_positive", bert_positive_pmids)):
                 micro, macro, n_dis, n_pmid = recall_stats(truth, mined, restrict)
                 rows.append({"source": src, "reportable": src in REPORTABLE or src == "combined",
                              "variant": vname, "scope": scope, "n_diseases": n_dis,
@@ -187,7 +187,7 @@ def main():
 
     print("=== LitDD recall on external sets — per disease (G2P ID), micro & macro (R3.4) ===")
     print(summary.to_string(index=False))
-    print("\n=== Deployed-corpus miss categories ===")
+    print("\n=== Deployed miss categories ===")
     print(miss.to_string(index=False))
 
 
