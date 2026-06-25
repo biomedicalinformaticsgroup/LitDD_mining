@@ -43,6 +43,27 @@ of train/test manuscripts). The premined truth uses the DDG2P `publications` col
 — never `additional mined publications` (col 20 of the 2026 export), which is the LitDD
 output fed back and is not independent.
 
+## Non-English / GeneReviews / StatPearls excluded from truth
+
+The mined corpus excludes non-English papers and review compendia, so the truth sets must
+too (`--exclude_meta`, using `fetch_pmid_meta.py` language + booktitle). Excluded from the
+truth: **19 non-English**, **31 GeneReviews**, **2 StatPearls** PMIDs (GeneReviews/StatPearls
+are NCBI Bookshelf chapters — empty `source`, named in `booktitle`).
+
+## BERT-negative misses: gene presence (no-molecular-confirmation exclusion)
+
+LitDD's BERT runs over all of PubMed; a curated paper it scores negative is a miss. If the
+paper does not mention the G2P gene anywhere, it has no molecular confirmation (phenotype
+described, causative gene unpublished) and is out of the pipeline's deliberate scope.
+`bert_negative_gene_check.py` (abstract) + PubTator + provided full text + NCBI gene_info
+full names give, for the 1,155 BERT-negative miss PMIDs: **945 (82%) mention the gene**
+somewhere, **200 (17%) mention no gene anywhere** (the 10 unobtainable-full-text PMIDs are
+kept as genuine misses). Symbol matching alone misses full-name mentions (e.g. FUCA1 as
+"alpha-L-fucosidase", COL1A1 as "type I procollagen") — gene_info designations and, ideally,
+PubTator over full text are needed. Excluding the 200 lifts combined deployed recall
+0.662/0.707 -> **0.682/0.721**; it does NOT reach >0.9 because most misses do name the gene
+(functional/GWAS/review content or genuine BERT false-negatives).
+
 ## deployed ≈ relaxed ≈ Table 6
 
 `deployed` (the shipped score≥0.9 + gene-in-TIAB map) and `relaxed` (gene filter off) give
