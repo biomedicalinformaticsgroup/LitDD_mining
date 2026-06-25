@@ -25,11 +25,10 @@ from pathlib import Path
 import pandas as pd
 
 CUT = 0.9
-# Sources reported in the manuscript. ClinGen is computed for internal analysis only but
-# NOT reported: it is web-scraped (not a versioned release) and its gene-disease-validity
-# evidence is dominated by functional/mechanistic papers (mouse/zebrafish/mechanism/
-# population genomics) that are out of LitDD's human-case-report scope (see NOTES.md).
-REPORTABLE = ("premined", "hpoa")
+# Sources reported in the manuscript. ClinGen uses CASE-LEVEL (genetic) evidence only —
+# the experimental/functional ClinGen evidence (mouse/zebrafish/mechanism) is excluded at
+# truth-set build, matching the manuscript's "case level evidence" definition (Table 6).
+REPORTABLE = ("premined", "hpoa", "clingen")
 
 
 def load_pipeline_state(complete_df: str):
@@ -65,8 +64,9 @@ def mined_deployed(litdd_map: str) -> dict[str, set[str]]:
     col = "g2p_id" if "g2p_id" in m.columns else m.columns[1]
     out: dict[str, set[str]] = defaultdict(set)
     for p, g in zip(m["pmid"], m[col]):
-        if g:
-            out[g].add(str(p))
+        for gid in g.split(";"):  # a PMID can map to several G2P IDs (8% of rows)
+            if gid.strip():
+                out[gid.strip()].add(str(p))
     return out
 
 
