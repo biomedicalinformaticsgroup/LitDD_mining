@@ -121,11 +121,18 @@ def main():
 
     if args.augmentation:
         aug = pd.read_csv(args.augmentation, dtype=str).fillna("")
-        if not args.use_unconfirmed:
-            aug = aug[aug["confirm_positive"].str.lower().isin(["1", "yes", "true", "y"])]
         for r in aug.itertuples(index=False):
+            cp = str(getattr(r, "confirm_positive", "")).strip().lower()
+            if args.use_unconfirmed:
+                label = 1
+            elif cp in ("1", "yes", "true", "y"):
+                label = 1
+            elif cp in ("0", "no", "false", "n"):  # reviewer-confirmed negative -> hard negative
+                label = 0
+            else:
+                continue  # blank = not yet annotated / skip
             text = f"{r.title} {r.abstract}"
-            rows.append({"pmid": str(r.pmid), **make(text, r.gene, 1, "premined_aug")})
+            rows.append({"pmid": str(r.pmid), **make(text, r.gene, label, "premined_aug")})
 
     ds = pd.DataFrame(rows).drop_duplicates(["pmid", "gene", "source"])
     out = Path(args.out_dir)

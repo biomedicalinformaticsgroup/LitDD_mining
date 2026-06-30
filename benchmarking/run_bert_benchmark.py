@@ -172,7 +172,7 @@ def fine_tune_and_eval(model_name: str, hp: dict, args, ds_train, ds_test) -> di
         model=model,
         args=training_args,
         train_dataset=tok_train,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         data_collator=collator,
         compute_metrics=make_compute_metrics(),
     )
@@ -195,7 +195,7 @@ def evaluate_only(model_name: str, label: str, ds_test) -> dict:
     collator = DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=8)
     trainer = Trainer(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         data_collator=collator,
         compute_metrics=make_compute_metrics(),
     )
