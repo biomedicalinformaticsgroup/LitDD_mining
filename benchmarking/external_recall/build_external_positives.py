@@ -72,7 +72,8 @@ def main():
 
     rows = []
     for r in t.itertuples():
-        pm = str(r.pmid); gid = r.key; gene = g2gene.get(gid, "")
+        pm, gid = str(r.pmid), r.key
+        gene = g2gene.get(gid, "")
         if pm not in tiab or not gene or pm in ann:
             continue
         if not present(gene, g2prev.get(gid, ""), tiab[pm]):
