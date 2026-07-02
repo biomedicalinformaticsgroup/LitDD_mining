@@ -96,6 +96,19 @@ def score_positive(model, tokenizer, texts):
     return np.array(preds)
 
 
+def score_proba(model, tokenizer, texts):
+    """Positive-class probability for each text (for recall-precision / threshold curves)."""
+    import torch
+    model.eval()
+    out = []
+    for i in range(0, len(texts), 64):
+        enc = tokenizer(list(texts[i:i + 64]), truncation=True, max_length=512,
+                        padding=True, return_tensors="pt").to(model.device)
+        with torch.no_grad():
+            out += torch.softmax(model(**enc).logits, dim=-1)[:, 1].cpu().tolist()
+    return np.array(out)
+
+
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data_dir", required=True, help="dir with ds_bert_train, ds_test")
@@ -107,6 +120,9 @@ def parse_args():
                     help="comma-separated positive counts for a learning curve, e.g. 0,50,100,150,200,232")
     ap.add_argument("--random_csv", default=None,
                     help="random PubMed sample (pmid,tiab); positive rate = deployment-scale FPR proxy")
+    ap.add_argument("--dump_scores", default=None,
+                    help="dir to write per-example positive-class probabilities (test/misses/random) "
+                         "per variant, for offline recall-precision / threshold sweeps (EvAgg operating point)")
     ap.add_argument("--dry_run", action="store_true", help="data prep only, no training (CPU check)")
     return ap.parse_args()
 
@@ -152,6 +168,19 @@ def main():
             row["random_pubmed_pos_rate_pct"] = round(100 * score_positive(model, tokenizer, rnd["tiab"]).mean(), 2)
         rows.append(row)
         print(rows[-1])
+        if args.dump_scores:  # per-example positive-class probs for offline recall-precision curves
+            import os
+            os.makedirs(args.dump_scores, exist_ok=True)
+            pd.DataFrame({"label": list(ds_test["label"]),
+                          "proba": score_proba(model, tokenizer, list(ds_test["tiab"]))}
+                         ).to_csv(f"{args.dump_scores}/{label}_test.csv", index=False)
+            pd.DataFrame({"fold": misses["fold"].values,
+                          "proba": score_proba(model, tokenizer, misses["tiab"])}
+                         ).to_csv(f"{args.dump_scores}/{label}_misses.csv", index=False)
+            if rnd is not None:
+                pd.DataFrame({"proba": score_proba(model, tokenizer, rnd["tiab"])}
+                             ).to_csv(f"{args.dump_scores}/{label}_random.csv", index=False)
+            print(f"  dumped scores -> {args.dump_scores}/{label}_{{test,misses,random}}.csv")
         import torch
         del model
         gc.collect()
