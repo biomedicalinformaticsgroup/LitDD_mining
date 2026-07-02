@@ -105,6 +105,8 @@ def parse_args():
     ap.add_argument("--out_csv", default="revision/external_recall/augmented_screen_results.csv")
     ap.add_argument("--aug_sizes", default=None,
                     help="comma-separated positive counts for a learning curve, e.g. 0,50,100,150,200,232")
+    ap.add_argument("--random_csv", default=None,
+                    help="random PubMed sample (pmid,tiab); positive rate = deployment-scale FPR proxy")
     ap.add_argument("--dry_run", action="store_true", help="data prep only, no training (CPU check)")
     return ap.parse_args()
 
@@ -123,6 +125,10 @@ def main():
         print("dry_run OK: datasets aligned, features cast, misses fold-tagged.")
         return
 
+    rnd = pd.read_csv(args.random_csv, dtype=str).fillna("") if args.random_csv else None
+    if rnd is not None:
+        print(f"random PubMed FPR sample: {len(rnd)} (~all-negative; positive rate = deployment FPR proxy)")
+
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(MODEL)
     rows = []
@@ -138,10 +144,13 @@ def main():
         print(f"\n=== {key}={label}: train {tr_ds.num_rows} ===", flush=True)
         model, f1 = train_and_eval(tr_ds, ds_test, tokenizer, f"./_aug_{label}")
         misses["pred"] = score_positive(model, tokenizer, misses["tiab"])
-        rows.append({key: label, **f1,
-                     "miss_recovery_pct": round(100 * misses["pred"].mean(), 1),
-                     "miss_recovery_heldout_pct": round(100 * misses.loc[misses.fold == "heldout", "pred"].mean(), 1),
-                     "miss_recovery_trainfold_pct": round(100 * misses.loc[misses.fold == "train", "pred"].mean(), 1)})
+        row = {key: label, **f1,
+               "miss_recovery_pct": round(100 * misses["pred"].mean(), 1),
+               "miss_recovery_heldout_pct": round(100 * misses.loc[misses.fold == "heldout", "pred"].mean(), 1),
+               "miss_recovery_trainfold_pct": round(100 * misses.loc[misses.fold == "train", "pred"].mean(), 1)}
+        if rnd is not None:  # deployment-scale FPR proxy: positive rate on ~all-negative random PubMed
+            row["random_pubmed_pos_rate_pct"] = round(100 * score_positive(model, tokenizer, rnd["tiab"]).mean(), 2)
+        rows.append(row)
         print(rows[-1])
         import torch
         del model
