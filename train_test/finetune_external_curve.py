@@ -94,6 +94,8 @@ def parse_args():
     ap.add_argument("--levels", default="0,1,3,6,9", help="cumulative gene-bucket levels (of 9) to add")
     ap.add_argument("--out_csv", default="revision/external_recall/external_curve_results.csv")
     ap.add_argument("--dump_scores", default="revision/external_recall/external_curve_scores")
+    ap.add_argument("--save_dir", default=None,
+                    help="if set, save model+tokenizer here (deployment checkpoint) after the last level")
     ap.add_argument("--dry_run", action="store_true")
     return ap.parse_args()
 
@@ -134,9 +136,18 @@ def main():
         tr_ds = base if k == 0 else concatenate_datasets([base, as_positive_ds(add, ds_train.features)])
         print(f"\n=== level {k}/9: +{len(add)} external, train {tr_ds.num_rows} ===", flush=True)
         model, f1 = train_and_eval(tr_ds, ds_test, tokenizer, f"./_curve_{k}")
-        ho_p = score_proba(model, tokenizer, heldout["tiab"])
+        ho_p = score_proba(model, tokenizer, heldout["tiab"])  # also warms up the GPU
+        import time
+        t0 = time.time()
         rnd_p = score_proba(model, tokenizer, rnd["tiab"])
-        row = {"level": k, "n_external": len(add), **f1, "random_fpr_pct": round(100 * (rnd_p >= 0.5).mean(), 2)}
+        aps = round(len(rnd) / (time.time() - t0), 1)  # end-to-end inference throughput (tokenise+forward)
+        print(f"  inference throughput: {aps} abstracts/sec ({len(rnd)} abstracts)")
+        row = {"level": k, "n_external": len(add), **f1, "random_fpr_pct": round(100 * (rnd_p >= 0.5).mean(), 2),
+               "infer_abstracts_per_sec": aps}
+        if args.save_dir and k == levels[-1]:
+            model.save_pretrained(args.save_dir)
+            tokenizer.save_pretrained(args.save_dir)
+            print(f"  saved deployment checkpoint -> {args.save_dir}")
         for s in ["premined", "hpoa", "clingen"]:
             m = (heldout["source"] == s).values
             row[f"heldout_recall_{s}_pct"] = round(100 * (ho_p[m] >= 0.5).mean(), 1) if m.any() else None
