@@ -80,6 +80,8 @@ def parse_args():
     ap.add_argument("--external_csv", required=True)
     ap.add_argument("--random_csv", required=True)
     ap.add_argument("--seeds", default="42,43,44")
+    ap.add_argument("--save_dir", default=None,
+                    help="if set, save the model+tokenizer for the LAST seed (the shipped LitDD checkpoint)")
     ap.add_argument("--out_csv", default="revision/external_recall/seed_results.csv")
     ap.add_argument("--dry_run", action="store_true")
     return ap.parse_args()
@@ -116,6 +118,10 @@ def main():
         row["heldout_recall_all_pct"] = round(100 * (ho_p >= 0.5).mean(), 1)
         rows.append(row)
         print(row)
+        if args.save_dir and seed == seeds[-1]:
+            model.save_pretrained(args.save_dir)
+            tokenizer.save_pretrained(args.save_dir)
+            print(f"  saved LitDD screen checkpoint (seed {seed}) -> {args.save_dir}")
         import torch
         del model
         gc.collect()
