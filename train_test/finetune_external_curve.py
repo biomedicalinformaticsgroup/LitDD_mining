@@ -96,12 +96,22 @@ def parse_args():
     ap.add_argument("--dump_scores", default="revision/external_recall/external_curve_scores")
     ap.add_argument("--save_dir", default=None,
                     help="if set, save model+tokenizer here (deployment checkpoint) after the last level")
+    ap.add_argument("--lr", type=float, default=None, help="override CV-selected learning rate")
+    ap.add_argument("--wd", type=float, default=None, help="override CV-selected weight decay")
+    ap.add_argument("--epochs", type=int, default=None, help="override epochs")
     ap.add_argument("--dry_run", action="store_true")
     return ap.parse_args()
 
 
 def main():
     args = parse_args()
+    if args.lr is not None:
+        HP["lr"] = args.lr
+    if args.wd is not None:
+        HP["wd"] = args.wd
+    if args.epochs is not None:
+        HP["epochs"] = args.epochs
+    print(f"HP: {HP}")
     from datasets import concatenate_datasets, load_from_disk
     ds_train = load_from_disk(f"{args.data_dir}/ds_bert_train")
     ds_test = load_from_disk(f"{args.data_dir}/ds_test")
