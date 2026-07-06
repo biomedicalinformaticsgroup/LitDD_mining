@@ -27,9 +27,8 @@ __pycache__/
 **/bert_finetune_results/
 **/bert_finetune/
 **/crossencoder_finetune/
-_bench_*/
-_cvfold_*/
-_cvce_fold_*/
+# transient training output_dir dirs written to the repo root by TrainingArguments
+_*/
 _hp_search_*.json
 crossencoded_shards/
 data/bert_processed/
