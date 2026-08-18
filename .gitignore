@@ -83,3 +83,7 @@ revision/
 
 # Citation metadata: prepared but withheld until acceptance (author names / paper DOI)
 CITATION.cff
+
+# Fabian's LLM-stage repo, cloned in-tree for integration work.
+# Separate git repo with its own history — never commit it into LitDD.
+upgraded-octo-happiness/
