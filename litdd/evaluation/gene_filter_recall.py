@@ -12,6 +12,15 @@ architecture is committed. It also measures precision, because the goal is a hig
 final set: dropping records with no detectable gene may *gain* more precision than it costs in
 recall, and that trade-off should be read off a measurement rather than assumed either way.
 
+SCOPE WARNING. ``--truth_csv revision/external_recall/external_positives.csv`` is the
+**in-scope** truth set: records with no detectable causal gene were excluded when it was
+built, because LitDD targets human-patient gene-disease reports while the external sources
+also cite reviews, GeneReviews chapters and functional/model-organism work. Gene-filter recall
+measured on that file is therefore conditioned on gene presence (99.0%) and is NOT comparable
+to recall over the unfiltered truth set (94.0% over all 7,696 PMIDs). Report both, and see
+``revision/external_recall/truth_scope_exclusions.csv`` for the 1,175 excluded records --
+548 of which are Case Reports whose gene is named descriptively rather than by symbol.
+
 Reported per configuration:
   * recall    -- of truly-positive (pmid, g2p_id) pairs, the fraction the gate keeps
   * precision -- of pairs the gate keeps, the fraction that are truly positive
