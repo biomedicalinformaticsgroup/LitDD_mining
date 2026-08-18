@@ -109,50 +109,17 @@ def load_crossencoder(
 
 
 def build_g2p_lgmde_list(g2p_csv_path: str) -> List[str]:
+    """Unique LGMDE candidate threads for the cross-encoder to rank against.
 
-    g2p_pd = pd.read_csv(
-        g2p_csv_path,
-        dtype=str,               
-        keep_default_na=False,   
-        na_filter=False,         
-        engine="python",         
-    )
-    g2p = pl.from_pandas(g2p_pd)
+    Delegates to ``litdd.threads``, which is shared with the training path. These used to be
+    two independent implementations that disagreed -- inference looked for a column named
+    "inferred variant consequence" that exists in no G2P export, so that field was silently
+    blank in every candidate served to a model fine-tuned on strings where it was populated.
+    See ``litdd/threads.py`` for the full account.
+    """
+    from litdd.threads import build_lgmde_list
 
-    if "g2p id" in g2p.columns:
-        g2p = g2p.rename({"g2p id": "g2p_id"})
-
-    # build the g2p_lgmde column
-    cols = [
-        "g2p_id",
-        "gene symbol",
-        "gene mim",
-        "hgnc id",
-        "previous gene symbols",
-        "disease name",
-        "disease mim",
-        "disease MONDO",
-        "allelic requirement",
-        "cross cutting modifier",
-        "confidence",
-        "inferred variant consequence",
-        "variant types",
-        "molecular mechanism",
-        "molecular mechanism categorisation",
-    ]
-
-    for c in cols:
-        if c not in g2p.columns:
-            g2p = g2p.with_columns(pl.lit("").alias(c))
-        else:
-            g2p = g2p.with_columns(pl.col(c).cast(pl.Utf8, strict=False))
-
-    g2p = g2p.with_columns(
-        pl.concat_str([pl.col(c) for c in cols], separator=" - ").alias("g2p_lgmde")
-    )
-
-    unique_lgmde = g2p.get_column("g2p_lgmde").unique().to_list()
-    return unique_lgmde
+    return build_lgmde_list(g2p_csv_path)
 
 
 def load_shard_df(input_parquet: str, shard: int, num_shards: int) -> pl.DataFrame:
