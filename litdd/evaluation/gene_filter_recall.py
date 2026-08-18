@@ -51,8 +51,13 @@ G2P_ID_RE = re.compile(r"^(G2P\d+)")
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--annotated_csv", required=True,
-                   help="pmid, tiab, g2p_lgmde, label")
+    p.add_argument("--annotated_csv", default=None,
+                   help="Labelled set (pmid, tiab, g2p_lgmde, label) -> recall AND precision")
+    p.add_argument("--truth_csv", default=None,
+                   help="Positives-only truth set -> recall only. Accepts pmid + "
+                        "(g2p_id|g2p) + (tiab | title+abstract), optional 'source' column "
+                        "for a per-source breakdown (premined/HPOA/ClinGen).")
+    p.add_argument("--label", default=None, help="Name for this run in the output CSV")
     p.add_argument("--g2p_csv", required=True)
     p.add_argument("--gene2pubtator", required=True,
                    help="gene2pubtator3 (.gz or plain TSV)")
@@ -61,6 +66,28 @@ def parse_args() -> argparse.Namespace:
                    help="hgnc_complete_set.txt for descriptive-name matching (optional)")
     p.add_argument("--out_csv", default=None)
     return p.parse_args()
+
+
+def load_truth_rows(path: str) -> list[tuple[str, str, str, str, str]]:
+    """(pmid, g2p_id, tiab, label='1', source) from a positives-only truth file.
+
+    Column names vary across the truth artefacts (``g2p_id`` vs ``g2p``; a single ``tiab``
+    vs separate ``title``/``abstract``), so both layouts are accepted rather than requiring
+    the caller to pre-normalise.
+    """
+    csv.field_size_limit(10**9)
+    rows = []
+    with open(path, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            pmid = str(r.get("pmid", "")).strip()
+            gid = str(r.get("g2p_id") or r.get("g2p") or "").strip()
+            if not pmid or not gid:
+                continue
+            tiab = r.get("tiab")
+            if not tiab:
+                tiab = f"{r.get('title', '') or ''} {r.get('abstract', '') or ''}".strip()
+            rows.append((pmid, gid, tiab, "1", (r.get("source") or "all").strip()))
+    return rows
 
 
 def load_g2p_symbols(path: str) -> dict[str, list[str]]:
@@ -82,17 +109,26 @@ def main() -> int:
     g2p_symbols = load_g2p_symbols(args.g2p_csv)
     panel_symbols = {s for syms in g2p_symbols.values() for s in syms}
 
+    if bool(args.annotated_csv) == bool(args.truth_csv):
+        raise SystemExit("Pass exactly one of --annotated_csv or --truth_csv")
+
     rows = []
     csv.field_size_limit(10**9)
-    with open(args.annotated_csv, newline="", encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            m = G2P_ID_RE.match((r.get("g2p_lgmde") or "").strip())
-            if not m:
-                continue
-            rows.append((str(r["pmid"]).strip(), m.group(1), r.get("tiab") or "",
-                         str(r.get("label", "")).strip()))
-    pmids = {p for p, _, _, _ in rows}
-    print(f"annotated pairs: {len(rows)}  unique pmids: {len(pmids)}", flush=True)
+    if args.truth_csv:
+        rows = load_truth_rows(args.truth_csv)
+        kind = "truth pairs (positives only -> recall reported, precision undefined)"
+    else:
+        with open(args.annotated_csv, newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                m = G2P_ID_RE.match((r.get("g2p_lgmde") or "").strip())
+                if not m:
+                    continue
+                rows.append((str(r["pmid"]).strip(), m.group(1), r.get("tiab") or "",
+                             str(r.get("label", "")).strip(), "all"))
+        kind = "annotated pairs"
+
+    pmids = {p for p, _, _, _, _ in rows}
+    print(f"{kind}: {len(rows)}  unique pmids: {len(pmids)}", flush=True)
 
     print("loading gene_info ...", flush=True)
     gene_info = load_gene_info(args.gene_info)
@@ -125,28 +161,43 @@ def main() -> int:
     if matcher is not None:
         configs += ["name", "pubtator+name"]
 
+    by_source = sorted({src for *_, src in rows})
+    breakdown = by_source if len(by_source) > 1 else []
+
     out = []
-    for source in configs:
-        tp = fp = fn = 0
-        for pmid, gid, tiab, label in rows:
+    for cfg in configs:
+        buckets: dict[str, list[int]] = {"all": [0, 0, 0]}  # tp, fp, fn
+        for pmid, gid, tiab, label, src in rows:
             is_pos = label == "1"
-            if source == "none":
-                kept = True
-            else:
-                kept = bool(set(g2p_symbols.get(gid, [])) & detected(pmid, tiab, source))
-            if kept and is_pos:
-                tp += 1
-            elif kept and not is_pos:
-                fp += 1
-            elif not kept and is_pos:
-                fn += 1
-        recall = tp / (tp + fn) if (tp + fn) else 0.0
-        precision = tp / (tp + fp) if (tp + fp) else 0.0
-        out.append({"source": source, "retained": tp + fp, "true_pos_kept": tp,
-                    "true_pos_lost": fn, "recall": round(recall, 4),
-                    "precision": round(precision, 4)})
-        print(f"  {source:14s} retained={tp+fp:6d}  recall={recall:.4f}  precision={precision:.4f}"
+            kept = True if cfg == "none" else bool(
+                set(g2p_symbols.get(gid, [])) & detected(pmid, tiab, cfg)
+            )
+            for key in ("all", src) if breakdown else ("all",):
+                b = buckets.setdefault(key, [0, 0, 0])
+                if kept and is_pos:
+                    b[0] += 1
+                elif kept and not is_pos:
+                    b[1] += 1
+                elif not kept and is_pos:
+                    b[2] += 1
+        for key, (tp, fp, fn) in buckets.items():
+            recall = tp / (tp + fn) if (tp + fn) else 0.0
+            # Undefined on positives-only truth sets; reported as empty rather than 1.0.
+            precision = round(tp / (tp + fp), 4) if (tp + fp) and fp + fn else ""
+            if args.truth_csv:
+                precision = ""
+            out.append({"run": args.label or "", "source": key, "config": cfg,
+                        "retained": tp + fp, "true_pos_kept": tp, "true_pos_lost": fn,
+                        "recall": round(recall, 4), "precision": precision})
+        tp, fp, fn = buckets["all"]
+        rec = tp / (tp + fn) if (tp + fn) else 0.0
+        prec = f"{tp / (tp + fp):.4f}" if (tp + fp) and not args.truth_csv else "n/a"
+        print(f"  {cfg:14s} retained={tp+fp:6d}  recall={rec:.4f}  precision={prec}"
               f"  positives lost={fn}", flush=True)
+        for key in breakdown:
+            t, _, n = buckets.get(key, (0, 0, 0))
+            r = t / (t + n) if (t + n) else 0.0
+            print(f"      {key:20s} recall={r:.4f}  ({t}/{t + n})", flush=True)
 
     if args.out_csv:
         os.makedirs(os.path.dirname(args.out_csv) or ".", exist_ok=True)
