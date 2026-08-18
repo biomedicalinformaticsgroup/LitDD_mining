@@ -1,13 +1,28 @@
 #!/usr/bin/env python3
 """Quantify the cascade funnel on the deployed corpus (Reviewer 2 R2-P3 / R2-C1).
 
-Reports how many mappings survive each pipeline stage — BERT screen -> LLM mapping ->
-cross-encoder score gate (>= --score_cutoff) -> gene-mention filter — i.e. the attrition
-the reviewer asks us to measure on the deployed corpus. In particular it isolates the
-**gene-in-TIAB filter's** attrition (R2-C1): mappings that pass the score gate but are
-dropped because no linked gene is found in the abstract. It can also sample those dropped
-mappings into a blinded worksheet so an annotator can estimate the filter's true-positive
-cost (recall loss, R3.4).
+**Two stage orders, because the pipeline was re-architected.** Select with ``--order``:
+
+``legacy`` (the originally deployed cascade, and the order the published figures describe)::
+
+    BERT screen -> LLM mapping -> score gate (>= cutoff) -> gene-mention filter
+
+``gene_first`` (the revised cascade)::
+
+    BERT screen -> gene gate -> cross-encoder (candidates only) -> LLM -> score gate
+
+The gene-mention check moved ahead of the cross-encoder, which changes what its attrition
+*means*: in ``legacy`` it is a final cleanup applied to already-scored mappings, so the 56.2%
+it removed was the headline R2-C1 number; in ``gene_first`` it is a gate on abstracts, and the
+quantity of interest is how many abstracts it admits and how many candidates each carries.
+Reporting the same number under both labels would be misleading, so the stage list differs.
+
+The gate's recall was measured before adoption (``litdd/evaluation/gene_filter_recall.py``):
+98.8% of true pairs on the external curated sets, 99.3% with the HGNC name complement.
+
+Under ``legacy`` this also isolates the gene filter's attrition (R2-C1) and can sample the
+dropped mappings into a blinded worksheet so an annotator can estimate its true-positive cost
+(recall loss, R3.4).
 
 Authoritative input is the complete pipeline parquet (``--complete_df``: one row per
 BERT-positive abstract, with ``llm_dis_map`` and ``top5_cross``), which holds the *raw*
@@ -65,6 +80,13 @@ def parse_args():
                     help="Complete pipeline parquet (pmid, llm_dis_map, top5_cross) — raw LLM mappings")
     ap.add_argument("--final_map", required=True, help="CSV pmid,g2p_id — deployed corpus (post gene/score gate)")
     ap.add_argument("--score_cutoff", type=float, default=0.9)
+    ap.add_argument("--order", choices=["legacy", "gene_first"], default="legacy",
+                    help="Cascade stage order. 'legacy' = the originally deployed pipeline "
+                         "(gene filter last); 'gene_first' = the revised one (gene gate "
+                         "before the cross-encoder).")
+    ap.add_argument("--candidates_parquet", default=None,
+                    help="gene_first only: output of gene_candidates.py, for the gate's "
+                         "admitted-abstract and candidates-per-abstract counts.")
     ap.add_argument("--out_dir", default="revision/precision_audit")
     ap.add_argument("--dropped_n", type=int, default=100, help="Gene-dropped sample size for the worksheet")
     ap.add_argument("--seed", type=int, default=42)
@@ -90,21 +112,48 @@ def main():
     all_pairs, score_pairs = mapping_pairs(df, args.score_cutoff)
     final_pairs = _final_pairs(args.final_map)
 
-    stages = [
-        ("BERT-positive abstracts (unique PMIDs)", bert_n),
-        ("LLM-mapped (non-NO-MATCH) mappings", len(all_pairs)),
-        (f"Score gate (>= {args.score_cutoff}) mappings", len(score_pairs)),
-        ("Gene-mention filter -> deployed corpus", len(final_pairs)),
-    ]
-    print("=== Cascade funnel (R2-P3 / R2-C1) ===")
-    prev, rows = None, []
-    for name, n in stages:
-        retained = "" if prev is None else f"{100 * n / prev:5.1f}% of previous"
-        print(f"  {name:42s} {n:>9,}  {retained}")
-        rows.append({"stage": name, "n": n,
-                     "pct_of_previous": None if prev is None else round(100 * n / prev, 2)})
-        prev = n
+    if args.order == "gene_first":
+        if not args.candidates_parquet:
+            raise SystemExit("--order gene_first requires --candidates_parquet")
+        cand = pd.read_parquet(args.candidates_parquet,
+                               columns=["pmid", "candidate_g2p_ids"])
+        n_admitted = cand["pmid"].nunique()
+        n_pairs = int(cand["candidate_g2p_ids"].map(len).sum())
+        stages = [
+            ("BERT-positive abstracts (unique PMIDs)", bert_n, "abstracts"),
+            ("Gene gate -> abstracts with >=1 candidate", n_admitted, "abstracts"),
+            ("Cross-encoder (tiab, candidate) pairs scored", n_pairs, "pairs"),
+            ("LLM-mapped (non-NO-MATCH) mappings", len(all_pairs), "mappings"),
+            (f"Score gate (>= {args.score_cutoff}) -> deployed corpus",
+             len(score_pairs), "mappings"),
+        ]
+    else:
+        stages = [
+            ("BERT-positive abstracts (unique PMIDs)", bert_n, "abstracts"),
+            ("LLM-mapped (non-NO-MATCH) mappings", len(all_pairs), "mappings"),
+            (f"Score gate (>= {args.score_cutoff}) mappings", len(score_pairs), "mappings"),
+            ("Gene-mention filter -> deployed corpus", len(final_pairs), "mappings"),
+        ]
+    print(f"=== Cascade funnel — {args.order} order (R2-P3 / R2-C1) ===")
+    prev, prev_unit, rows = None, None, []
+    for name, n, unit in stages:
+        # A percentage is only meaningful between stages measured in the same unit: the
+        # gene-first cascade switches from abstracts to (abstract, candidate) pairs, and
+        # "3.5x of previous" there would read as growth rather than a change of denominator.
+        comparable = prev is not None and unit == prev_unit
+        retained = f"{100 * n / prev:5.1f}% of previous" if comparable else f"({unit})"
+        print(f"  {name:46s} {n:>12,}  {retained}")
+        rows.append({"stage": name, "n": n, "unit": unit,
+                     "pct_of_previous": round(100 * n / prev, 2) if comparable else None})
+        prev, prev_unit = n, unit
     pd.DataFrame(rows).to_csv(out / "cascade_funnel.csv", index=False)
+
+    if args.order == "gene_first":
+        print("\n[note] The gene-dropped worksheet is a legacy-order artefact: with the gate "
+              "ahead of the cross-encoder there is no set of 'score-passing mappings dropped "
+              "for lack of a gene'. The gate's cost is measured directly instead — see "
+              "litdd/evaluation/gene_filter_recall.py.")
+        return 0
 
     # Gene-mention filter attrition: score-passing mappings dropped for lack of a gene mention.
     gene_dropped = score_pairs - final_pairs
