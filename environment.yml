@@ -7,7 +7,9 @@
 #
 # NOTE ON PER-STAGE ENVIRONMENTS: the pipeline does not run end-to-end in one env.
 #  - The CUDA/torch/vLLM stack is tightly coupled; vLLM pins the torch build, so this
-#    file installs torch against a CUDA 12.1 wheel (adjust the index URL to your CUDA).
+#    file installs torch against a CUDA 12.9 wheel (adjust the index URL to your CUDA),
+#    matching the pytorch/pytorch:2.8.0-cuda12.9 image the GPU jobs run.
+#  - transformers>=4.48 is REQUIRED for the released ModernBERT-based LitDD screen.
 #  - The OPTIONAL GPU visualisation step (RAPIDS cuML / cuPy 24.x for GPU UMAP/HDBSCAN)
 #    requires a SEPARATE conda env (Python 3.10) installed per the official RAPIDS
 #    instructions — it is incompatible with these pins. The visualisation scripts fall
@@ -23,9 +25,9 @@ dependencies:
   - pip
   - openjdk>=8        # Java runtime for the cadmus PMC full-text fetcher
   - pip:
-      - --extra-index-url https://download.pytorch.org/whl/cu121
-      - torch==2.4.*
-      - transformers==4.44.*
+      - --extra-index-url https://download.pytorch.org/whl/cu129
+      - torch==2.8.*
+      - transformers==4.48.3
       - datasets==2.20.*
       - sentence-transformers==3.0.*
       - evaluate==0.4.*

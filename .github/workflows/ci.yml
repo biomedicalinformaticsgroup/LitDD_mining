@@ -33,3 +33,17 @@ jobs:
           uv run --no-project
           --with numpy --with pandas --with polars --with pyarrow --with pytest
           pytest tests/ -q
+
+  secret-scan:
+    # Blocks credentials from reaching the public repo. Scans the full history on
+    # push (gitleaks needs the commit range) and the diff on pull requests.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for committed secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

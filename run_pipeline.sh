@@ -69,9 +69,9 @@ if [[ "$MODE" == "demo" ]]; then
 elif [[ "$MODE" == "full" ]]; then
     # ---------------- full configuration ----------------
     ANNOTATED_CSV="train_test/annotated_pmid.csv"
-    G2P_CSV="train_test/G2P_DD_2025-02-15.csv"  # user-supplied, not in repo
+    G2P_CSV="${G2P_CSV:-train_test/G2P_DD_2026-06-24.csv}"  # user-supplied, not in repo
     OUT_DIR="train_test"
-    BERT_MODEL="answerdotai/ModernBERT-large"
+    BERT_MODEL="${BERT_MODEL:-thomas-sounack/BioClinical-ModernBERT-large}"  # screen fine-tune base
     CROSS_ENCODER_MODEL="ncbi/MedCPT-Cross-Encoder"
     EMBED_MODEL="abhinand/MedEmbed-large-v0.1"
     BERT_HP_JSON="cross_validation/bert_hp_search.json"
@@ -171,18 +171,26 @@ else
 
 Next steps for end-to-end PubMed inference (multi-day on multi-A100; uncomment in this script when you are ready to run):
 
-    # python annotate_pubmed/download_pubmed.py
-    # python annotate_pubmed/pubmed_to_parquet.py
-    # python annotate_pubmed/bert_predict.py
+    # PUBMED_DIR=data/pubmed_download_2026   # MUST be a fresh dir for a new baseline year:
+    #                                        # NCBI reissues the baseline each December under a
+    #                                        # new pubmedYYn* prefix, and mixing years in one
+    #                                        # directory duplicates every record downstream.
+    # python annotate_pubmed/download_pubmed.py --download_dir "$PUBMED_DIR" --workers 4
+    # python annotate_pubmed/pubmed_to_parquet.py --download_dir "$PUBMED_DIR" --workers 16
+    # python annotate_pubmed/dedupe_pmids.py --download_dir "$PUBMED_DIR"   # DeleteCitation + reissues
+    # python annotate_pubmed/bert_predict_vllm.py --model "$BERT_BEST_DIR" \
+    #     --input_dir "$PUBMED_DIR/parquet_download_files" --shard $i --num_shards 8
     # python annotate_pubmed/build_bert_positives.py
-    # python annotate_pubmed/crossencode.py --g2p_csv "$G2P_CSV"
+    # # --num_shards 32 so 8 workers all get work and preemption costs <=1/32 of the stage
+    # python annotate_pubmed/crossencode.py --g2p_csv "$G2P_CSV" --shard $i --num_shards 32
     # python annotate_pubmed/llm_map.py --shards_dir crossencoded_shards \
-    #     --llm_model deepseek-ai/DeepSeek-R1-Distill-Qwen-14B
+    #     --llm_model openai/gpt-oss-20b --shard_index $i --num_shards 8
     # python annotate_pubmed/final_data_clean.py \
     #     --llm_file <pubmed_..._llm.parquet> \
     #     --g2p_file "$G2P_CSV" \
     #     --gene2pubtator path/to/gene2pubtator3.gz \
     #     --gene_info path/to/gene_info.gz \
+    #     --score_cutoff 0.9 \
     #     --output_csv final_cleaned_data.csv
 
 You can also run the fair-comparison baseline benchmark:

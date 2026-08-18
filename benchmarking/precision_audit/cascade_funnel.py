@@ -78,12 +78,20 @@ def main():
     rng = np.random.default_rng(args.seed)
 
     df = pd.read_parquet(args.complete_df, columns=["pmid", "llm_dis_map", "top5_cross"])
-    bert_n = len(df)
+    # Rows != abstracts. PubMed updatefiles reissue records already present in the annual
+    # baseline, so the same PMID can occupy several rows (51,613 of 782,230 in the 2025 run).
+    # Report the unique-abstract count as the funnel head and the row count alongside it, or
+    # the first stage silently overstates the corpus by the duplication rate (R2-C3 units).
+    bert_rows = len(df)
+    bert_n = df["pmid"].nunique()
+    if bert_rows != bert_n:
+        print(f"[note] {bert_rows - bert_n:,} duplicate PMID row(s) in the complete df "
+              f"({bert_rows:,} rows -> {bert_n:,} unique abstracts)")
     all_pairs, score_pairs = mapping_pairs(df, args.score_cutoff)
     final_pairs = _final_pairs(args.final_map)
 
     stages = [
-        ("BERT-positive abstracts", bert_n),
+        ("BERT-positive abstracts (unique PMIDs)", bert_n),
         ("LLM-mapped (non-NO-MATCH) mappings", len(all_pairs)),
         (f"Score gate (>= {args.score_cutoff}) mappings", len(score_pairs)),
         ("Gene-mention filter -> deployed corpus", len(final_pairs)),

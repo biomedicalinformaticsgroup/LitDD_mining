@@ -18,10 +18,12 @@ from vllm import LLM
 # Config
 # -------------------
 
-MODEL_ID = os.environ.get("MODEL_ID", "path_to_lit_dd_BERT")
+# Released LitDD screen (a BioClinical-ModernBERT-large fine-tune); needs transformers >= 4.48
+# and a vLLM build with ModernBERT sequence-classification pooling.
+MODEL_ID = os.environ.get("MODEL_ID", "<HF-URL>")
 
-INPUT_DIR = "data/pubmed_download/parquet_download_files"
-PROCESSED_DIR = "data/bert_processed"
+DEFAULT_INPUT_DIR = "data/pubmed_download/parquet_download_files"
+DEFAULT_PROCESSED_DIR = "data/bert_processed"
 
 ROW_BATCH_SIZE = 8192     # rows pulled from streaming dataset at a time (CPU-side)
 PRED_BATCH_SIZE = 1024    # how many strings to send to vLLM per call (tune per GPU)
@@ -250,12 +252,20 @@ def process_one_parquet_with_tokenizer(
 
 
 
-def load_vllm_engine(model_id: str, max_length: int, tp_size: int = 1) -> LLM:
+def load_vllm_engine(model_id: str, max_length: int, tp_size: int = 1,
+                     dtype: str = "bfloat16") -> LLM:
+    """Load the screen under vLLM.
+
+    dtype defaults to bfloat16: the released screen is ModernBERT, which is bf16-native,
+    and fp16 activations can overflow through its RoPE/GeGLU path. H100/A100 both support
+    bf16 natively, so there is no throughput cost. Pass dtype="float16" only for a
+    pre-ModernBERT checkpoint.
+    """
     llm = LLM(
         model=model_id,
         task="classify",
-        dtype=torch.float16,
-        max_seq_len_to_capture=max_length, 
+        dtype=dtype,
+        max_seq_len_to_capture=max_length,
         tensor_parallel_size=tp_size,
     )
     return llm
@@ -270,8 +280,9 @@ def process_all_parquets(
     num_shards: int = 1,
     fail_fast: bool = False,
     tp_size: int = 1,
+    dtype: str = "bfloat16",
 ):
-    llm = load_vllm_engine(model_id, max_length, tp_size=tp_size)
+    llm = load_vllm_engine(model_id, max_length, tp_size=tp_size, dtype=dtype)
 
     # Get tokenizer once and compute safe text token budget
     tokenizer = llm.get_tokenizer()
@@ -315,6 +326,10 @@ def parse_args():
     ap.add_argument("--shard", type=int, default=0, help="Shard index for file list")
     ap.add_argument("--num_shards", type=int, default=1, help="Total number of shards")
     ap.add_argument("--max_length", type=int, default=MAX_LENGTH, help="Max sequence length for vLLM (truncation)")
+    ap.add_argument("--input_dir", default=DEFAULT_INPUT_DIR, help="Parquet shards to classify")
+    ap.add_argument("--processed_dir", default=DEFAULT_PROCESSED_DIR, help="Output directory")
+    ap.add_argument("--dtype", default="bfloat16",
+                    help="vLLM dtype (default bfloat16; ModernBERT is bf16-native)")
     ap.add_argument("--fail_fast", action="store_true", help="Stop on first error instead of skipping the parquet file")
     ap.add_argument(
         "--device",
@@ -348,12 +363,13 @@ if __name__ == "__main__":
         tp_size = len([v for v in vis_env.split(",") if v.strip() != ""])
 
     process_all_parquets(
-        INPUT_DIR,
-        PROCESSED_DIR,
+        args.input_dir,
+        args.processed_dir,
         model_id=args.model,
         max_length=args.max_length,
         shard=args.shard,
         num_shards=args.num_shards,
         fail_fast=args.fail_fast,
         tp_size=tp_size,  # pass through
+        dtype=args.dtype,
     )

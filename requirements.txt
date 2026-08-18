@@ -4,11 +4,19 @@
 # For a fully hash-locked file, run `pip-compile --generate-hashes` in the dev environment.
 #
 # NOTE: install torch separately against your CUDA build first, e.g.
-#   pip install torch==2.4.* --index-url https://download.pytorch.org/whl/cu121
+#   pip install torch==2.8.* --index-url https://download.pytorch.org/whl/cu129
+#
+# transformers >= 4.48 is REQUIRED, not optional: the released LitDD screen is a
+# ModernBERT architecture (`ModernBertForSequenceClassification`, base
+# `thomas-sounack/BioClinical-ModernBERT-large`), and ModernBERT support landed in
+# transformers 4.48. Earlier versions fail to load it with `KeyError: 'modernbert'`.
+# torch/vLLM are pinned to the pair the deployment images actually ship
+# (pytorch/pytorch:2.8.0-cuda12.9 and vllm/vllm-openai:v0.10.1.1); torch 2.4 does
+# not satisfy vllm 0.10.x.
 
 # Core ML / NLP
-torch==2.4.*
-transformers==4.44.*
+torch==2.8.*
+transformers==4.48.3
 datasets==2.20.*
 sentence-transformers==3.0.*
 evaluate==0.4.*

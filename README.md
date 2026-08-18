@@ -32,7 +32,7 @@ add HPO phenotype annotations and 2D visualisations of the literature space.
   optional HPO step; install via `openjdk` in `environment.yml` / the container)
 - Python package versions are pinned in `requirements.txt` (and `environment.yml`).
   Versions used during development:
-  - torch 2.4, transformers 4.44, datasets 2.20, sentence-transformers 3.0
+  - torch 2.8, transformers 4.48, datasets 2.20, sentence-transformers 3.0
   - vllm 0.10.1.1
   - pandas 2.2, polars 1.5, pyarrow 17, scikit-learn 1.5
   - pubmed_parser 0.5, lxml 5.2, requests 2.32
@@ -52,7 +52,7 @@ uv venv --python 3.11
 source .venv/bin/activate
 
 # 2. Install PyTorch matching your CUDA version (see https://pytorch.org)
-uv pip install torch==2.4.* --index-url https://download.pytorch.org/whl/cu121
+uv pip install torch==2.8.* --index-url https://download.pytorch.org/whl/cu129
 
 # 3. Install the remaining pinned dependencies
 uv pip install -r requirements.txt

@@ -21,10 +21,12 @@ if torch.cuda.is_available():
         torch.backends.cudnn.allow_tf32 = True
 
 
-BERT_MODEL_PATH = "path_to_lit_dd_BERT"
+# Released LitDD screen (a BioClinical-ModernBERT-large fine-tune). Override with
+# --model_path for a local checkpoint. NOTE: loading it needs transformers >= 4.48.
+DEFAULT_MODEL_PATH = os.environ.get("LITDD_BERT_MODEL", "<HF-URL>")
 
-INPUT_DIR = "path_to_pubmed_download/parquet_download_files"
-PROCESSED_DIR = "bert_processed"
+DEFAULT_INPUT_DIR = "data/pubmed_download/parquet_download_files"
+DEFAULT_PROCESSED_DIR = "data/bert_processed"
 
 ROW_BATCH_SIZE = 8192     # CPU-side batch (streaming)
 PRED_BATCH_SIZE = 32      # GPU batch size
@@ -37,9 +39,10 @@ def get_device(device_str: Optional[str] = None) -> str:
         return device_str
     return "cuda" if torch.cuda.is_available() else "cpu"
 
-def load_model_and_tokenizer(device_str: Optional[str] = None) -> Tuple[AutoTokenizer, AutoModelForSequenceClassification, str]:
-    tokenizer = AutoTokenizer.from_pretrained(BERT_MODEL_PATH, use_fast=True)
-    model = AutoModelForSequenceClassification.from_pretrained(BERT_MODEL_PATH)
+def load_model_and_tokenizer(device_str: Optional[str] = None,
+                             model_path: str = DEFAULT_MODEL_PATH) -> Tuple[AutoTokenizer, AutoModelForSequenceClassification, str]:
+    tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=True)
+    model = AutoModelForSequenceClassification.from_pretrained(model_path)
     model.eval()
     device = get_device(device_str)
     model.to(device)
@@ -231,8 +234,9 @@ def process_all_parquets(
     num_shards: int = 1,
     device: Optional[str] = None,
     fail_fast: bool = False,
+    model_path: str = DEFAULT_MODEL_PATH,
 ):
-    tokenizer, model, device = load_model_and_tokenizer(device)
+    tokenizer, model, device = load_model_and_tokenizer(device, model_path=model_path)
     files = sorted([os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith(".parquet")])
     if not files:
         print(f"No parquet files found in {input_dir}")
@@ -263,6 +267,10 @@ def process_all_parquets(
 
 def parse_args():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--model_path", default=DEFAULT_MODEL_PATH,
+                    help="HF id or local dir of the fine-tuned screen")
+    ap.add_argument("--input_dir", default=DEFAULT_INPUT_DIR, help="Parquet shards to classify")
+    ap.add_argument("--processed_dir", default=DEFAULT_PROCESSED_DIR, help="Output directory")
     ap.add_argument("--shard", type=int, default=0, help="Shard index for file list")
     ap.add_argument("--num_shards", type=int, default=1, help="Total number of shards")
     ap.add_argument("--device", type=str, default=None, help="Device string, e.g., cuda:0, cuda:1")
@@ -272,10 +280,11 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     process_all_parquets(
-        INPUT_DIR,
-        PROCESSED_DIR,
+        args.input_dir,
+        args.processed_dir,
         shard=args.shard,
         num_shards=args.num_shards,
         device=args.device,
         fail_fast=args.fail_fast,
+        model_path=args.model_path,
     )

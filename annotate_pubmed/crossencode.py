@@ -48,7 +48,8 @@ if TYPE_CHECKING:
     from sentence_transformers import CrossEncoder  # noqa: F401
 
 
-DEFAULT_MODEL_PATH = "path_to_litdd_crossencoder"
+# Fine-tuned ncbi/MedCPT-Cross-Encoder. Override with --model_path / $LITDD_CROSSENCODER.
+DEFAULT_MODEL_PATH = os.environ.get("LITDD_CROSSENCODER", "<HF-URL-crossencoder>")
 DEFAULT_INPUT_PARQUET = "pubmed_bert_positive.parquet"
 DEFAULT_OUT_DIR = "crossencoded_shards"
 PARQUET_COMPRESSION = "zstd"
