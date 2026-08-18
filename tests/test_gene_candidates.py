@@ -91,3 +91,46 @@ def test_keep_unmatched_falls_back_to_full_panel(tmp_path):
     assert row.height == 1
     assert len(row["candidate_g2p_ids"].to_list()[0]) == 3   # whole panel
     assert set(row["candidate_sources"].to_list()[0]) == {"fallback_full_panel"}
+
+
+def test_candidate_mode_emits_the_downstream_contract(tmp_path, monkeypatch):
+    """The gene-gated cross-encoder path must emit `top5_cross` in the layout
+    `llm_map.py` and `final_data_clean.py` already expect: list<struct<label, score>>.
+
+    The model itself is stubbed -- this is about the data contract, not the scoring.
+    """
+    import types
+
+    sys.path.insert(0, str(ROOT))
+    import litdd.pipeline.crossencode as ce
+
+    tmp_path = _setup(tmp_path)
+    cand = _run(tmp_path, "--hgnc", str(tmp_path / "hgnc.txt"))
+    cand_path = tmp_path / "cand.parquet"
+    cand.write_parquet(cand_path)
+
+    class _Stub:
+        def predict(self, pairs):
+            return [0.95] * len(pairs)
+
+    monkeypatch.setattr(ce, "load_crossencoder", lambda *a, **k: (_Stub(), "cpu"))
+    monkeypatch.setitem(sys.modules, "torch", types.ModuleType("torch"))
+
+    ce.process_shard_candidates(
+        candidates_parquet=str(cand_path),
+        g2p_csv=str(tmp_path / "g2p.csv"),
+        out_dir=str(tmp_path / "out"),
+        skip_if_exists=False,
+    )
+    out = list((tmp_path / "out").glob("*.parquet"))
+    assert len(out) == 1
+    df = pl.read_parquet(out[0])
+    assert "top5_cross" in df.columns
+    first = df["top5_cross"].to_list()[0]
+    assert isinstance(first, list) and first, "expected a non-empty candidate list"
+    assert set(first[0]) == {"label", "score"}
+    assert first[0]["label"].startswith("G2P")   # the full LGMDE thread string
+    assert 0.0 <= first[0]["score"] <= 1.0
+    # data-driven k: nothing is truncated to 5 by default
+    assert all(len(r) == len(c) for r, c in zip(df["top5_cross"].to_list(),
+                                                df["candidate_g2p_ids"].to_list()))

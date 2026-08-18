@@ -129,7 +129,7 @@ def load_shard_df(input_parquet: str, shard: int, num_shards: int) -> pl.DataFra
         .with_row_index(name="row_nr")  # instead of deprecated with_row_count
         .filter((pl.col("row_nr") % pl.lit(num_shards)) == pl.lit(shard))
         .sort("row_nr")
-        .collect(streaming=True)
+        .collect(engine="streaming")
     )
     return df_shard
 
@@ -213,6 +213,95 @@ def crossencode_topk_for_chunk(
             [{"label": label, "score": float(score)} for (score, label) in sorted_desc]
         )
     return topk_lists
+
+
+def process_shard_candidates(
+    candidates_parquet: str,
+    g2p_csv: str,
+    out_dir: str,
+    model_path: str = DEFAULT_MODEL_PATH,
+    device: Optional[str] = None,
+    dtype: str = "auto",
+    pair_batch_size: int = 256,
+    top_k: Optional[int] = None,
+    shard: int = 0,
+    num_shards: int = 1,
+    skip_if_exists: bool = SKIP_IF_EXISTS,
+    compression: str = PARQUET_COMPRESSION,
+) -> bool:
+    """Score only the candidates ``gene_candidates.py`` selected for each abstract.
+
+    The full-grid path scores every abstract against all ~2,861 G2P entries and keeps a top-k
+    by min-heap. Once the gene gate has run, each abstract carries a handful of candidates
+    (mean ~3.5, median 2), so the heap machinery is unnecessary: we build the explicit pair
+    list and score it directly, which is ~3,600x less work.
+
+    ``top_k=None`` keeps every candidate -- the data-driven setting (R3.5). Pass an integer to
+    reproduce a fixed-k cascade for comparison.
+
+    The output column keeps the name ``top5_cross`` and the ``list<struct<label, score>>``
+    layout so ``llm_map.py`` and ``final_data_clean.py`` are unchanged, and so existing
+    deployed parquets remain readable by the same code.
+    """
+    import torch  # noqa: F401  (kept for parity with the full-grid path's import contract)
+
+    from litdd.threads import build_lgmde_map
+
+    os.makedirs(out_dir, exist_ok=True)
+    stem = os.path.splitext(os.path.basename(candidates_parquet))[0]
+    out_path = os.path.join(out_dir, f"{stem}_crossencoded_shard{shard}-of-{num_shards}.parquet")
+    if skip_if_exists and os.path.exists(out_path):
+        print(f"Skipping (already exists): {out_path}")
+        return True
+
+    thread_by_id = build_lgmde_map(g2p_csv)
+    print(f"[INFO] G2P threads: {len(thread_by_id)}")
+
+    df = load_shard_df(candidates_parquet, shard, num_shards)
+    if "candidate_g2p_ids" not in df.columns:
+        raise SystemExit(
+            f"{candidates_parquet} has no 'candidate_g2p_ids' column -- run "
+            "litdd/pipeline/gene_candidates.py first, or use the full-grid path without "
+            "--candidates_parquet."
+        )
+    print(f"[INFO] Shard rows (N_shard): {df.height}")
+
+    texts = df["tiab"].to_list()
+    cand_ids = df["candidate_g2p_ids"].to_list()
+
+    # Flatten to one pair list so the model sees full batches regardless of how uneven the
+    # per-row candidate counts are.
+    pairs: List[Tuple[str, str]] = []
+    owner: List[int] = []
+    labels: List[str] = []
+    for i, (text, ids) in enumerate(zip(texts, cand_ids)):
+        for gid in (ids or []):
+            thread = thread_by_id.get(gid)
+            if thread is None:
+                continue
+            pairs.append((text or "", thread))
+            owner.append(i)
+            labels.append(thread)
+    print(f"[INFO] pairs to score: {len(pairs):,}")
+
+    model, _ = load_crossencoder(model_path, device=device, dtype=dtype)
+    scores: List[float] = []
+    for i in range(0, len(pairs), pair_batch_size):
+        out = model.predict(pairs[i:i + pair_batch_size])
+        scores.extend(float(x) for x in np.asarray(out).reshape(-1))
+
+    per_row: List[List[dict]] = [[] for _ in range(df.height)]
+    for idx, score in enumerate(scores):
+        per_row[owner[idx]].append({"label": labels[idx], "score": score})
+    for row in per_row:
+        row.sort(key=lambda d: d["score"], reverse=True)
+    if top_k is not None:
+        per_row = [row[:top_k] for row in per_row]
+
+    df = df.with_columns(pl.Series("top5_cross", per_row))
+    df.write_parquet(out_path, compression=compression)
+    print(f"[INFO] wrote {out_path}")
+    return True
 
 
 def process_shard(
@@ -354,7 +443,15 @@ def parse_args():
     ap.add_argument("--chunk_size", type=int, default=200, help="Number of tiab rows to process per chunk")
     ap.add_argument("--pair_batch_size", type=int, default=256, help="CrossEncoder prediction batch size")
     ap.add_argument("--g_block_size", type=int, default=2048, help="How many G2P entries to score at once")
-    ap.add_argument("--top_k", type=int, default=5, help="Top-K G2P entries to keep per text")
+    ap.add_argument("--candidates_parquet", type=str, default=None,
+                    help="Output of gene_candidates.py. Scores ONLY each row's "
+                         "candidate_g2p_ids instead of the full G2P panel (~3,600x less "
+                         "work). Mutually exclusive with the full-grid --input_parquet path.")
+    ap.add_argument("--top_k", type=int, default=None,
+                    help="Top-K G2P entries to keep per text. Default: 5 for the full-grid "
+                         "path (which must cut something out of 2,861), and NO cap for "
+                         "--candidates_parquet, where the gene gate already made the count "
+                         "data-driven (R3.5). Pass an integer to force a fixed k in either.")
     ap.add_argument("--shard", type=int, default=0, help="Shard index for row-wise sharding")
     ap.add_argument("--num_shards", type=int, default=1, help="Total number of shards")
     ap.add_argument("--skip_if_exists", action="store_true", help="Skip if shard output already exists")
@@ -367,6 +464,25 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
+    if args.candidates_parquet:
+        # Data-driven k unless the caller explicitly asked for a fixed cut.
+        top_k = None if args.top_k in (None, -1, 0) else args.top_k
+        ok = process_shard_candidates(
+            candidates_parquet=args.candidates_parquet,
+            g2p_csv=args.g2p_csv,
+            out_dir=args.out_dir,
+            model_path=args.model_path,
+            device=args.device,
+            dtype=args.dtype,
+            pair_batch_size=args.pair_batch_size,
+            top_k=top_k,
+            shard=args.shard,
+            num_shards=args.num_shards,
+            skip_if_exists=args.skip_if_exists,
+            compression=args.compression,
+        )
+        raise SystemExit(0 if ok else 1)
+
     ok = process_shard(
         input_parquet=args.input_parquet,
         g2p_csv=args.g2p_csv,
@@ -377,7 +493,7 @@ if __name__ == "__main__":
         chunk_size=args.chunk_size,
         pair_batch_size=args.pair_batch_size,
         g_block_size=args.g_block_size,
-        top_k=args.top_k,
+        top_k=5 if args.top_k is None else args.top_k,
         shard=args.shard,
         num_shards=args.num_shards,
         skip_if_exists=args.skip_if_exists,
