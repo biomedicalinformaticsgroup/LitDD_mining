@@ -84,6 +84,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--weight_decay", type=float, default=0.3)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--skip_existing", action="store_true")
+    p.add_argument("--skip_baselines", action="store_true",
+                   help="Evaluate only --litdd_model_path and skip baseline fine-tuning. "
+                        "Turns a multi-GPU-hour job into an inference-only one.")
     p.add_argument("--external_csv", default=None,
                    help="Truth corpus (pmid, tiab, source[, gene]) to score for external "
                         "recall. Every baseline gets the same corpus, so Table 1's F1 "
@@ -286,7 +289,7 @@ def main() -> int:
     ds_test = load_from_disk(os.path.join(args.data_dir, "ds_test"))
 
     existing = load_existing(args.out_csv) if args.skip_existing else set()
-    baselines = args.models or DEFAULT_BASELINES
+    baselines = [] if args.skip_baselines else (args.models or DEFAULT_BASELINES)
     shared = shared_hps(args)
 
     if args.litdd_model_path:
