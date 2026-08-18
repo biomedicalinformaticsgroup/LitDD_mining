@@ -53,6 +53,12 @@ def parse_args() -> argparse.Namespace:
                    help="hgnc_complete_set.txt for descriptive-name matching. Recommended: "
                         "recovers ~42%% of residual external-truth misses.")
     p.add_argument("--out_parquet", required=True)
+    p.add_argument("--family_stems", action="store_true",
+                   help="Also match enzyme-family stems, so \"the two human arginase genes\" "
+                        "resolves to ARG1/ARG2 even without a numeral. Off by default: full "
+                        "HGNC names only. Disease-named genes (\"Bardet-Biedl syndrome 1\") "
+                        "are blocklisted from forming stems either way, so enabling this "
+                        "cannot make a syndrome mention match its whole gene family.")
     p.add_argument("--keep_unmatched", action="store_true",
                    help="Keep rows with no detected gene and give them the FULL panel as "
                         "candidates, instead of dropping them. Measured as unnecessary "
@@ -98,7 +104,8 @@ def main() -> int:
 
     matcher = None
     if args.hgnc:
-        matcher = GeneNameMatcher.from_hgnc(args.hgnc, panel_symbols)
+        matcher = GeneNameMatcher.from_hgnc(args.hgnc, panel_symbols,
+                                            family_stems=args.family_stems)
         print(f"HGNC names indexed: {len(matcher.name_to_symbols)} "
               f"families: {len(matcher.family_to_symbols)}", flush=True)
 

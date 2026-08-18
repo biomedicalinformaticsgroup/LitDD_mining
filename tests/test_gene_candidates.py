@@ -66,19 +66,32 @@ def test_gate_drops_rows_with_no_detected_gene(tmp_path):
 
 def test_name_matching_recovers_the_protein_name_case(tmp_path):
     tmp_path = _setup(tmp_path)
-    df = _run(tmp_path, "--hgnc", str(tmp_path / "hgnc.txt"))
+    df = _run(tmp_path, "--hgnc", str(tmp_path / "hgnc.txt"), "--family_stems")
     rows = {p: (c, s) for p, c, s in zip(df["pmid"], df["candidate_g2p_ids"],
                                          df["candidate_sources"])}
-    # PMID 200 says "arginase" and never the symbol: PubTator misses it, the dictionary
-    # catches it, and the unqualified family yields both members for the cross-encoder.
+    # PMID 200 says "arginase" and never the symbol: PubTator misses it, and only the
+    # enzyme-family stem can see it, so this needs --family_stems. Without that flag the
+    # row is dropped -- the precision/recall trade-off is explicit, see the test below.
     assert "200" in rows
     assert set(rows["200"][0]) == {"G2P00001", "G2P00002"}
     assert set(rows["200"][1]) == {"name_match"}
 
 
-def test_provenance_prefers_symbol_match(tmp_path):
+def test_full_name_matching_is_the_default(tmp_path):
+    """Without --family_stems the descriptive-family case is not rescued.
+
+    Recorded so the default's cost is visible: full-name matching is precise (a syndrome
+    mention can never pull in its whole gene family) but cannot see "arginase" without a
+    numeral.
+    """
     tmp_path = _setup(tmp_path)
     df = _run(tmp_path, "--hgnc", str(tmp_path / "hgnc.txt"))
+    assert "200" not in set(df["pmid"].to_list())
+
+
+def test_provenance_prefers_symbol_match(tmp_path):
+    tmp_path = _setup(tmp_path)
+    df = _run(tmp_path, "--hgnc", str(tmp_path / "hgnc.txt"), "--family_stems")
     row = df.filter(pl.col("pmid") == "300")
     assert row["candidate_g2p_ids"].to_list()[0] == ["G2P00003"]
     assert row["candidate_sources"].to_list()[0] == ["symbol_match"]
