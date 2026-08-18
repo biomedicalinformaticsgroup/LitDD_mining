@@ -16,6 +16,48 @@ MATCHER = GeneNameMatcher(
     family_to_symbols={"arginase": {"ARG1", "ARG2"}},
 )
 
+HGNC_DISEASE_NAMED = textwrap.dedent("""\
+    hgnc_id\tsymbol\tname\talias_name\tprev_name
+    HGNC:966\tBBS1\tBardet-Biedl syndrome 1\t\t
+    HGNC:967\tBBS2\tBardet-Biedl syndrome 2\t\t
+    HGNC:968\tBBS4\tBardet-Biedl syndrome 4\t\t
+    HGNC:663\tARG1\targinase 1\t\t
+    HGNC:664\tARG2\targinase 2\t\t
+    """)
+
+
+def _disease_named_matcher(tmp_path, family_stems):
+    p = tmp_path / "hgnc_disease.txt"
+    p.write_text(HGNC_DISEASE_NAMED)
+    return GeneNameMatcher.from_hgnc(str(p), {"BBS1", "BBS2", "BBS4", "ARG1", "ARG2"},
+                                     family_stems=family_stems)
+
+
+def test_disease_named_genes_do_not_match_on_the_disease_alone(tmp_path):
+    """A great many HGNC gene names embed the disease: "Bardet-Biedl syndrome 1".
+
+    Stripping the trailing index turns the stem into a disease label, so every paper
+    mentioning the syndrome matched all eleven BBS genes -- disease matching wearing gene
+    matching's clothes. Neither mode may do this.
+    """
+    for family_stems in (False, True):
+        m = _disease_named_matcher(tmp_path, family_stems)
+        assert m.find("A fifth locus for Bardet-Biedl syndrome maps to 2q31.") == set()
+        # the full name still resolves to exactly one gene
+        assert m.find("A truncating Bardet-Biedl syndrome 1 variant") == {"BBS1"}
+
+
+def test_family_stems_are_off_by_default_and_opt_in(tmp_path):
+    """Full-name matching is precise but misses the case that motivated the dictionary.
+
+    "the two human arginase genes" (PMID 2913054, a real ARG1 paper) contains no numeral, so
+    full-name matching cannot see it; the enzyme-family stem can. The trade-off is explicit
+    rather than buried, and the blocklist keeps the disease-named failure fixed either way.
+    """
+    tiab = "Differential expression of the two human arginase genes in hyperargininemia."
+    assert _disease_named_matcher(tmp_path, family_stems=False).find(tiab) == set()
+    assert _disease_named_matcher(tmp_path, family_stems=True).find(tiab) == {"ARG1", "ARG2"}
+
 
 def test_matches_protein_name_when_symbol_absent():
     """The case this complement exists for (real miss, PMID 2913054)."""

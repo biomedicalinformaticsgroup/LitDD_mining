@@ -23,10 +23,17 @@ Two complementary sources, because they fail differently:
    The dictionary is restricted to the **genes present in the G2P panel** (~2,552), not all of
    HGNC (~43,000), which cuts both the size and the false-match surface substantially.
 
-Head-noun matches are deliberately *ambiguous rather than resolved*: an abstract saying
-"arginase" with no numeral matches the family, so every member (ARG1, ARG2) is emitted as a
-candidate and the cross-encoder/LLM disambiguates. Guessing here would forfeit the recall this
-complement exists to recover, and the candidate set is small enough that expansion is free.
+**Matching is on the FULL name by default.** An earlier version also indexed a "family stem"
+formed by stripping a trailing index from the HGNC name, so that "arginase" would match
+"arginase 1"/"arginase 2". That is wrong in general, because a large share of HGNC gene names
+embed the *disease* rather than the protein: "Bardet-Biedl syndrome 1", "Bardet-Biedl syndrome
+2", ... Stripping the index turns the stem into a disease name, so any paper mentioning
+Bardet-Biedl syndrome matched all eleven BBS genes. That is disease matching wearing gene
+matching's clothes, and it inflates the candidate set with entries the abstract never named.
+Requiring the full name ("Bardet-Biedl syndrome 1" for BBS1) removes the failure.
+
+``family_stems=True`` restores the old behaviour for measurement, and ``FAMILY_STEM_BLOCKLIST``
+holds the disease-ish head nouns that must never form a stem even then.
 
 Provenance is carried per candidate (``symbol_match`` / ``name_match`` / ``fallback``) so the
 precision audit can report each source separately, and a low-precision source can be
@@ -53,9 +60,16 @@ MIN_NAME_LEN = 6
 MAX_NAME_WORDS = 8
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
-# trailing family index: "arginase 1", "filamin B", "collagen type IV alpha 1 chain"
-_FAMILY_SUFFIX_RE = re.compile(
-    r"\s+(?:[0-9]+|[ivx]+|[a-z])$"
+# trailing family index: "arginase 1", "filamin B"
+_FAMILY_SUFFIX_RE = re.compile(r"\s+(?:[0-9]+|[ivx]+|[a-z])$")
+
+# A stem ending in one of these is a disease/phenotype label, not a protein name, so it must
+# never stand in for the gene family -- "Bardet-Biedl syndrome" is not a gene.
+FAMILY_STEM_BLOCKLIST = (
+    "syndrome", "disease", "disorder", "deficiency", "dysplasia", "dystrophy", "anomaly",
+    "atrophy", "malformation", "susceptibility", "type", "complex", "epilepsy", "ataxia",
+    "retardation", "hypoplasia", "aplasia", "neuropathy", "myopathy", "carcinoma", "cancer",
+    "tumor", "tumour", "encephalopathy", "degeneration", "sclerosis", "palsy", "seizures",
 )
 
 
@@ -111,14 +125,16 @@ class GeneNameMatcher:
     """
 
     def __init__(self, name_to_symbols: dict[str, set[str]],
-                 family_to_symbols: dict[str, set[str]]):
+                 family_to_symbols: dict[str, set[str]] | None = None):
+        family_to_symbols = family_to_symbols or {}
         self.name_to_symbols = name_to_symbols
         self.family_to_symbols = family_to_symbols
         self.max_words = max((len(k.split()) for k in name_to_symbols), default=1)
         self.max_words = min(self.max_words, MAX_NAME_WORDS)
 
     @classmethod
-    def from_hgnc(cls, hgnc_path: str, keep_symbols: set[str]) -> "GeneNameMatcher":
+    def from_hgnc(cls, hgnc_path: str, keep_symbols: set[str],
+                  family_stems: bool = False) -> "GeneNameMatcher":
         """Build from `hgnc_complete_set.txt`, keeping only genes in `keep_symbols`.
 
         Download: https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt
@@ -141,8 +157,11 @@ class GeneNameMatcher:
                     if len(key) < MIN_NAME_LEN or len(key.split()) > MAX_NAME_WORDS:
                         continue
                     name_to_symbols[key].add(symbol)
+                    if not family_stems:
+                        continue
                     fam = _FAMILY_SUFFIX_RE.sub("", key)
-                    if fam != key and len(fam) >= MIN_NAME_LEN:
+                    if (fam != key and len(fam) >= MIN_NAME_LEN
+                            and not fam.endswith(FAMILY_STEM_BLOCKLIST)):
                         family_to_symbols[fam].add(symbol)
         return cls(dict(name_to_symbols), dict(family_to_symbols))
 
