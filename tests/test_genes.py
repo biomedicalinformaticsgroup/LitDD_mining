@@ -122,3 +122,44 @@ def test_gene_info_and_pubtator_roundtrip(tmp_path):
     genes = load_pubtator_genes(str(p2g), {"2913054"}, info)
     # BOTH ids in the multi-id cell are kept, not just the first
     assert genes == {"2913054": {"ARG1", "ARG2"}}
+
+
+HGNC_COMPOUND = textwrap.dedent("""\
+    hgnc_id\tsymbol\tname\talias_name\tprev_name
+    HGNC:4556\tGNE\tglucosamine (UDP-N-acetyl)-2-epimerase/N-acetylmannosamine kinase\tbifunctional UDP-N-acetylglucosamine 2-epimerase/N-acetylmannosamine kinase\t
+    HGNC:5172\tHR\tHR lysine demethylase and nuclear receptor corepressor\t\thairless homolog (mouse)
+    HGNC:4193\tGCH1\tGTP cyclohydrolase 1\tGTP cyclohydrolase I\t
+    HGNC:1421\tCDKL5\tcyclin dependent kinase like 5\tserine/threonine kinase 9\t
+    """)
+
+
+def _compound(tmp_path):
+    p = tmp_path / "hgnc_compound.txt"
+    p.write_text(HGNC_COMPOUND)
+    return GeneNameMatcher.from_hgnc(str(p), {"GNE", "HR", "GCH1", "CDKL5"})
+
+
+def test_compound_names_match_the_half_authors_actually_write(tmp_path):
+    """HGNC joins bifunctional enzymes with '/' and tags orthologues parenthetically;
+    papers write one half plainly."""
+    m = _compound(tmp_path)
+    assert m.find("Mutations in the human UDP-N-acetylglucosamine 2-epimerase gene") == {"GNE"}
+    assert m.find("Genomic organization of the human hairless gene (HR)") == {"HR"}
+
+
+def test_roman_and_arabic_index_forms_both_resolve(tmp_path):
+    """"GTP cyclohydrolase I" (alias) and "GTP cyclohydrolase 1" (name) are one gene."""
+    m = _compound(tmp_path)
+    assert m.find("A new GTP-cyclohydrolase I mutation in dopa-responsive dystonia") == {"GCH1"}
+
+
+def test_slash_split_does_not_index_bare_amino_acids(tmp_path):
+    """Splitting "serine/threonine kinase 9" must not index "serine".
+
+    It did, and a title reading "substitution of glycine-661 by serine" then matched every
+    serine/threonine kinase in the panel -- 12 genes from one amino-acid substitution.
+    Slash parts must be at least two words.
+    """
+    m = _compound(tmp_path)
+    assert m.find("Substitution of glycine-661 by serine in the alpha1(I) chains") == set()
+    assert m.find("threonine kinase 9 variants") == {"CDKL5"}

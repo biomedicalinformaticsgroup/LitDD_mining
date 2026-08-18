@@ -132,6 +132,43 @@ class GeneNameMatcher:
         self.max_words = max((len(k.split()) for k in name_to_symbols), default=1)
         self.max_words = min(self.max_words, MAX_NAME_WORDS)
 
+    @staticmethod
+    def _name_variants(name: str) -> list[str]:
+        """Sub-phrases of a compound HGNC name that authors actually write.
+
+        HGNC records bifunctional enzymes as one slash-joined string and tags orthologue
+        provenance in parentheses, neither of which appears verbatim in a paper:
+
+          "bifunctional UDP-N-acetylglucosamine 2-epimerase/N-acetylmannosamine kinase"
+              -> a GNE paper writes only "UDP-N-acetylglucosamine 2-epimerase"
+          "hairless homolog (mouse)"  -> an HR paper writes "the hairless gene"
+
+        So each name also contributes its slash-separated parts, with parenthetical
+        qualifiers and a leading "bifunctional"/"putative"/"probable" removed. These are
+        still full names of a real gene product -- not truncated stems -- so they do not
+        reintroduce the disease-family failure.
+        """
+        base = re.sub(r"\s*\([^)]*\)", " ", name)
+        base = re.sub(r"\b(?:homolog|homologue|ortholog|orthologue)\b", " ", base)
+        whole = " ".join(base.split())
+        out = [whole] if whole else []
+
+        parts = base.split("/")
+        if len(parts) < 2:
+            return out
+        for part in parts:
+            part = re.sub(r"^\s*(?:bifunctional|putative|probable|novel)\s+", "", part.strip(),
+                          flags=re.I)
+            part = " ".join(part.split())
+            # A slash part must be at least two words. Splitting "serine/threonine kinase"
+            # otherwise indexes the bare amino acid "serine", which then matches every
+            # serine/threonine kinase in the panel -- 12 genes fired on "substitution of
+            # glycine-661 by serine". Real compound gene names survive this
+            # ("N-acetylmannosamine kinase", "UDP-N-acetylglucosamine 2-epimerase").
+            if part and len(part.split()) >= 2:
+                out.append(part)
+        return out
+
     @classmethod
     def from_hgnc(cls, hgnc_path: str, keep_symbols: set[str],
                   family_stems: bool = False) -> "GeneNameMatcher":
@@ -152,7 +189,10 @@ class GeneNameMatcher:
                 for field in ("name", "alias_name", "prev_name"):
                     val = (row.get(field) or "").strip().strip('"')
                     raw.extend(v.strip().strip('"') for v in val.split("|") if v.strip())
+                variants = []
                 for name in raw:
+                    variants.extend(cls._name_variants(name))
+                for name in variants:
                     key = " ".join(normalise(name))
                     if len(key) < MIN_NAME_LEN or len(key.split()) > MAX_NAME_WORDS:
                         continue
