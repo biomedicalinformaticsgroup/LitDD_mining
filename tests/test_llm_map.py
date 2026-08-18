@@ -88,3 +88,33 @@ def test_select_shards_for_worker():
     assert llm_map.select_shards_for_worker(paths, 2, 3) == ["s2.parquet", "s5.parquet"]
     # no sharding -> all paths
     assert llm_map.select_shards_for_worker(paths, None, None) == paths
+
+
+def test_row_slice_partitions_every_row_exactly_once():
+    """Every row is claimed by exactly one worker, for any file:worker ratio.
+
+    The deployed run sharded by *file index* with 4 files and 8 workers, so workers 4-7 got
+    nothing and half an 8x A100 allocation idled for six days. Row striping cannot do that.
+    """
+    for n_rows in (0, 1, 7, 100, 195558):
+        for num_shards in (1, 2, 3, 8, 16):
+            claimed = [i for s in range(num_shards)
+                       for i in llm_map.row_slice_for_worker(n_rows, s, num_shards)]
+            assert sorted(claimed) == list(range(n_rows))
+
+
+def test_row_slice_gives_every_worker_work_when_workers_exceed_files():
+    """The exact condition that idled four GPUs: more workers than shard files."""
+    n_rows, num_shards = 1000, 8
+    for s in range(num_shards):
+        assert llm_map.row_slice_for_worker(n_rows, s, num_shards), f"worker {s} got no rows"
+
+
+def test_row_slice_is_balanced():
+    counts = [len(llm_map.row_slice_for_worker(1000, s, 8)) for s in range(8)]
+    assert max(counts) - min(counts) <= 1
+
+
+def test_row_slice_no_sharding_returns_everything():
+    assert llm_map.row_slice_for_worker(5, None, None) == [0, 1, 2, 3, 4]
+    assert llm_map.row_slice_for_worker(5, 0, 1) == [0, 1, 2, 3, 4]
