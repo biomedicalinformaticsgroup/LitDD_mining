@@ -92,7 +92,8 @@ litdd/                  importable package  (pip install -e .)
 ├── pipeline/           the deployment cascade, in stage order:
 │                       download_pubmed → pubmed_to_parquet → dedupe_pmids →
 │                       bert_predict[_vllm] → build_bert_positives →
-│                       crossencode → llm_map → final_data_clean
+│                       gene_candidates → crossencode → llm_map →
+│                       final_data_clean
 ├── training/           canonical model training + CV hyperparameter search
 │                       (see litdd/training/README.md for which script produced
 │                        which released model)
@@ -149,7 +150,20 @@ The pipeline runs in sequence. Working directories for each step are noted.
    - **Requires `transformers >= 4.48`** — ModernBERT support landed in that
      release; earlier versions fail with `KeyError: 'modernbert'`.
 
-3. **Cross-encoder ranking** (`litdd/pipeline/`)
+3. **Gene-candidate selection** (`litdd/pipeline/`)
+   - `gene_candidates.py` — restricts each abstract to the G2P entries whose
+     gene it actually mentions, using PubTator3's `gene2pubtator3` bulk
+     annotations (human-filtered) plus an HGNC descriptive-name dictionary that
+     catches papers naming the gene product but not the symbol.
+   - This is a **gate**, so its recall bounds the pipeline. Measured before
+     adoption: it retains **98.8%** of true (paper, gene) pairs on the
+     independent curated sets, **99.3%** with the name complement
+     (`litdd/evaluation/gene_filter_recall.py`).
+   - It collapses the candidate set from all 2,861 G2P entries to ~2 on average,
+     removing ~1,300× of the cross-encoder's work and making the number of
+     candidates shown to the LLM data-driven rather than a fixed top-5.
+
+4. **Cross-encoder ranking** (`litdd/pipeline/`)
    - `crossencode.py` — scores `(abstract, G2P record)` pairs using
      `models/finetuned_ncbi_medcpt_cross/` and emits the top-5 candidates.
 
@@ -167,12 +181,20 @@ The pipeline runs in sequence. Working directories for each step are noted.
    abstract; the score is later thresholded in `final_data_clean.py`
    (default cutoff 0.9).
 
-4. **LLM mapping** (`litdd/pipeline/`)
-   - `llm_map.py` — runs `DeepSeek-R1-Distill-Qwen-14B` under vLLM to pick the
-     final G2P ID(s) for each abstract from the top-5 candidates.
-     Defaults are deterministic (`temperature=0.0`, `top_p=1.0`).
+5. **LLM mapping** (`litdd/pipeline/`)
+   - `llm_map.py` — runs the adjudication LLM under vLLM to pick the final
+     G2P ID(s) for each abstract from its candidates. Defaults are deterministic
+     (`temperature=0.0`, `top_p=1.0`) so the deployed map is reproducible from
+     the same inputs.
+   - The number of candidates is **data-driven** — whatever the gene gate
+     selected — rather than a fixed five; the prompt states the actual count and
+     numbers the candidates. `--max_candidates 5` reproduces the original
+     fixed-top-5 behaviour for comparison.
+   - Work is split across workers by **row**, so any number of workers can share
+     any number of shard files, and the stage **resumes** from its checkpoint
+     rather than restarting a shard from the beginning.
 
-5. **Final clean / dataset assembly** (`litdd/pipeline/`)
+6. **Final clean / dataset assembly** (`litdd/pipeline/`)
    - `final_data_clean.py` filters `(PMID, G2P_ID)` pairs by
      (a) the `top5_cross` score, (b) presence in the G2P CSV (no LLM
      hallucinations), and (c) gene-symbol overlap with PubTator's GNorm2
@@ -184,7 +206,7 @@ The pipeline runs in sequence. Working directories for each step are noted.
      gene-mention check can use fresh per-abstract annotations (and avoid the
      bulk file's coverage gaps) — `--gene2pubtator pubtator_api_genes.tsv.gz`.
 
-6. **HPO phenotype annotation** (`litdd/hpo/`)
+7. **HPO phenotype annotation** (`litdd/hpo/`)
    - `run_cadmus.py` — fetch full text for the mapped PMIDs via
      [cadmus](https://github.com/biomedicalinformaticsgroup/cadmus). The full
      text itself is **not** redistributed here (publisher permissions); this
@@ -194,7 +216,7 @@ The pipeline runs in sequence. Working directories for each step are noted.
      from `hp.obo` once with `--build_index`), emitting weighted (frequency-
      preserving) and unweighted HPO profiles per G2P disease.
 
-7. **Visualisation** (`litdd/viz/`)
+8. **Visualisation** (`litdd/viz/`)
    - `ce_tsne.py` — UMAP (cuML where available, else CPU `umap-learn`) + HDBSCAN
      clustering of the cross-encoder embeddings → 2D coords + cluster labels.
    - `datamap_plot.py` — MONDO-labelled `datamapplot` static figure and

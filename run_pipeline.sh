@@ -181,10 +181,21 @@ Next steps for end-to-end PubMed inference (multi-day on multi-A100; uncomment i
     # python litdd/pipeline/bert_predict_vllm.py --model "$BERT_BEST_DIR" \
     #     --input_dir "$PUBMED_DIR/parquet_download_files" --shard $i --num_shards 8
     # python litdd/pipeline/build_bert_positives.py
-    # # --num_shards 32 so 8 workers all get work and preemption costs <=1/32 of the stage
-    # python litdd/pipeline/crossencode.py --g2p_csv "$G2P_CSV" --shard $i --num_shards 32
+    # # NEW: restrict each abstract to the G2P entries whose gene it mentions. Retains 98.8%
+    # # of true pairs on the external curated sets (99.3% with --hgnc) and cuts the pairs the
+    # # cross-encoder must score by ~3,600x.
+    # python litdd/pipeline/gene_candidates.py \
+    #     --input_parquet data/pubmed_bert_positive.parquet \
+    #     --g2p_csv "$G2P_CSV" --gene2pubtator data/gene2pubtator3 \
+    #     --gene_info data/human_gene_info.gz \
+    #     --hgnc data/reference/hgnc_complete_set.txt \
+    #     --out_parquet data/bert_positive_candidates.parquet
+    # # Candidate-only scoring; no --top_k means data-driven k (R3.5).
+    # python litdd/pipeline/crossencode.py --candidates_parquet data/bert_positive_candidates.parquet \
+    #     --g2p_csv "$G2P_CSV" --shard $i --num_shards 8
     # python litdd/pipeline/llm_map.py --shards_dir crossencoded_shards \
-    #     --llm_model openai/gpt-oss-20b --shard_index $i --num_shards 8
+    #     --llm_model openai/gpt-oss-20b --shard_index $i --num_shards 8 \
+    #     --temperature 0.0 --top_p 1.0 --save_every 50000
     # python litdd/pipeline/final_data_clean.py \
     #     --llm_file <pubmed_..._llm.parquet> \
     #     --g2p_file "$G2P_CSV" \
