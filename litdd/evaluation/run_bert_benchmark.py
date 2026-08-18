@@ -84,6 +84,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--weight_decay", type=float, default=0.3)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--skip_existing", action="store_true")
+    p.add_argument("--external_csv", default=None,
+                   help="Truth corpus (pmid, tiab, source[, gene]) to score for external "
+                        "recall. Every baseline gets the same corpus, so Table 1's F1 "
+                        "comparison gains the generalisation comparison it currently lacks.")
+    p.add_argument("--external_scope", choices=["raw", "heldout_gene_fold"], default="raw",
+                   help="'raw' scores every row -- the unconditioned figure. "
+                        "'heldout_gene_fold' restricts to the 10%% gene fold held out of "
+                        "training, which is the basis of the previously reported 98.5%% and "
+                        "is NOT comparable to 'raw'.")
+    p.add_argument("--external_threshold", type=float, default=0.5)
     return p.parse_args()
 
 
@@ -97,7 +107,7 @@ def load_existing(out_csv: str) -> set[str]:
 def append_row(out_csv: str, row: dict) -> None:
     is_new = not os.path.exists(out_csv)
     with open(out_csv, "a", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["model", "precision", "recall", "f1"])
+        w = csv.DictWriter(f, fieldnames=list(row), extrasaction="ignore")
         if is_new:
             w.writeheader()
         w.writerow(row)
@@ -179,15 +189,65 @@ def fine_tune_and_eval(model_name: str, hp: dict, args, ds_train, ds_test) -> di
     trainer.train()
     test_metrics = trainer.evaluate(tok_test)
 
-    return {
+    row = {
         "model": model_name,
         "precision": round(float(test_metrics["eval_precision"]), 6),
         "recall": round(float(test_metrics["eval_recall"]), 6),
         "f1": round(float(test_metrics["eval_f1"]), 6),
     }
+    if getattr(args, "external_csv", None):
+        row.update(external_recall(model, tokenizer, args.external_csv,
+                                   args.external_scope, args.external_threshold))
+    return row
 
 
-def evaluate_only(model_name: str, label: str, ds_test) -> dict:
+def _b10(gene: str) -> int:
+    """Stable 10-way gene fold (matches finetune_seeds.py's held-out definition)."""
+    import hashlib
+    return int(hashlib.md5(str(gene).encode()).hexdigest(), 16) % 10
+
+
+def external_recall(model, tokenizer, external_csv: str, scope: str,
+                    threshold: float, max_length: int = 8192) -> dict:
+    """Recall on an external truth corpus, per source and overall.
+
+    Reported alongside test F1 because a screen can look strong on a held-out split of its
+    own annotation distribution and still generalise poorly to independently curated
+    literature -- which is the concern R3.4 is about. Baselines were previously compared on
+    test F1 only.
+    """
+    import numpy as np
+    import pandas as pd
+    import torch
+
+    ext = pd.read_csv(external_csv, dtype=str).drop_duplicates("pmid")
+    if scope == "heldout_gene_fold":
+        if "gene" not in ext.columns:
+            raise SystemExit("--external_scope heldout_gene_fold needs a 'gene' column")
+        gb = ext.groupby("pmid")["gene"].apply(lambda gs: {_b10(g) for g in gs})
+        ext = ext[ext["pmid"].map(gb).map(lambda f: f == {0})].reset_index(drop=True)
+    texts = ext["tiab"].fillna("").tolist()
+
+    model.eval()
+    probs = []
+    with torch.no_grad():
+        for i in range(0, len(texts), 64):
+            enc = tokenizer(texts[i:i + 64], truncation=True, max_length=max_length,
+                            padding=True, return_tensors="pt").to(model.device)
+            probs.extend(torch.softmax(model(**enc).logits, -1)[:, 1].float().cpu().tolist())
+    probs = np.asarray(probs)
+
+    out = {"external_scope": scope, "external_n": len(ext),
+           "external_recall_all": round(float((probs >= threshold).mean()), 4)}
+    if "source" in ext.columns:
+        for src, m in ext.groupby("source").groups.items():
+            idx = ext.index.get_indexer(m)
+            out[f"external_recall_{src}"] = round(float((probs[idx] >= threshold).mean()), 4)
+    return out
+
+
+def evaluate_only(model_name: str, label: str, ds_test, external_csv=None,
+                  external_scope="raw", external_threshold=0.5) -> dict:
     print(f"\n=== Eval only: {label} ({model_name}) ===", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name)
@@ -200,12 +260,16 @@ def evaluate_only(model_name: str, label: str, ds_test) -> dict:
         compute_metrics=make_compute_metrics(),
     )
     metrics = trainer.evaluate(tok_test)
-    return {
+    row = {
         "model": label,
         "precision": round(float(metrics["eval_precision"]), 6),
         "recall": round(float(metrics["eval_recall"]), 6),
         "f1": round(float(metrics["eval_f1"]), 6),
     }
+    if external_csv:
+        row.update(external_recall(model, tokenizer, external_csv, external_scope,
+                                   external_threshold))
+    return row
 
 
 def shared_hps(args) -> dict | None:
@@ -228,7 +292,10 @@ def main() -> int:
     if args.litdd_model_path:
         label = "LitDD-BERT (fine-tuned)"
         if label not in existing:
-            row = evaluate_only(args.litdd_model_path, label, ds_test)
+            row = evaluate_only(args.litdd_model_path, label, ds_test,
+                                external_csv=args.external_csv,
+                                external_scope=args.external_scope,
+                                external_threshold=args.external_threshold)
             append_row(args.out_csv, row)
             print("->", row)
 
