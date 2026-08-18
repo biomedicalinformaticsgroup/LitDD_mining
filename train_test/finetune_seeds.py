@@ -17,6 +17,9 @@ import hashlib
 import numpy as np
 import pandas as pd
 
+# ModernBERT context is 8,192. The previous 512 cap was inherited from the BERT-large
+# base and truncated ~1% of abstracts; keep train and inference lengths equal.
+MAX_LENGTH = 8192
 MODEL = "thomas-sounack/BioClinical-ModernBERT-large"
 HP = dict(epochs=5, bs=32, lr=3e-5, wd=0.1)  # CV-selected on ds_hirecall_train
 
@@ -45,8 +48,8 @@ def train_once(ds_train, ds_test, tokenizer, seed, out_dir):
     )
     set_seed(seed)  # BEFORE model init so the classification-head init varies with the seed
     model = AutoModelForSequenceClassification.from_pretrained(MODEL, num_labels=2)
-    tt = ds_train.map(lambda b: tokenizer(b["tiab"], truncation=True, max_length=512), batched=True)
-    te = ds_test.map(lambda b: tokenizer(b["tiab"], truncation=True, max_length=512), batched=True)
+    tt = ds_train.map(lambda b: tokenizer(b["tiab"], truncation=True, max_length=MAX_LENGTH), batched=True)
+    te = ds_test.map(lambda b: tokenizer(b["tiab"], truncation=True, max_length=MAX_LENGTH), batched=True)
     args = TrainingArguments(output_dir=out_dir, num_train_epochs=HP["epochs"], seed=seed, data_seed=seed,
         per_device_train_batch_size=HP["bs"], per_device_eval_batch_size=HP["bs"], learning_rate=HP["lr"],
         weight_decay=HP["wd"], logging_steps=300, report_to="none", save_strategy="no", bf16=torch.cuda.is_available())
@@ -62,7 +65,7 @@ def score_proba(model, tokenizer, texts):
     model.eval()
     out = []
     for i in range(0, len(texts), 64):
-        enc = tokenizer(list(texts[i:i + 64]), truncation=True, max_length=512,
+        enc = tokenizer(list(texts[i:i + 64]), truncation=True, max_length=MAX_LENGTH,
                         padding=True, return_tensors="pt").to(model.device)
         with torch.no_grad():
             out += torch.softmax(model(**enc).logits, dim=-1)[:, 1].cpu().tolist()

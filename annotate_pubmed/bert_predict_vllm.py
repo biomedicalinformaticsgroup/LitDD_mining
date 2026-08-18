@@ -27,7 +27,11 @@ DEFAULT_PROCESSED_DIR = "data/bert_processed"
 
 ROW_BATCH_SIZE = 8192     # rows pulled from streaming dataset at a time (CPU-side)
 PRED_BATCH_SIZE = 1024    # how many strings to send to vLLM per call (tune per GPU)
-MAX_LENGTH = 512          # truncate at this length inside vLLM
+# The screen is ModernBERT: 8,192-token context. The old 512 cap was a relic of the
+# BERT-large base it replaced and truncated ~1% of abstracts (observed max ~800 tokens),
+# so in practice this now truncates nothing. vLLM/ModernBERT unpad, so a larger cap costs
+# no throughput on short sequences.
+MAX_LENGTH = 8192
 PARQUET_COMPRESSION = "zstd"  # "snappy" for faster IO, larger files
 SKIP_IF_EXISTS = True
 

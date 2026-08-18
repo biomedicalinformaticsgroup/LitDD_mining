@@ -32,6 +32,9 @@ from transformers import (
     TrainingArguments,
 )
 
+# ModernBERT context is 8,192. The previous 512 cap was inherited from the BERT-large
+# base and truncated ~1% of abstracts; keep train and inference lengths equal.
+MAX_LENGTH = 8192
 if torch.cuda.is_available():
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
@@ -66,7 +69,7 @@ def main(args):
     tokenizer = AutoTokenizer.from_pretrained(args.input_model)
 
     def preprocess(examples):
-        return tokenizer(examples["tiab"], truncation=True, max_length=512)
+        return tokenizer(examples["tiab"], truncation=True, max_length=MAX_LENGTH)
 
     keep = {"tiab", "label"}
 

@@ -30,7 +30,11 @@ DEFAULT_PROCESSED_DIR = "data/bert_processed"
 
 ROW_BATCH_SIZE = 8192     # CPU-side batch (streaming)
 PRED_BATCH_SIZE = 32      # GPU batch size
-MAX_LENGTH = 512
+# The screen is ModernBERT: 8,192-token context. The old 512 cap was a relic of the
+# BERT-large base it replaced and truncated ~1% of abstracts (observed max ~800 tokens),
+# so in practice this now truncates nothing. vLLM/ModernBERT unpad, so a larger cap costs
+# no throughput on short sequences.
+MAX_LENGTH = 8192
 PARQUET_COMPRESSION = "zstd"  # change to "snappy" for faster IO (bigger files)
 SKIP_IF_EXISTS = True
 
@@ -70,7 +74,8 @@ def make_tiab(x: Dict[str, Any]) -> Dict[str, Any]:
     return x
 
 @torch.inference_mode()
-def predict_batch(tokenizer, model, device, texts: List[str], pred_bs: int = PRED_BATCH_SIZE) -> List[int]:
+def predict_batch(tokenizer, model, device, texts: List[str], pred_bs: int = PRED_BATCH_SIZE,
+                  max_length: int = MAX_LENGTH) -> List[int]:
     preds: List[int] = []
     amp_dtype = torch.bfloat16 if (device.startswith("cuda") and torch.cuda.is_bf16_supported()) else torch.float16
     for i in range(0, len(texts), pred_bs):
@@ -79,7 +84,7 @@ def predict_batch(tokenizer, model, device, texts: List[str], pred_bs: int = PRE
             chunk,
             padding=True,
             truncation=True,
-            max_length=MAX_LENGTH,
+            max_length=max_length,
             return_tensors="pt",
         )
         for k in enc:
@@ -136,6 +141,7 @@ def process_one_parquet(
     tokenizer,
     model,
     device: str,
+    max_length: int = MAX_LENGTH,
 ) -> bool:
     os.makedirs(out_dir, exist_ok=True)
     base = os.path.basename(parquet_path)
@@ -173,7 +179,7 @@ def process_one_parquet(
                 texts = batch.get("tiab", [])
                 if not texts:
                     continue
-                preds = predict_batch(tokenizer, model, device, texts)
+                preds = predict_batch(tokenizer, model, device, texts, max_length=max_length)
                 table = table_from_batch_with_schema(batch, preds, out_schema)
                 if writer is None:
                     writer = pq.ParquetWriter(out_path, schema=out_schema, compression=PARQUET_COMPRESSION)
@@ -235,6 +241,7 @@ def process_all_parquets(
     device: Optional[str] = None,
     fail_fast: bool = False,
     model_path: str = DEFAULT_MODEL_PATH,
+    max_length: int = MAX_LENGTH,
 ):
     tokenizer, model, device = load_model_and_tokenizer(device, model_path=model_path)
     files = sorted([os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith(".parquet")])
@@ -247,7 +254,8 @@ def process_all_parquets(
     for path in files:
         print(f"[shard {shard}/{num_shards}] Processing: {path}")
         try:
-            ok = process_one_parquet(path, processed_dir, tokenizer, model, device)
+            ok = process_one_parquet(path, processed_dir, tokenizer, model, device,
+                                     max_length=max_length)
             if not ok:
                 if fail_fast:
                     raise RuntimeError(f"Stopping due to error on file: {path}")
@@ -275,6 +283,9 @@ def parse_args():
     ap.add_argument("--num_shards", type=int, default=1, help="Total number of shards")
     ap.add_argument("--device", type=str, default=None, help="Device string, e.g., cuda:0, cuda:1")
     ap.add_argument("--fail_fast", action="store_true", help="Stop on first error instead of skipping the parquet file")
+    ap.add_argument("--max_length", type=int, default=MAX_LENGTH,
+                    help="Max sequence length (default 8192 = ModernBERT context; nothing in "
+                         "PubMed TIABs reaches it, so this effectively disables truncation)")
     return ap.parse_args()
 
 if __name__ == "__main__":
@@ -287,4 +298,5 @@ if __name__ == "__main__":
         device=args.device,
         fail_fast=args.fail_fast,
         model_path=args.model_path,
+        max_length=args.max_length,
     )

@@ -105,9 +105,19 @@ The pipeline runs in sequence. Working directories for each step are noted.
    - `get_pmids.sh` — collect PMC OA PMIDs
 
 2. **BERT screening of abstracts** (`annotate_pubmed/`)
-   - `bert_predict.py` (or the vLLM variant `bert_predict_vllm.py`) using the
-     fine-tuned model in `models/precrossencoder_lit_dd_BERT/`.
+   - `bert_predict.py` (or the vLLM variant `bert_predict_vllm.py`) using
+     [`tmy100000001/LitDD_BERT`](https://huggingface.co/tmy100000001/LitDD_BERT),
+     a fine-tune of `thomas-sounack/BioClinical-ModernBERT-large`. Override with
+     `--model_path` / `$LITDD_BERT_MODEL` for a local checkpoint.
+   - Only English records published after 1980 are classified.
+   - **No truncation in practice.** The screen is ModernBERT, so `--max_length`
+     defaults to its full **8,192-token** context. The earlier 512-token cap was a
+     relic of the BERT-large base this model replaced; it truncated ~1% of
+     abstracts (observed maximum ~800 tokens). ModernBERT unpads, so the larger
+     window costs no throughput on short sequences.
    - Writes per-shard parquet to `data/bert_processed/`.
+   - **Requires `transformers >= 4.48`** — ModernBERT support landed in that
+     release; earlier versions fail with `KeyError: 'modernbert'`.
 
 3. **Cross-encoder ranking** (`annotate_pubmed/`)
    - `crossencode.py` — scores `(abstract, G2P record)` pairs using
@@ -311,15 +321,20 @@ uv run --with numpy --with pandas --with polars --with pyarrow --with pytest pyt
 
 ### Models
 
-Place / keep fine-tuned weights under `models/`:
-- `models/precrossencoder_lit_dd_BERT/` — BERT screening classifier
-- `models/finetuned_ncbi_medcpt_cross/` — cross-encoder
-- `models/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B/` — LLM (download from
-  Hugging Face)
+Both LitDD models are published on Hugging Face and are the defaults — no manual
+download needed:
+
+- [`tmy100000001/LitDD_BERT`](https://huggingface.co/tmy100000001/LitDD_BERT) —
+  screening classifier (`--model_path` / `$LITDD_BERT_MODEL`)
+- [`tmy100000001/LitDD_crossencoder`](https://huggingface.co/tmy100000001/LitDD_crossencoder) —
+  cross-encoder (`--model_path` / `$LITDD_CROSSENCODER`)
+- the adjudication LLM is downloaded from Hugging Face by vLLM at run time
+
+To run fully offline, pre-download them and pass local paths to the same flags.
 
 ### Inputs
 
 The pipeline expects a current G2P developmental disease panel CSV
-(e.g. `train_test/G2P_DD_2025-02-15.csv`) and a PubMed baseline + updatefiles
+(e.g. `train_test/G2P_DD_2026-06-24.csv`) and a PubMed baseline + updatefiles
 download in `annotate_pubmed/data/pubmed_download/`.
 
