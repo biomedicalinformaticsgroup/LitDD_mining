@@ -12,6 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "annotate_pubmed"))
 
+import pytest
+
 import llm_map  # noqa: E402
 
 
@@ -44,10 +46,34 @@ def test_build_llm_prompt_includes_tiab_and_numbered_candidates():
     assert "ANSWER:" in prompt  # output schema present
 
 
-def test_build_llm_prompt_handles_empty_candidates():
-    prompt = llm_map.build_llm_prompt("tiab", [])
-    assert "tiab" in prompt
-    assert "ANSWER:" in prompt
+def test_build_llm_prompt_rejects_empty_candidates():
+    """An empty candidate list must fail loudly, not render a candidate-free prompt.
+
+    Previously this returned a prompt listing no candidates at all; the model would answer
+    NO MATCH every time, which is indistinguishable from a genuine negative. At corpus
+    scale that turns a broken candidate join into a plausible-looking result set.
+    """
+    with pytest.raises(ValueError, match="no candidate threads"):
+        llm_map.build_llm_prompt("tiab", [])
+
+
+def test_build_llm_prompt_states_actual_candidate_count():
+    """The prompt must describe however many candidates it was given, not a fixed 5."""
+    for n in (1, 3, 5, 8):
+        cands = [f"G2P{i:05d} - GENE{i} - disease {i}" for i in range(n)]
+        prompt = llm_map.build_llm_prompt("tiab", cands)
+        assert f"{n} candidate LGMDE" in prompt
+        assert f"numbered 1-{n}" in prompt
+        assert f"Only choose from the {n} candidate(s)" in prompt
+        # every candidate is numbered, so multi-line threads have clear boundaries
+        for i in range(n):
+            assert f"{i + 1}) {cands[i]}" in prompt
+        assert "the 5 candidates" not in prompt
+
+
+def test_build_llm_prompt_singular_for_one_candidate():
+    prompt = llm_map.build_llm_prompt("tiab", ["G2P00001 - GENE - disease"])
+    assert "1 candidate LGMDE thread," in prompt
 
 
 def test_batched_indices():

@@ -13,17 +13,40 @@ import pandas as pd
 
 
 def build_llm_prompt(tiab, candidate_lines):
+    """Render the adjudication prompt for one TIAB and its candidate threads.
+
+    The candidate count is data-driven, not fixed at 5: with the gene-mention filter moved
+    ahead of the cross-encoder, a TIAB gets as many candidates as its mentioned genes
+    support, which may be fewer or more than five. The prompt therefore states the actual
+    number rather than hard-coding "5", and candidates are numbered so that multi-line
+    (contextualised) threads have unambiguous boundaries.
+
+    Raises on an empty candidate list. An empty list would render a prompt with no
+    candidates at all, and the model would dutifully answer NO MATCH -- indistinguishable
+    from a real negative. Silently mapping a whole corpus to NO MATCH is the failure mode
+    this guard exists to prevent, so callers must filter or handle empties explicitly.
+    """
+    candidate_lines = list(candidate_lines)
+    n = len(candidate_lines)
+    if n == 0:
+        raise ValueError(
+            "build_llm_prompt called with no candidate threads. This would produce a "
+            "prompt containing zero candidates and an unconditional 'NO MATCH' answer. "
+            "Filter these rows out upstream, or record them as no-candidate rather than "
+            "sending them to the LLM."
+        )
+    plural = "thread" if n == 1 else "threads"
     return (
             f"""System/Developer Instruction:
         You are an expert in genetic disease, and mapping a title+abstract (TIAB) to one or more specific G2P LGMDE threads. You will receive:
         - A TIAB
-        - 5 candidate LGMDE threads (each line includes its G2P ID, gene(s), allelic requirement, inheritance, mechanism, evidence, disease name)
+        - {n} candidate LGMDE {plural}, numbered 1-{n} (each includes its G2P ID, gene(s), allelic requirement, inheritance, mechanism, evidence, disease name)
 
         Goal:
         Return the G2P ID(s) from the provided candidates that best match the TIAB, or NO MATCH if none apply.
 
         Critical constraints:
-        - Only choose from the 5 candidates. Do not invent any other ID.
+        - Only choose from the {n} candidate(s) listed below. Do not invent any other ID.
         - Prefer selecting at least one candidate over NO MATCH unless the TIAB is clearly non-human only, describes somatic disease only, or references no overlapping gene(s) with the candidates.
         - Output exactly one line in the specified schema and nothing else.
 
@@ -118,6 +141,7 @@ def run_llm_over_cross_shards(
     num_shards=None,
     save_every=1000,
     tensor_parallel_size=None,
+    max_candidates=None,
 ):
     """
     - Reads *.parquet from shards_dir
@@ -152,7 +176,13 @@ def run_llm_over_cross_shards(
         df = pd.read_parquet(shard_path)
 
         # Normalize and create list of LGMDE strings (up to 5) for the prompt
-        def to_labels(x):
+        def to_labels(x, max_candidates=max_candidates):
+            """Normalise a top-k cell into a list of candidate label strings.
+
+            max_candidates=None keeps every candidate, which is what the data-driven
+            configuration wants: the number of candidates follows from the genes actually
+            mentioned in the TIAB, so it is not fixed at 5.
+            """
             # Normalize None/NaN
             if x is None or (isinstance(x, float) and pd.isna(x)):
                 return []
@@ -193,7 +223,7 @@ def run_llm_over_cross_shards(
                     lab = item_to_label(it)
                     if lab:
                         labels.append(lab)
-                return labels[:5]
+                return labels if max_candidates is None else labels[:max_candidates]
 
             # If it’s a string, try JSON then literal_eval
             if isinstance(x, str):
@@ -220,20 +250,22 @@ def run_llm_over_cross_shards(
             return []
 
     
-        df["top_5_cross_lgmde"] = df["top5_cross"].apply(to_labels)
+        df["topk_cross_lgmde"] = df["top5_cross"].apply(to_labels)
+        # Legacy alias: existing analyses (cascade_funnel, check_llm_data) read this name.
+        df["top_5_cross_lgmde"] = df["topk_cross_lgmde"]
 
 
         # Build prompts
         df["llm_prompt"] = df.apply(
             lambda row: build_llm_prompt(
                 tiab=row.get("tiab", ""),
-                candidate_lines=row.get("top_5_cross_lgmde", []),
+                candidate_lines=row.get("topk_cross_lgmde", []),
             ),
             axis=1,
         )
 
         # temp just to check working
-        print("Sample candidates:", df["top_5_cross_lgmde"].iloc[0] if len(df) else [])
+        print("Sample candidates:", df["topk_cross_lgmde"].iloc[0] if len(df) else [])
         print("Prompt preview:\n", df["llm_prompt"].iloc[0][:800])
 
         N = len(df)
@@ -288,6 +320,10 @@ def parse_args():
     p.add_argument("--num_shards", type=int, default=None)
     p.add_argument("--save_every", type=int, default=1000)
     p.add_argument("--tensor_parallel_size", type=int, default=None)
+    p.add_argument("--max_candidates", type=int, default=None,
+                   help="Cap on candidates shown to the LLM. Default None = no cap: the count "
+                        "follows from the upstream candidate set (data-driven k). Set to 5 to "
+                        "reproduce the original fixed top-5 behaviour.")
     return p.parse_args()
 
 
@@ -305,4 +341,5 @@ if __name__ == "__main__":
         num_shards=args.num_shards,
         save_every=args.save_every,
         tensor_parallel_size=args.tensor_parallel_size,
+        max_candidates=args.max_candidates,
     )

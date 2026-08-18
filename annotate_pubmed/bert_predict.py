@@ -23,7 +23,7 @@ if torch.cuda.is_available():
 
 # Released LitDD screen (a BioClinical-ModernBERT-large fine-tune). Override with
 # --model_path for a local checkpoint. NOTE: loading it needs transformers >= 4.48.
-DEFAULT_MODEL_PATH = os.environ.get("LITDD_BERT_MODEL", "<HF-URL>")
+DEFAULT_MODEL_PATH = os.environ.get("LITDD_BERT_MODEL", "tmy100000001/LitDD_BERT")
 
 DEFAULT_INPUT_DIR = "data/pubmed_download/parquet_download_files"
 DEFAULT_PROCESSED_DIR = "data/bert_processed"
