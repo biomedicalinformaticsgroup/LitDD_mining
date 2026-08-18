@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
         default="data/annotated_pmid.csv",
         help="Input CSV with at least 'g2p_lgmde' and 'label' columns; ideally also 'tiab' or 'pmid'.",
     )
-    p.add_argument("--out_dir", default="train_test", help="Directory to write ds_*/ subdirs.")
+    p.add_argument("--out_dir", default="data", help="Directory to write ds_*/ subdirs.")
     p.add_argument("--test_size", type=float, default=0.20, help="Test fraction.")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument(

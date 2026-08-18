@@ -59,9 +59,9 @@ DEFAULT_BASELINES = [
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--data_dir", default="train_test",
+    p.add_argument("--data_dir", default="data",
                    help="Directory containing ds_bert_train and ds_test.")
-    p.add_argument("--out_csv", default="benchmarking/bert_results.csv")
+    p.add_argument("--out_csv", default="results/bert_results.csv")
     p.add_argument("--models", nargs="+", default=None,
                    help="Override baseline list.")
     p.add_argument("--litdd_model_path", default=None,
@@ -285,7 +285,10 @@ def shared_hps(args) -> dict | None:
 
 def main() -> int:
     args = parse_args()
-    ds_train = load_from_disk(os.path.join(args.data_dir, "ds_bert_train"))
+    # ds_bert_train is only needed to fine-tune baselines; --skip_baselines must not
+    # require training data it never touches.
+    ds_train = None if args.skip_baselines else load_from_disk(
+        os.path.join(args.data_dir, "ds_bert_train"))
     ds_test = load_from_disk(os.path.join(args.data_dir, "ds_test"))
 
     existing = load_existing(args.out_csv) if args.skip_existing else set()

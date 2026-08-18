@@ -38,8 +38,8 @@ DEFAULT_MODELS = [
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--data_dir", default="train_test")
-    p.add_argument("--out_csv", default="benchmarking/cv_results.csv")
+    p.add_argument("--data_dir", default="data")
+    p.add_argument("--out_csv", default="results/cv_results.csv")
     p.add_argument("--models", nargs="+", default=None,
                    help="Model paths/IDs. Include the fine-tuned LitDD cross-encoder path here.")
     p.add_argument("--k_values", type=int, nargs="+", default=[1, 3, 5, 7, 10],

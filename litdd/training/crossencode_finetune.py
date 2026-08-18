@@ -107,7 +107,7 @@ def finetune_crossencoder(args) -> None:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--data_dir", default="train_test", help="Directory containing the ds_* subdirs.")
+    p.add_argument("--data_dir", default="data", help="Directory containing the ds_* subdirs.")
     p.add_argument("--hard_negatives_subdir", default="hard_negatives_dataset")
     p.add_argument("--test_subdir", default="ds_test")
     p.add_argument("--input_model", default="ncbi/MedCPT-Cross-Encoder")
