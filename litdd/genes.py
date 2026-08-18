@@ -40,6 +40,13 @@ from collections import defaultdict
 
 GENE_INFO_TAXID_HUMAN = "9606"
 
+
+def _open_text(path: str):
+    """Open a possibly-gzipped text file. The PubTator bulk dumps ship both ways."""
+    with open(path, "rb") as probe:
+        gzipped = probe.read(2) == b"\x1f\x8b"
+    return gzip.open(path, "rt", encoding="utf-8") if gzipped else open(path, encoding="utf-8")
+
 # Names shorter than this are not used, even from HGNC: single short words are the ambiguous
 # case the name dictionary is specifically avoiding.
 MIN_NAME_LEN = 6
@@ -60,7 +67,7 @@ def normalise(text: str) -> list[str]:
 def load_gene_info(path: str) -> dict[str, str]:
     """NCBI GeneID (str) -> canonical Symbol, restricted to human (tax_id 9606)."""
     mp: dict[str, str] = {}
-    with gzip.open(path, "rt", encoding="utf-8") as f:
+    with _open_text(path) as f:
         header = f.readline().rstrip("\n").lstrip("#").split("\t")
         i_tax, i_gid, i_sym = (header.index(c) for c in ("tax_id", "GeneID", "Symbol"))
         for line in f:
@@ -81,7 +88,7 @@ def load_pubtator_genes(
     two genes and dropping the second silently loses candidates.
     """
     out: dict[str, set[str]] = defaultdict(set)
-    with gzip.open(path, "rt", encoding="utf-8") as f:
+    with _open_text(path) as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
             if len(parts) < 3:
@@ -120,8 +127,7 @@ class GeneNameMatcher:
 
         name_to_symbols: dict[str, set[str]] = defaultdict(set)
         family_to_symbols: dict[str, set[str]] = defaultdict(set)
-        opener = gzip.open if hgnc_path.endswith(".gz") else open
-        with opener(hgnc_path, "rt", encoding="utf-8", newline="") as f:
+        with _open_text(hgnc_path) as f:
             for row in _csv.DictReader(f, delimiter="\t"):
                 symbol = (row.get("symbol") or "").strip()
                 if not symbol or symbol not in keep_symbols:

@@ -87,3 +87,6 @@ CITATION.cff
 # Fabian's LLM-stage repo, cloned in-tree for integration work.
 # Separate git repo with its own history — never commit it into LitDD.
 upgraded-octo-happiness/
+
+# Reference data downloaded at setup (see litdd/genes.py for URLs)
+data/reference/
