@@ -13,7 +13,7 @@ gene-fold split so training and evaluation never share a gene:
 
 A recall lift on the held-out-fold papers after adding the train-fold papers to training is
 generalisation of the register to unseen genes, not memorisation. Output feeds
-train_test/finetune_external_recall.py.
+litdd/training/finetune_external_recall.py.
 """
 from __future__ import annotations
 

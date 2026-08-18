@@ -20,21 +20,21 @@ could not retrieve (BERT filters `pubdate > 1980`, so `--min_year 1981`).
 ## Run
 ```bash
 REF=/path/to/clean_pipeline ; CD=/path/to/comparison_data
-uv run python benchmarking/external_recall/build_truthsets.py \
-  --ddg2p "$REF/annotate_pubmed/data/G2P_DD_2025-08-04.csv" \
+uv run python litdd/evaluation/external_recall/build_truthsets.py \
+  --ddg2p "$REF/litdd/pipeline/data/G2P_DD_2025-08-04.csv" \
   --mondo_backfill revision/G2P_DD_2026-06-24.csv \
   --hpoa "$CD/phenotype.hpoa" \
   --clingen_exports revision/clingen/clingen_csv_exports \
   --mondo_json revision/mondo.json \
-  --exclude_pmids "$REF/train_test/annotated_tiab.csv"
+  --exclude_pmids "$REF/litdd/training/annotated_tiab.csv"
 
-uv run python benchmarking/external_recall/fetch_pmid_meta.py \
+uv run python litdd/evaluation/external_recall/fetch_pmid_meta.py \
   --pmids revision/external_recall/bert_negative_pmids.txt \
   --out revision/external_recall/bert_negative_meta.csv     # BERT-negative truth PMIDs
 
-uv run python benchmarking/external_recall/measure_recall.py \
-  --litdd_map annotate_pubmed/ddg2p_pubmed_map.csv \
-  --complete_df "$REF/annotate_pubmed/data/pipeline_df_complete.parquet" \
+uv run python litdd/evaluation/external_recall/measure_recall.py \
+  --litdd_map litdd/pipeline/ddg2p_pubmed_map.csv \
+  --complete_df "$REF/litdd/pipeline/data/pipeline_df_complete.parquet" \
   --pmid_years revision/external_recall/bert_negative_meta.csv --min_year 1981
 ```
 `mondo.json` is the MONDO obographs export (`purl.obolibrary.org/obo/mondo.json`); not

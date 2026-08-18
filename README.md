@@ -60,14 +60,14 @@ uv pip install -r requirements.txt
 
 Dependency versions are pinned in `requirements.txt`; a conda `environment.yml`
 mirroring the same versions is also provided. Run scripts with `uv run`
-(e.g. `uv run python annotate_pubmed/crossencode.py --help`) or after activating
+(e.g. `uv run python litdd/pipeline/crossencode.py --help`) or after activating
 the venv.
 
 Typical install time on a normal desktop computer: **15–30 minutes**, dominated
 by the PyTorch and vLLM downloads. RAPIDS cuML (optional, used by the GPU
 visualisation path) is installed in a **separate** conda environment (Python 3.10,
 RAPIDS 24.x) per the official RAPIDS instructions — it is incompatible with the
-pinned versions here; `visualisation/ce_tsne.py` falls back to CPU `umap-learn`.
+pinned versions here; `litdd/viz/ce_tsne.py` falls back to CPU `umap-learn`.
 
 ### Containers
 
@@ -75,7 +75,7 @@ For HPC, build the Apptainer/Singularity image (or use the Dockerfile):
 
 ```bash
 apptainer build litdd.sif containers/litdd.def
-apptainer exec --nv litdd.sif python annotate_pubmed/bert_predict_vllm.py --help
+apptainer exec --nv litdd.sif python litdd/pipeline/bert_predict_vllm.py --help
 ```
 
 ### Reproducibility / compute
@@ -84,6 +84,36 @@ The PubMed-scale run is **single-node, multi-GPU** (vLLM tensor parallelism +
 per-shard scripts), not a distributed cluster job. Continuous integration
 (`.github/workflows/ci.yml`) runs ruff lint and the CPU unit tests via uv on
 every push.
+
+## Repository layout
+
+```
+litdd/                  importable package  (pip install -e .)
+├── pipeline/           the deployment cascade, in stage order:
+│                       download_pubmed → pubmed_to_parquet → dedupe_pmids →
+│                       bert_predict[_vllm] → build_bert_positives →
+│                       crossencode → llm_map → final_data_clean
+├── training/           canonical model training + CV hyperparameter search
+│                       (see litdd/training/README.md for which script produced
+│                        which released model)
+├── evaluation/         benchmarks, external-recall harness, precision audit
+├── hpo/                downstream HPO extraction from full text
+└── viz/                figures
+experiments/            revision-era ablations — NOT on the release path
+data/                   annotation inputs; training datasets are written here
+results/                published output maps
+demo/                   CPU smoke test (`./run_pipeline.sh --demo`)
+tests/                  CPU-only unit tests
+containers/             Apptainer definition + Dockerfile
+run_pipeline.sh         end-to-end runner (`--demo` | `--full`)
+```
+
+Every stage is a standalone CLI with `--help`. The package is importable so tests and
+cross-stage imports work without `sys.path` manipulation:
+
+```bash
+pip install -e .
+```
 
 ## Demo
 
@@ -99,12 +129,12 @@ To reproduce results on suitable hardware, see *Instructions for use* below.
 
 The pipeline runs in sequence. Working directories for each step are noted.
 
-1. **Download PubMed baseline + daily updates** (`annotate_pubmed/`)
+1. **Download PubMed baseline + daily updates** (`litdd/pipeline/`)
    - `download_pubmed.py` — fetch PubMed XML
    - `pubmed_to_parquet.py` — convert to parquet shards
    - `get_pmids.sh` — collect PMC OA PMIDs
 
-2. **BERT screening of abstracts** (`annotate_pubmed/`)
+2. **BERT screening of abstracts** (`litdd/pipeline/`)
    - `bert_predict.py` (or the vLLM variant `bert_predict_vllm.py`) using
      [`tmy100000001/LitDD_BERT`](https://huggingface.co/tmy100000001/LitDD_BERT),
      a fine-tune of `thomas-sounack/BioClinical-ModernBERT-large`. Override with
@@ -119,7 +149,7 @@ The pipeline runs in sequence. Working directories for each step are noted.
    - **Requires `transformers >= 4.48`** — ModernBERT support landed in that
      release; earlier versions fail with `KeyError: 'modernbert'`.
 
-3. **Cross-encoder ranking** (`annotate_pubmed/`)
+3. **Cross-encoder ranking** (`litdd/pipeline/`)
    - `crossencode.py` — scores `(abstract, G2P record)` pairs using
      `models/finetuned_ncbi_medcpt_cross/` and emits the top-5 candidates.
 
@@ -137,12 +167,12 @@ The pipeline runs in sequence. Working directories for each step are noted.
    abstract; the score is later thresholded in `final_data_clean.py`
    (default cutoff 0.9).
 
-4. **LLM mapping** (`annotate_pubmed/`)
+4. **LLM mapping** (`litdd/pipeline/`)
    - `llm_map.py` — runs `DeepSeek-R1-Distill-Qwen-14B` under vLLM to pick the
      final G2P ID(s) for each abstract from the top-5 candidates.
      Defaults are deterministic (`temperature=0.0`, `top_p=1.0`).
 
-5. **Final clean / dataset assembly** (`annotate_pubmed/`)
+5. **Final clean / dataset assembly** (`litdd/pipeline/`)
    - `final_data_clean.py` filters `(PMID, G2P_ID)` pairs by
      (a) the `top5_cross` score, (b) presence in the G2P CSV (no LLM
      hallucinations), and (c) gene-symbol overlap with PubTator's GNorm2
@@ -154,7 +184,7 @@ The pipeline runs in sequence. Working directories for each step are noted.
      gene-mention check can use fresh per-abstract annotations (and avoid the
      bulk file's coverage gaps) — `--gene2pubtator pubtator_api_genes.tsv.gz`.
 
-6. **HPO phenotype annotation** (`hpo_annotations/`)
+6. **HPO phenotype annotation** (`litdd/hpo/`)
    - `run_cadmus.py` — fetch full text for the mapped PMIDs via
      [cadmus](https://github.com/biomedicalinformaticsgroup/cadmus). The full
      text itself is **not** redistributed here (publisher permissions); this
@@ -164,7 +194,7 @@ The pipeline runs in sequence. Working directories for each step are noted.
      from `hp.obo` once with `--build_index`), emitting weighted (frequency-
      preserving) and unweighted HPO profiles per G2P disease.
 
-7. **Visualisation** (`visualisation/`)
+7. **Visualisation** (`litdd/viz/`)
    - `ce_tsne.py` — UMAP (cuML where available, else CPU `umap-learn`) + HDBSCAN
      clustering of the cross-encoder embeddings → 2D coords + cluster labels.
    - `datamap_plot.py` — MONDO-labelled `datamapplot` static figure and
@@ -172,12 +202,12 @@ The pipeline runs in sequence. Working directories for each step are noted.
 
 ### Training and evaluation
 
-The training data are in `train_test/annotated_pmid.csv` (columns:
+The training data are in `data/annotated_pmid.csv` (columns:
 `pmid, g2p_lgmde, label`).
 
 #### Train / test split
 
-`train_test/final_traintest_dataset.py` produces an **80 / 20** group-
+`litdd/training/final_traintest_dataset.py` produces an **80 / 20** group-
 stratified split at the PMID-grouping level (so the same PMID/abstract never
 appears in both halves) and writes three HuggingFace `save_to_disk` directories:
 
@@ -190,7 +220,7 @@ appears in both halves) and writes three HuggingFace `save_to_disk` directories:
 Inspect the split sizes without writing files:
 
 ```bash
-python train_test/final_traintest_dataset.py --dry_run
+python litdd/training/final_traintest_dataset.py --dry_run
 ```
 
 **Stricter held-out validation.** `--group_col` selects the leakage-control axis,
@@ -201,8 +231,8 @@ split (which can overestimate when the same gene/disease context appears on both
 sides). The same CV → refit → held-out-test protocol then runs on the chosen split:
 
 ```bash
-python train_test/final_traintest_dataset.py --group_col gene    # gene-held-out
-python train_test/final_traintest_dataset.py --group_col g2p_id   # disease-held-out
+python litdd/training/final_traintest_dataset.py --group_col gene    # gene-held-out
+python litdd/training/final_traintest_dataset.py --group_col g2p_id   # disease-held-out
 ```
 
 #### Methodology — CV-on-train + refit + held-out test
@@ -235,31 +265,31 @@ Both modes execute the same script sequence (defaults assume you run from
 the repo root). The individual commands, in order:
 
 ```bash
-# 1. 80/20 group-stratified split (writes train_test/{ds_bert_train, ds_cross_train, ds_test})
-python train_test/final_traintest_dataset.py --group_col pmid
+# 1. 80/20 group-stratified split (writes litdd/training/{ds_bert_train, ds_cross_train, ds_test})
+python litdd/training/final_traintest_dataset.py --group_col pmid
 
 # 2a. CV hyperparameter search for the BERT classifier (training set only)
-python cross_validation/cv_hp_search_bert.py \
+python litdd/training/cv_hp_search_bert.py \
     --lr_grid 1e-5 3e-5 \
     --wd_grid 0.1 0.3 \
     --epochs_grid 5
-# → writes cross_validation/bert_hp_search.json
+# → writes litdd/training/bert_hp_search.json
 
 # 2b. Refit BERT on the full training set and evaluate once on the test set
-python train_test/bert_finetune.py \
-    --hp_json cross_validation/bert_hp_search.json
+python litdd/training/bert_finetune.py \
+    --hp_json litdd/training/bert_hp_search.json
 
 # 3a. Mine hard negatives on the train split (needs the G2P CSV)
-python train_test/mine_hard_negatives.py \
-    --g2p_csv train_test/G2P_DD_2025-02-15.csv
+python litdd/training/mine_hard_negatives.py \
+    --g2p_csv litdd/training/G2P_DD_2025-02-15.csv
 
 # 3b. CV hyperparameter search for the cross-encoder
-python cross_validation/cv_hp_search_crossencoder.py \
-    --g2p_corpus_csv train_test/G2P_DD_2025-02-15.csv
+python litdd/training/cv_hp_search_crossencoder.py \
+    --g2p_corpus_csv litdd/training/G2P_DD_2025-02-15.csv
 
 # 3c. Refit cross-encoder on the full hard-negatives train, eval once on ds_test
-python train_test/crossencode_finetune.py \
-    --hp_json cross_validation/crossencoder_hp_search.json
+python litdd/training/crossencode_finetune.py \
+    --hp_json litdd/training/crossencoder_hp_search.json
 ```
 
 The CV scripts default to a small grid (BERT: `lr × weight_decay` = 4 combos
@@ -274,7 +304,7 @@ sampled from the real annotated dataset, using tiny CPU-friendly substitutes
 for each of the three models. See [`demo/README.md`](demo/README.md) for
 details and outputs.
 
-#### Baseline benchmarking — `benchmarking/`
+#### Baseline benchmarking — `litdd/evaluation/`
 
 Reviewer note: an earlier draft of `run_bert_benchmark.py` evaluated each
 baseline by loading the pretrained checkpoint with a freshly-initialised
@@ -288,18 +318,18 @@ comparison on a binary classification task.
 
 ```bash
 # Cheapest: re-use the HP set selected for LitDD-BERT for every baseline
-python benchmarking/run_bert_benchmark.py \
-    --hp_json cross_validation/bert_hp_search.json \
+python litdd/evaluation/run_bert_benchmark.py \
+    --hp_json litdd/training/bert_hp_search.json \
     --litdd_model_path lit_dd_BERT_best \
     --skip_existing
 
 # Most rigorous: per-baseline CV HP search (slow — multiplies CV cost by number of baselines)
-python benchmarking/run_bert_benchmark.py \
+python litdd/evaluation/run_bert_benchmark.py \
     --cv_hp_search \
     --litdd_model_path lit_dd_BERT_best
 
 # Cross-encoder top-K reranker comparison
-python benchmarking/run_cross_encoder_benchmark.py \
+python litdd/evaluation/run_cross_encoder_benchmark.py \
     --models path/to/finetuned_ncbi_medcpt_cross ncbi/MedCPT-Cross-Encoder
 ```
 
@@ -335,6 +365,6 @@ To run fully offline, pre-download them and pass local paths to the same flags.
 ### Inputs
 
 The pipeline expects a current G2P developmental disease panel CSV
-(e.g. `train_test/G2P_DD_2026-06-24.csv`) and a PubMed baseline + updatefiles
-download in `annotate_pubmed/data/pubmed_download/`.
+(e.g. `litdd/training/G2P_DD_2026-06-24.csv`) and a PubMed baseline + updatefiles
+download in `litdd/pipeline/data/pubmed_download/`.
 

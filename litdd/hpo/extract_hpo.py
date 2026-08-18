@@ -120,9 +120,9 @@ def g2p_to_hpo_df(ft_df: pd.DataFrame, g2p_col="llm_dis_map") -> pd.DataFrame:
 
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--fulltext_parquet", default="hpo_annotations/final_mappings_fulltext.parquet",
+    ap.add_argument("--fulltext_parquet", default="litdd/hpo/final_mappings_fulltext.parquet",
                     help="Parquet with content_text + llm_dis_map columns (from get_fulltext_df.py)")
-    ap.add_argument("--hp_index", default="hpo_annotations/hp.index", help="FastHPOCR index file")
+    ap.add_argument("--hp_index", default="litdd/hpo/hp.index", help="FastHPOCR index file")
     ap.add_argument("--g2p_file", required=True, help="G2P DD CSV (for disease MIM/MONDO join)")
     ap.add_argument("--out_hpo_parquet", default="final_mappings_hpo.parquet")
     ap.add_argument("--out_g2p_csv", default="g2p_mapped_hpo.csv")

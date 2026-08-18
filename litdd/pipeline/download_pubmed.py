@@ -20,10 +20,10 @@ So:
 Examples
 --------
     # Fresh 2026 corpus
-    python annotate_pubmed/download_pubmed.py --download_dir data/pubmed_download_2026
+    python litdd/pipeline/download_pubmed.py --download_dir data/pubmed_download_2026
 
     # Daily top-up within the same baseline year
-    python annotate_pubmed/download_pubmed.py --download_dir data/pubmed_download_2026 \
+    python litdd/pipeline/download_pubmed.py --download_dir data/pubmed_download_2026 \
         --updates_only
 """
 from __future__ import annotations

@@ -9,7 +9,7 @@ Two candidate pools, and the difference between them is the point:
 * **test pool** (default) — only the ``g2p_lgmde`` values present in ``ds_test``. Cheap,
   but it flatters the score, because deployment never gets a shortlist this small.
 * **full panel** (``--g2p_csv``) — every entry in the DDG2P panel (~2,800), which is what
-  ``annotate_pubmed/crossencode.py`` actually ranks against at inference time. This is the
+  ``litdd/pipeline/crossencode.py`` actually ranks against at inference time. This is the
   number that justifies a deployment ``--top_k``.
 
 Report both: the gap quantifies how much the test-set pool overstates coverage.
@@ -77,8 +77,8 @@ def load_full_panel(g2p_csv: str) -> list[str]:
     Reuses ``build_g2p_lgmde_list`` from the deployment path so the benchmark cannot drift
     from the strings ``crossencode.py`` actually scores.
     """
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir))
-    from annotate_pubmed.crossencode import build_g2p_lgmde_list
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
+    from litdd.pipeline.crossencode import build_g2p_lgmde_list
     return list(build_g2p_lgmde_list(g2p_csv))
 
 

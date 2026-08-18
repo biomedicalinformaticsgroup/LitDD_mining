@@ -4,10 +4,10 @@
 The cross-encoder takes a `(query, candidate)` text pair, joins them with
 ``[SEP]``, and runs a single transformer with a 1-logit classification head.
 ``model.predict`` returns a sigmoid-bounded relevance score in `[0, 1]`,
-which is what downstream ``annotate_pubmed/crossencode.py`` retains as the
+which is what downstream ``litdd/pipeline/crossencode.py`` retains as the
 top-5 score per TIAB.
 
-Methodology (with ``cross_validation/cv_hp_search_crossencoder.py``):
+Methodology (with ``litdd/training/cv_hp_search_crossencoder.py``):
 
   1. Build the 80/20 train/test split (``final_traintest_dataset.py``)
      and mine hard negatives on the train portion (``mine_hard_negatives.py``).
@@ -111,8 +111,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--hard_negatives_subdir", default="hard_negatives_dataset")
     p.add_argument("--test_subdir", default="ds_test")
     p.add_argument("--input_model", default="ncbi/MedCPT-Cross-Encoder")
-    p.add_argument("--output_dir", default="train_test/finetuned_cross_encoders")
-    p.add_argument("--best_model_dir", default="train_test/finetuned_ncbi_medcpt_cross")
+    p.add_argument("--output_dir", default="litdd/training/finetuned_cross_encoders")
+    p.add_argument("--best_model_dir", default="litdd/training/finetuned_ncbi_medcpt_cross")
     p.add_argument("--epochs", type=int, default=2)
     p.add_argument("--train_bs", type=int, default=16)
     p.add_argument("--eval_bs", type=int, default=16)

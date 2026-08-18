@@ -6,7 +6,7 @@ the full GPU run.
 
 ## What the demo does
 
-1. Stratified-samples 100 PMIDs from `train_test/annotated_pmid.csv` (the
+1. Stratified-samples 100 PMIDs from `data/annotated_pmid.csv` (the
    real dataset) into `demo/data/annotated_pmid_demo.csv`.
 2. Stages a 134-row G2P CSV (`demo/data/g2p_demo.csv`) covering every G2P_ID
    referenced in those 100 PMIDs plus 50 unrelated extras.
@@ -19,7 +19,7 @@ the full GPU run.
    - 5-fold (configured to 2 in demo) HP search for the cross-encoder, with
      a 1-combo grid
    - Refit cross-encoder, evaluate once on the demo test
-4. Smoke-tests `annotate_pubmed/final_data_clean.py` on the LLM-output fixture
+4. Smoke-tests `litdd/pipeline/final_data_clean.py` on the LLM-output fixture
    in `tests/fixtures/`.
 
 ## What the demo skips
@@ -75,7 +75,7 @@ demo/
 
 ## Rebuilding demo data
 
-If `train_test/annotated_pmid.csv` changes:
+If `data/annotated_pmid.csv` changes:
 
 ```bash
 python demo/build_demo_data.py

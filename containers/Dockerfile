@@ -2,7 +2,7 @@
 # Same contents as the Apptainer def: CUDA 12.9 runtime + Java + pinned torch/vLLM stack.
 #
 #   docker build -f containers/Dockerfile -t litdd:latest .
-#   docker run --gpus all -it litdd:latest python annotate_pubmed/bert_predict_vllm.py --help
+#   docker run --gpus all -it litdd:latest python litdd/pipeline/bert_predict_vllm.py --help
 FROM nvidia/cuda:12.9.1-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 HF_HOME=/tmp/hf_cache

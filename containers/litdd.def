@@ -5,7 +5,7 @@
 # so the pipeline runs reproducibly on HPC GPUs without installing CUDA/torch by hand.
 #
 #   apptainer build litdd.sif containers/litdd.def
-#   apptainer exec --nv litdd.sif python annotate_pubmed/bert_predict_vllm.py --help
+#   apptainer exec --nv litdd.sif python litdd/pipeline/bert_predict_vllm.py --help
 #       (--nv exposes the host GPUs to the container)
 #
 # Scope: covers the primary training/inference/analysis env. The optional RAPIDS GPU

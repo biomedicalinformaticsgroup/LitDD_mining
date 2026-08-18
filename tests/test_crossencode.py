@@ -1,4 +1,4 @@
-"""Unit tests for the deterministic ranking logic in `annotate_pubmed/crossencode.py`:
+"""Unit tests for the deterministic ranking logic in `litdd/pipeline/crossencode.py`:
 top-5 candidate selection (min-heap update), pair construction, and the G2P LGMDE
 string builder.
 
@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "annotate_pubmed"))
+sys.path.insert(0, str(ROOT / "litdd" / "pipeline"))
 
 import crossencode  # noqa: E402
 

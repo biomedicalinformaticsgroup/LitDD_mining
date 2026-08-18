@@ -20,7 +20,7 @@ import pyarrow.parquet as pq
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "annotate_pubmed" / "final_data_clean.py"
+SCRIPT = ROOT / "litdd" / "pipeline" / "final_data_clean.py"
 FIX = Path(__file__).resolve().parent / "fixtures"
 LLM = FIX / "llm_shard_sample.parquet"
 G2P = FIX / "g2p_sample.csv"

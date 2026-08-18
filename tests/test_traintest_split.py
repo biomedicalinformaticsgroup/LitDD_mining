@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "train_test"))
+sys.path.insert(0, str(ROOT / "litdd" / "training"))
 
 import final_traintest_dataset as ftd  # noqa: E402
 

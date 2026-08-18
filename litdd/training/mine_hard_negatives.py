@@ -32,11 +32,11 @@ def build_g2p_lgmde(g2p: pd.DataFrame) -> pd.Series:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--ds_cross_dir", default="train_test/ds_cross_train",
+    p.add_argument("--ds_cross_dir", default="litdd/training/ds_cross_train",
                    help="HuggingFace save_to_disk directory containing the (tiab, g2p_lgmde, label) train pairs.")
     p.add_argument("--g2p_csv", required=True,
                    help="G2P DD CSV (used to build the candidate-negatives corpus).")
-    p.add_argument("--out_dir", default="train_test/hard_negatives_dataset")
+    p.add_argument("--out_dir", default="litdd/training/hard_negatives_dataset")
     p.add_argument("--embed_model", default="abhinand/MedEmbed-large-v0.1")
     p.add_argument("--num_negatives", type=int, default=5)
     p.add_argument("--range_min", type=int, default=5)

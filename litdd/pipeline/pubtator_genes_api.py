@@ -15,10 +15,10 @@ earlier attempts), an optional NCBI API key, and resume.
 Output (one line per gene mention, tab-separated, matching gene2pubtator3 columns used by
 final_data_clean.load_pubtator_genes):  PMID \t Gene \t <NCBI GeneID> \t <symbol>
 
-    uv run python annotate_pubmed/pubtator_genes_api.py \
+    uv run python litdd/pipeline/pubtator_genes_api.py \
         --pmids pmids.txt --out pubtator_api_genes.tsv.gz
     # then:
-    uv run python annotate_pubmed/final_data_clean.py --gene2pubtator pubtator_api_genes.tsv.gz ...
+    uv run python litdd/pipeline/final_data_clean.py --gene2pubtator pubtator_api_genes.tsv.gz ...
 """
 from __future__ import annotations
 

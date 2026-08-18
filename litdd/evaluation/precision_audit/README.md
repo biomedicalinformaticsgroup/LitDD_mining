@@ -25,25 +25,25 @@ REF=/path/to/clean_pipeline
 
 # 1. Deployed-corpus audit sample (blinded worksheet for annotator A + overlap for B).
 #    --cutoff_year guarantees a post-knowledge-cutoff stratum for the R3.1 check (see below).
-uv run python benchmarking/precision_audit/sample_audit.py \
-    --input "$REF/annotate_pubmed/data/final_tiab_mappings.parquet" \
-    --g2p_file "$REF/annotate_pubmed/data/G2P_DD_2025-08-04.csv" \
+uv run python litdd/evaluation/precision_audit/sample_audit.py \
+    --input "$REF/litdd/pipeline/data/final_tiab_mappings.parquet" \
+    --g2p_file "$REF/litdd/pipeline/data/G2P_DD_2025-08-04.csv" \
     --cutoff_year 2025 --min_post_cutoff 80
 
 # 2. Training-label IAA sample (second annotator re-labels these)
-uv run python benchmarking/precision_audit/sample_trainlabel_iaa.py \
-    --annotated_csv "$REF/train_test/annotated_tiab.csv"
+uv run python litdd/evaluation/precision_audit/sample_trainlabel_iaa.py \
+    --annotated_csv "$REF/litdd/training/annotated_tiab.csv"
 
 # 3. Cascade funnel (+ optional dropped-set worksheet)
-uv run python benchmarking/precision_audit/cascade_funnel.py \
-    --llm_map annotate_pubmed/pubmed_ddg2p_map.csv \
-    --final_map annotate_pubmed/ddg2p_pubmed_map.csv \
-    --bert_positive "$REF/annotate_pubmed/data/pubmed_bert_positive.parquet"
+uv run python litdd/evaluation/precision_audit/cascade_funnel.py \
+    --llm_map litdd/pipeline/pubmed_ddg2p_map.csv \
+    --final_map litdd/pipeline/ddg2p_pubmed_map.csv \
+    --bert_positive "$REF/litdd/pipeline/data/pubmed_bert_positive.parquet"
 
 # --- annotators fill in the worksheets (see below) ---
 
 # 4. Score everything (incl. post-cutoff contamination check, R3.1)
-uv run python benchmarking/precision_audit/score_audit.py --cutoff_year 2025
+uv run python litdd/evaluation/precision_audit/score_audit.py --cutoff_year 2025
 ```
 
 ### LLM knowledge cutoff (R3.1)

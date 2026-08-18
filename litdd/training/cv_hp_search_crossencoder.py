@@ -6,7 +6,7 @@ combination in the grid, fine-tunes a fresh cross-encoder on 4 folds of
 the (anchor=tiab, positive=g2p_lgmde) hard-negatives dataset and scores
 fold AUC / binary-F1 on the 5th. The combination with the highest mean
 fold F1 is written to ``--out_json`` (consumed by
-``train_test/crossencode_finetune.py --hp_json …``).
+``litdd/training/crossencode_finetune.py --hp_json …``).
 
 Hard negatives are mined *inside each fold's train half* so a positive's
 nearest negatives never come from the validation half (no leakage).
@@ -50,7 +50,7 @@ def parse_ints(s: Iterable[str]) -> list[int]:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--train_ds_dir", default="train_test/ds_cross_train",
+    p.add_argument("--train_ds_dir", default="litdd/training/ds_cross_train",
                    help="Pair-level training dataset (tiab, g2p_lgmde, label).")
     p.add_argument("--g2p_corpus_csv", required=True,
                    help="Full G2P corpus CSV (used as candidate negatives during mining).")
@@ -60,7 +60,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--group_col", default="tiab")
     p.add_argument("--n_folds", type=int, default=5)
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--out_json", default="cross_validation/crossencoder_hp_search.json")
+    p.add_argument("--out_json", default="litdd/training/crossencoder_hp_search.json")
 
     # Grid
     p.add_argument("--lr_grid", nargs="+", default=["1e-5", "3e-5"])
@@ -168,7 +168,7 @@ def main() -> int:
     g2p_csv = pd.read_csv(args.g2p_corpus_csv, dtype=str, keep_default_na=False)
     if "g2p_lgmde" not in g2p_csv.columns:
         # Build the LGMDE join string from the canonical G2P columns
-        # (matches train_test/mine_hard_negatives.py).
+        # (matches litdd/training/mine_hard_negatives.py).
         lgmde_cols = [
             "g2p id", "gene symbol", "gene mim", "hgnc id", "previous gene symbols",
             "disease name", "disease mim", "disease MONDO", "allelic requirement",

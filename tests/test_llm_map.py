@@ -1,4 +1,4 @@
-"""Unit tests for the deterministic logic in `annotate_pubmed/llm_map.py`:
+"""Unit tests for the deterministic logic in `litdd/pipeline/llm_map.py`:
 LLM-output parsing, prompt construction, batching and shard selection.
 
 These exercise pure functions only (no vLLM/GPU). Run with
@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "annotate_pubmed"))
+sys.path.insert(0, str(ROOT / "litdd" / "pipeline"))
 
 import pytest
 

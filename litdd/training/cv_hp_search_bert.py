@@ -5,7 +5,7 @@ Operates *only on the training set* — the held-out test set is never loaded
 here. For each (learning_rate, weight_decay, ...) combination in the grid,
 trains a fresh BERT for ``--epochs`` epochs on 4 folds and scores fold-F1 on
 the 5th. The combination with the highest mean fold F1 is written to
-``--out_json`` (consumed downstream by ``train_test/bert_finetune.py
+``--out_json`` (consumed downstream by ``litdd/training/bert_finetune.py
 --hp_json …``).
 
 The grouping column (``--group_col``, default ``tiab``) prevents the same
@@ -51,13 +51,13 @@ def parse_ints(s: Iterable[str]) -> list[int]:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--train_ds_dir", default="train_test/ds_bert_train")
+    p.add_argument("--train_ds_dir", default="litdd/training/ds_bert_train")
     p.add_argument("--input_model", default="answerdotai/ModernBERT-large")
     p.add_argument("--group_col", default="tiab",
                    help="Column to group on for StratifiedGroupKFold (default 'tiab').")
     p.add_argument("--n_folds", type=int, default=5)
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--out_json", default="cross_validation/bert_hp_search.json")
+    p.add_argument("--out_json", default="litdd/training/bert_hp_search.json")
 
     # Grid (each flag accepts multiple values)
     p.add_argument("--lr_grid", nargs="+", default=["1e-5", "3e-5"],

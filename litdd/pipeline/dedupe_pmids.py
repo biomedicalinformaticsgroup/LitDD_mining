@@ -21,7 +21,7 @@ filters against, so the parquet shards themselves stay untouched and re-runnable
 
 Example
 -------
-    python annotate_pubmed/dedupe_pmids.py --download_dir data/pubmed_download_2026
+    python litdd/pipeline/dedupe_pmids.py --download_dir data/pubmed_download_2026
 """
 from __future__ import annotations
 

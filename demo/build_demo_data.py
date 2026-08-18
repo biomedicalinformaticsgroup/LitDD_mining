@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the small demo dataset from train_test/annotated_pmid.csv.
+"""Build the small demo dataset from data/annotated_pmid.csv.
 
 Stratified-samples 100 PMIDs (group-level, preserving the positive-class
 rate of the full annotated dataset) and writes ``demo/data/annotated_pmid_demo.csv``.

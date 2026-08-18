@@ -22,10 +22,10 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 REF = Path(os.environ.get("LITDD_REF_DIR", "reference_data/clean_pipeline"))
-LLM = REF / "annotate_pubmed/data/crossencoded_shards_llm/pubmed_bert_positive_crossencoded_shard0-of-4__llm.parquet"
-G2P = REF / "train_test/G2P_DD_2025-02-15.csv"
-GENE2PUBTATOR = REF / "annotate_pubmed/data/gene2pubtator3"
-GENE_INFO = REF / "annotate_pubmed/data/GNorm2/gene_info"
+LLM = REF / "litdd/pipeline/data/crossencoded_shards_llm/pubmed_bert_positive_crossencoded_shard0-of-4__llm.parquet"
+G2P = REF / "litdd/training/G2P_DD_2025-02-15.csv"
+GENE2PUBTATOR = REF / "litdd/pipeline/data/gene2pubtator3"
+GENE_INFO = REF / "litdd/pipeline/data/GNorm2/gene_info"
 
 OUT = Path(__file__).resolve().parent / "fixtures"
 OUT.mkdir(parents=True, exist_ok=True)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fine-tune the LitDD-BERT classifier and evaluate on the held-out test set.
 
-Methodology (with ``cross_validation/cv_hp_search_bert.py``):
+Methodology (with ``litdd/training/cv_hp_search_bert.py``):
 
   1. Build the 80/20 train/test split with ``final_traintest_dataset.py``.
   2. **Hyperparameter selection** via ``cv_hp_search_bert.py``: 5-fold
@@ -142,8 +142,8 @@ def main(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--train_ds_dir", default="train_test/ds_bert_train")
-    p.add_argument("--test_ds_dir", default="train_test/ds_test")
+    p.add_argument("--train_ds_dir", default="litdd/training/ds_bert_train")
+    p.add_argument("--test_ds_dir", default="litdd/training/ds_test")
     p.add_argument("--input_model", default="answerdotai/ModernBERT-large")
     # Hyperparameter overrides — typically loaded via --hp_json from CV search.
     p.add_argument("--learning_rate", type=float, default=1.736e-5)
@@ -153,8 +153,8 @@ if __name__ == "__main__":
     p.add_argument("--weight_decay", type=float, default=0.3)
     p.add_argument("--hp_json", default=None,
                    help="JSON file with selected HPs (output of cv_hp_search_bert.py).")
-    p.add_argument("--output_dir", default="train_test/bert_finetune_results")
-    p.add_argument("--best_model_dir", default="train_test/lit_dd_BERT_best")
+    p.add_argument("--output_dir", default="litdd/training/bert_finetune_results")
+    p.add_argument("--best_model_dir", default="litdd/training/lit_dd_BERT_best")
     p.add_argument("--seed", type=int, default=42)
     args = p.parse_args()
     main(args)

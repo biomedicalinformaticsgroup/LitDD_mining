@@ -17,7 +17,7 @@ tests the reviewer asks for; a TIAB-level split can overestimate when the same
 gene/disease context appears on both sides.
 
 Hyperparameters are selected via 5-fold ``StratifiedGroupKFold`` cross-
-validation **inside** the train portion (see ``cross_validation/`` scripts).
+validation **inside** the train portion (see ``litdd/training/`` scripts).
 The test set is touched exactly once, after refitting on the full train with
 the selected hyperparameters.
 
@@ -62,7 +62,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument(
         "--annotated_csv",
-        default="train_test/annotated_pmid.csv",
+        default="data/annotated_pmid.csv",
         help="Input CSV with at least 'g2p_lgmde' and 'label' columns; ideally also 'tiab' or 'pmid'.",
     )
     p.add_argument("--out_dir", default="train_test", help="Directory to write ds_*/ subdirs.")

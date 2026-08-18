@@ -68,19 +68,19 @@ if [[ "$MODE" == "demo" ]]; then
     REFIT_EPOCHS=1
 elif [[ "$MODE" == "full" ]]; then
     # ---------------- full configuration ----------------
-    ANNOTATED_CSV="train_test/annotated_pmid.csv"
-    G2P_CSV="${G2P_CSV:-train_test/G2P_DD_2026-06-24.csv}"  # user-supplied, not in repo
-    OUT_DIR="train_test"
+    ANNOTATED_CSV="data/annotated_pmid.csv"
+    G2P_CSV="${G2P_CSV:-litdd/training/G2P_DD_2026-06-24.csv}"  # user-supplied, not in repo
+    OUT_DIR="data"
     BERT_MODEL="${BERT_MODEL:-thomas-sounack/BioClinical-ModernBERT-large}"  # screen fine-tune base
     CROSS_ENCODER_MODEL="ncbi/MedCPT-Cross-Encoder"
     EMBED_MODEL="abhinand/MedEmbed-large-v0.1"
-    BERT_HP_JSON="cross_validation/bert_hp_search.json"
-    CE_HP_JSON="cross_validation/crossencoder_hp_search.json"
-    BERT_BEST_DIR="train_test/lit_dd_BERT_best"
-    CE_BEST_DIR="train_test/finetuned_ncbi_medcpt_cross"
-    HARD_NEG_DIR="train_test/hard_negatives_dataset"
-    BERT_OUT_DIR="train_test/bert_finetune_results"
-    CE_OUT_DIR="train_test/finetuned_cross_encoders"
+    BERT_HP_JSON="litdd/training/bert_hp_search.json"
+    CE_HP_JSON="litdd/training/crossencoder_hp_search.json"
+    BERT_BEST_DIR="litdd/training/lit_dd_BERT_best"
+    CE_BEST_DIR="litdd/training/finetuned_ncbi_medcpt_cross"
+    HARD_NEG_DIR="litdd/training/hard_negatives_dataset"
+    BERT_OUT_DIR="litdd/training/bert_finetune_results"
+    CE_OUT_DIR="litdd/training/finetuned_cross_encoders"
     BERT_GRID=(--lr_grid "1e-5" "3e-5" --wd_grid "0.1" "0.3" --epochs_grid "5")
     CE_GRID=(--lr_grid "1e-5" "3e-5" --epochs_grid "2")
     N_FOLDS=5
@@ -92,13 +92,13 @@ fi
 run() { echo; echo "==> $*"; "$@"; }
 
 # 1. Build the train/test split
-run $PYTHON train_test/final_traintest_dataset.py \
+run $PYTHON litdd/training/final_traintest_dataset.py \
     --annotated_csv "$ANNOTATED_CSV" \
     --out_dir "$OUT_DIR" \
     --group_col pmid
 
 # 2a. CV HP search for BERT (training set only)
-run $PYTHON cross_validation/cv_hp_search_bert.py \
+run $PYTHON litdd/training/cv_hp_search_bert.py \
     --train_ds_dir "$OUT_DIR/ds_bert_train" \
     --input_model "$BERT_MODEL" \
     --group_col tiab \
@@ -108,7 +108,7 @@ run $PYTHON cross_validation/cv_hp_search_bert.py \
     "${BERT_GRID[@]}"
 
 # 2b. Refit BERT on the full training set, evaluate once on the test set
-run $PYTHON train_test/bert_finetune.py \
+run $PYTHON litdd/training/bert_finetune.py \
     --train_ds_dir "$OUT_DIR/ds_bert_train" \
     --test_ds_dir "$OUT_DIR/ds_test" \
     --input_model "$BERT_MODEL" \
@@ -118,14 +118,14 @@ run $PYTHON train_test/bert_finetune.py \
     --best_model_dir "$BERT_BEST_DIR"
 
 # 3a. Mine hard negatives on the train split
-run $PYTHON train_test/mine_hard_negatives.py \
+run $PYTHON litdd/training/mine_hard_negatives.py \
     --ds_cross_dir "$OUT_DIR/ds_cross_train" \
     --g2p_csv "$G2P_CSV" \
     --out_dir "$HARD_NEG_DIR" \
     --embed_model "$EMBED_MODEL"
 
 # 3b. CV HP search for the cross-encoder (training set only, hard-negs mined per fold)
-run $PYTHON cross_validation/cv_hp_search_crossencoder.py \
+run $PYTHON litdd/training/cv_hp_search_crossencoder.py \
     --train_ds_dir "$OUT_DIR/ds_cross_train" \
     --g2p_corpus_csv "$G2P_CSV" \
     --input_model "$CROSS_ENCODER_MODEL" \
@@ -137,7 +137,7 @@ run $PYTHON cross_validation/cv_hp_search_crossencoder.py \
     "${CE_GRID[@]}"
 
 # 3c. Refit cross-encoder, evaluate once on the test set
-run $PYTHON train_test/crossencode_finetune.py \
+run $PYTHON litdd/training/crossencode_finetune.py \
     --data_dir "$OUT_DIR" \
     --hard_negatives_subdir "$(basename "$HARD_NEG_DIR")" \
     --test_subdir "ds_test" \
@@ -149,7 +149,7 @@ run $PYTHON train_test/crossencode_finetune.py \
 
 # 4. Smoke-test the cleaning step on the LLM-output fixture (demo) or real shards (full).
 if [[ "$MODE" == "demo" ]]; then
-    run $PYTHON annotate_pubmed/final_data_clean.py \
+    run $PYTHON litdd/pipeline/final_data_clean.py \
         --llm_file tests/fixtures/llm_shard_sample.parquet \
         --g2p_file tests/fixtures/g2p_sample.csv \
         --gene2pubtator tests/fixtures/gene2pubtator_sample.tsv.gz \
@@ -175,17 +175,17 @@ Next steps for end-to-end PubMed inference (multi-day on multi-A100; uncomment i
     #                                        # NCBI reissues the baseline each December under a
     #                                        # new pubmedYYn* prefix, and mixing years in one
     #                                        # directory duplicates every record downstream.
-    # python annotate_pubmed/download_pubmed.py --download_dir "$PUBMED_DIR" --workers 4
-    # python annotate_pubmed/pubmed_to_parquet.py --download_dir "$PUBMED_DIR" --workers 16
-    # python annotate_pubmed/dedupe_pmids.py --download_dir "$PUBMED_DIR"   # DeleteCitation + reissues
-    # python annotate_pubmed/bert_predict_vllm.py --model "$BERT_BEST_DIR" \
+    # python litdd/pipeline/download_pubmed.py --download_dir "$PUBMED_DIR" --workers 4
+    # python litdd/pipeline/pubmed_to_parquet.py --download_dir "$PUBMED_DIR" --workers 16
+    # python litdd/pipeline/dedupe_pmids.py --download_dir "$PUBMED_DIR"   # DeleteCitation + reissues
+    # python litdd/pipeline/bert_predict_vllm.py --model "$BERT_BEST_DIR" \
     #     --input_dir "$PUBMED_DIR/parquet_download_files" --shard $i --num_shards 8
-    # python annotate_pubmed/build_bert_positives.py
+    # python litdd/pipeline/build_bert_positives.py
     # # --num_shards 32 so 8 workers all get work and preemption costs <=1/32 of the stage
-    # python annotate_pubmed/crossencode.py --g2p_csv "$G2P_CSV" --shard $i --num_shards 32
-    # python annotate_pubmed/llm_map.py --shards_dir crossencoded_shards \
+    # python litdd/pipeline/crossencode.py --g2p_csv "$G2P_CSV" --shard $i --num_shards 32
+    # python litdd/pipeline/llm_map.py --shards_dir crossencoded_shards \
     #     --llm_model openai/gpt-oss-20b --shard_index $i --num_shards 8
-    # python annotate_pubmed/final_data_clean.py \
+    # python litdd/pipeline/final_data_clean.py \
     #     --llm_file <pubmed_..._llm.parquet> \
     #     --g2p_file "$G2P_CSV" \
     #     --gene2pubtator path/to/gene2pubtator3.gz \
@@ -195,8 +195,8 @@ Next steps for end-to-end PubMed inference (multi-day on multi-A100; uncomment i
 
 You can also run the fair-comparison baseline benchmark:
 
-    python benchmarking/run_bert_benchmark.py \
-        --hp_json cross_validation/bert_hp_search.json \
-        --litdd_model_path train_test/lit_dd_BERT_best --skip_existing
+    python litdd/evaluation/run_bert_benchmark.py \
+        --hp_json litdd/training/bert_hp_search.json \
+        --litdd_model_path litdd/training/lit_dd_BERT_best --skip_existing
 EOF
 fi

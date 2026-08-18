@@ -13,7 +13,7 @@ the whole corpus is converted.
 
 Example
 -------
-    python annotate_pubmed/pubmed_to_parquet.py \
+    python litdd/pipeline/pubmed_to_parquet.py \
         --download_dir data/pubmed_download_2026 --workers 16
 """
 from __future__ import annotations

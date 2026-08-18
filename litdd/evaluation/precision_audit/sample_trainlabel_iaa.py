@@ -56,7 +56,7 @@ def stratified_by_label(df: pd.DataFrame, n: int, balanced: bool, rng) -> pd.Dat
 
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--annotated_csv", default="train_test/annotated_pmid.csv",
+    ap.add_argument("--annotated_csv", default="data/annotated_pmid.csv",
                     help="pmid, g2p_lgmde, label (and optionally tiab)")
     ap.add_argument("--tiab_source", default=None,
                     help="CSV/parquet with pmid + tiab (or title/abstract); needed only if "

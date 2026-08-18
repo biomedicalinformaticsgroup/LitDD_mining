@@ -4,7 +4,7 @@
 Methodology, applied identically to LitDD-BERT and every baseline checkpoint:
 
   1. **Hyperparameter selection** by 5-fold ``StratifiedGroupKFold`` CV on
-     the training set only. (Re-uses ``cross_validation/cv_hp_search_bert.py``
+     the training set only. (Re-uses ``litdd/training/cv_hp_search_bert.py``
      when ``--cv_hp_search`` is passed; otherwise the baseline reuses the
      ``--hp_json`` produced for LitDD-BERT.)
   2. **Refit** on the *full* training set with the selected HPs.
@@ -69,12 +69,12 @@ def parse_args() -> argparse.Namespace:
                         "(no re-training) and add a row.")
     p.add_argument("--hp_json", default=None,
                    help="JSON of selected HPs to use for every baseline (output of "
-                        "cross_validation/cv_hp_search_bert.py). If omitted, falls back to "
+                        "litdd/training/cv_hp_search_bert.py). If omitted, falls back to "
                         "the --learning_rate / --epochs / --weight_decay defaults below.")
     p.add_argument("--cv_hp_search", action="store_true",
                    help="Run a fresh CV HP search per baseline (calls "
-                        "cross_validation/cv_hp_search_bert.py). Slower but most rigorous.")
-    p.add_argument("--cv_search_script", default="cross_validation/cv_hp_search_bert.py")
+                        "litdd/training/cv_hp_search_bert.py). Slower but most rigorous.")
+    p.add_argument("--cv_search_script", default="litdd/training/cv_hp_search_bert.py")
 
     # Fallback HPs (used when neither --hp_json nor --cv_hp_search is set)
     p.add_argument("--learning_rate", type=float, default=1.736e-5)

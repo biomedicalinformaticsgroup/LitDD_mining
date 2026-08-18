@@ -1,7 +1,8 @@
 # Packaging / tooling metadata for the LitDD pipeline.
-# LitDD is a collection of pipeline scripts rather than an installable library, so this
-# file carries project metadata and linter/test configuration (used by CI) rather than
-# a build target. Runtime dependencies are pinned in requirements.txt / environment.yml.
+# The stages are CLI scripts, but they live in an importable `litdd` package so that
+# tests and cross-stage imports work without sys.path manipulation:
+#   pip install -e .
+# Runtime dependencies are pinned in requirements.txt / environment.yml.
 [project]
 name = "litdd"
 version = "1.0.0"
@@ -14,6 +15,13 @@ keywords = ["bioinformatics", "literature-mining", "Gene2Phenotype", "NLP", "dev
 
 [project.urls]
 Repository = "https://github.com/biomedicalinformaticsgroup/LitDD_mining"
+
+[tool.setuptools.packages.find]
+include = ["litdd*"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 line-length = 120

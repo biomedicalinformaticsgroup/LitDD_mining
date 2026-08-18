@@ -39,8 +39,8 @@ demo/results/
 demo/models/
 
 # Benchmark output CSVs (regenerated)
-benchmarking/bert_results.csv
-benchmarking/cv_results.csv
+litdd/evaluation/bert_results.csv
+litdd/evaluation/cv_results.csv
 
 # Precision-audit outputs: contain real abstracts / are annotator-facing — never commit
 # (default output is the gitignored revision/ area; this is a belt-and-braces safety net)
@@ -54,11 +54,11 @@ benchmarking/cv_results.csv
 
 # HPO annotation: large ontology/index + regenerated data (code is tracked; data is not)
 # hp.obo/hp.index built via FastHPOCR; full text is fetched with cadmus (publisher-permission, not shared)
-hpo_annotations/hp.obo
-hpo_annotations/hp.index
-hpo_annotations/*.parquet
-hpo_annotations/*.csv
-hpo_annotations/litdd_pmids.txt
+litdd/hpo/hp.obo
+litdd/hpo/hp.index
+litdd/hpo/*.parquet
+litdd/hpo/*.csv
+litdd/hpo/litdd_pmids.txt
 **/output/retrieved_df/
 **/output/retrieved_parsed_files/
 
