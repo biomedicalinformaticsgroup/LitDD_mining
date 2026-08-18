@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "litdd" / "pipeline"))
@@ -58,12 +59,19 @@ def test_update_topk_heaps_independent_rows():
     assert heaps[1][0][1] == "b"  # best for row 1
 
 
+# A G2P export carries every LGMDE field; the builder now requires them rather than
+# silently blanking, so fixtures must be realistic.
+G2P_HEADER = (
+    "g2p id,gene symbol,gene mim,hgnc id,previous gene symbols,disease name,disease mim,disease MONDO,allelic requirement,cross cutting modifier,confidence,variant consequence,variant types,molecular mechanism,molecular mechanism support\n"
+)
+
+
 def test_build_g2p_lgmde_list(tmp_path):
     csv_path = tmp_path / "g2p.csv"
     csv_path.write_text(
-        "g2p id,gene symbol,disease name,allelic requirement,confidence\n"
-        "G2P1,GENEA,Disease A,monoallelic,definitive\n"
-        "G2P2,GENEB,Disease B,biallelic,limited\n"
+        G2P_HEADER
+        + "G2P1,GENEA,111,1,,Disease A,222,,monoallelic,,definitive,absent gene product,,LoF,inferred\n"
+        + "G2P2,GENEB,333,2,,Disease B,444,,biallelic,,limited,altered structure,missense,LoF,evidence\n"
     )
     out = crossencode.build_g2p_lgmde_list(str(csv_path))
     assert len(out) == 2
@@ -71,14 +79,28 @@ def test_build_g2p_lgmde_list(tmp_path):
     assert "G2P1 - GENEA" in joined
     assert "Disease A" in joined and "monoallelic" in joined
     assert "G2P2 - GENEB" in joined
+    # the field that used to be silently blank at inference
+    assert "absent gene product" in joined
+
+
+def test_build_g2p_lgmde_list_raises_on_missing_columns(tmp_path):
+    """A G2P export missing an LGMDE field must fail loudly.
+
+    Blanking it is how "inferred variant consequence" -- a column no export has -- went
+    unnoticed in every candidate served to the deployed cross-encoder.
+    """
+    csv_path = tmp_path / "g2p_partial.csv"
+    csv_path.write_text("g2p id,gene symbol,disease name\nG2P1,GENEA,Disease A\n")
+    with pytest.raises(KeyError, match="missing column"):
+        crossencode.build_g2p_lgmde_list(str(csv_path))
 
 
 def test_build_g2p_lgmde_list_dedups_identical_rows(tmp_path):
     csv_path = tmp_path / "g2p_dup.csv"
     csv_path.write_text(
-        "g2p id,gene symbol,disease name\n"
-        "G2P1,GENEA,Disease A\n"
-        "G2P1,GENEA,Disease A\n"
+        G2P_HEADER
+        + "G2P1,GENEA,111,1,,Disease A,222,,monoallelic,,definitive,absent gene product,,LoF,inferred\n"
+        + "G2P1,GENEA,111,1,,Disease A,222,,monoallelic,,definitive,absent gene product,,LoF,inferred\n"
     )
     out = crossencode.build_g2p_lgmde_list(str(csv_path))
     assert len(out) == 1  # identical concatenated rows collapse to one unique entry
