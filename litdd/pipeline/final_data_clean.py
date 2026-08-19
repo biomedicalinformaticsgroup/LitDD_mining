@@ -61,6 +61,12 @@ def parse_args() -> argparse.Namespace:
                         "no linked gene is found in the abstract. Quantifies the filter's "
                         "attrition and produces the relaxed corpus for recall comparison.")
     p.add_argument("--output_csv", required=True, help="Output CSV (PMID, G2P_IDs).")
+    p.add_argument("--no_match_csv", default=None,
+                   help="Write the abstracts the LLM returned NO MATCH for to this CSV. These "
+                        "passed the screen and the gene filter but matched no existing G2P "
+                        "entry for their gene, so some are candidate NOVEL gene-disease "
+                        "relationships. They are discarded by default and cannot be recovered "
+                        "without re-running the LLM stage, so capture them during the run.")
     p.add_argument("--debug", action="store_true")
     return p.parse_args()
 
@@ -185,11 +191,19 @@ def main() -> int:
 
     total = kept = 0
     dropped_hallucinated = dropped_score = dropped_gene = 0
+    no_match_rows = []
     with open(args.output_csv, "w", newline="", encoding="utf-8") as out_f:
         writer = csv.writer(out_f)
         writer.writerow(["PMID", "G2P_IDs"])
         for pmid, llm_val in pmid_to_llm.items():
             if not llm_val or llm_val == "NO MATCH":
+                if args.no_match_csv:
+                    mentioned = pubtator_genes.get(pmid, set())
+                    no_match_rows.append({
+                        "pmid": pmid,
+                        "genes_mentioned": ";".join(sorted(mentioned)),
+                        "n_candidates_scored": len(pmid_to_top5.get(pmid, {})),
+                    })
                 continue
             mentioned = pubtator_genes.get(pmid, set())
             scores = pmid_to_top5.get(pmid, {})
@@ -239,6 +253,15 @@ def main() -> int:
     print(f"[INFO] Valid mappings:       {kept}"
           f"{'  (gene check OFF)' if args.no_gene_check else ''}")
     print(f"[INFO] Wrote:                {args.output_csv}")
+
+    if args.no_match_csv and no_match_rows:
+        os.makedirs(os.path.dirname(args.no_match_csv) or ".", exist_ok=True)
+        with open(args.no_match_csv, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(no_match_rows[0]))
+            w.writeheader()
+            w.writerows(no_match_rows)
+        print(f"[INFO] NO MATCH abstracts:   {len(no_match_rows)} -> {args.no_match_csv}"
+              f"  [candidate novel gene-disease relationships]")
     return 0
 
 
