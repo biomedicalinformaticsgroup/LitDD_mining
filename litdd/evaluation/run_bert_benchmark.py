@@ -59,6 +59,11 @@ DEFAULT_BASELINES = [
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--train_ds_dir", default=None,
+                   help="Explicit training dataset. The annotated train set "
+                        "(ds_hirecall_train) and the held-out test set do not live in one "
+                        "directory, so --data_dir's convention cannot address them.")
+    p.add_argument("--test_ds_dir", default=None, help="Explicit held-out test dataset.")
     p.add_argument("--data_dir", default="data",
                    help="Directory containing ds_bert_train and ds_test.")
     p.add_argument("--out_csv", default="results/bert_results.csv")
@@ -304,9 +309,11 @@ def main() -> int:
     args = parse_args()
     # ds_bert_train is only needed to fine-tune baselines; --skip_baselines must not
     # require training data it never touches.
-    ds_train = None if args.skip_baselines else load_from_disk(
-        os.path.join(args.data_dir, "ds_bert_train"))
-    ds_test = load_from_disk(os.path.join(args.data_dir, "ds_test"))
+    train_path = args.train_ds_dir or os.path.join(args.data_dir, "ds_bert_train")
+    test_path = args.test_ds_dir or os.path.join(args.data_dir, "ds_test")
+    ds_train = None if args.skip_baselines else load_from_disk(train_path)
+    ds_test = load_from_disk(test_path)
+    print(f"train: {train_path}\ntest : {test_path}", flush=True)
 
     existing = load_existing(args.out_csv) if args.skip_existing else set()
     baselines = [] if args.skip_baselines else (args.models or DEFAULT_BASELINES)

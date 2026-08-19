@@ -94,3 +94,4 @@ data/reference/
 # Offline wheelhouse staged for GPU pods (no egress from the cluster); rebuild with
 # python -m pip download --python-version 310 --platform manylinux_2_17_x86_64 ...
 data/wheelhouse/
+.pylibs/
