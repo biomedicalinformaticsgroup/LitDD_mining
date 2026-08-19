@@ -211,7 +211,7 @@ def _b10(gene: str) -> int:
 
 
 def external_recall(model, tokenizer, external_csv: str, scope: str,
-                    threshold: float, max_length: int = 8192) -> dict:
+                    threshold: float, max_length: int | None = None) -> dict:
     """Recall on an external truth corpus, per source and overall.
 
     Reported alongside test F1 because a screen can look strong on a held-out split of its
@@ -222,6 +222,13 @@ def external_recall(model, tokenizer, external_csv: str, scope: str,
     import numpy as np
     import pandas as pd
     import torch
+
+    # Cap at whatever the model actually supports. ModernBERT allows 8,192 but the classic
+    # BERT baselines (BioBERT, BiomedBERT) have 512 learned position embeddings, and feeding
+    # them longer sequences fails with "size of tensor a (515) must match tensor b (512)".
+    limit = getattr(model.config, "max_position_embeddings", 512) or 512
+    limit = min(limit, getattr(tokenizer, "model_max_length", limit) or limit)
+    max_length = limit if max_length is None else min(max_length, limit)
 
     ext = pd.read_csv(external_csv, dtype=str).drop_duplicates("pmid")
     if scope == "heldout_gene_fold":
