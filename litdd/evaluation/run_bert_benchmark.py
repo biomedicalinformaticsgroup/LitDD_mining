@@ -137,6 +137,12 @@ def make_compute_metrics():
             "eval_precision": prec.compute(predictions=preds, references=labels, zero_division=0)["precision"],
             "eval_recall": rec.compute(predictions=preds, references=labels, zero_division=0)["recall"],
             "eval_f1": f1.compute(predictions=preds, references=labels)["f1"],
+            # Raw counts as well as rates: a reviewer asked for the confusion matrix, and
+            # precision/recall alone hide how many records each rate is computed over.
+            "eval_tp": int(((preds == 1) & (labels == 1)).sum()),
+            "eval_fp": int(((preds == 1) & (labels == 0)).sum()),
+            "eval_fn": int(((preds == 0) & (labels == 1)).sum()),
+            "eval_tn": int(((preds == 0) & (labels == 0)).sum()),
         }
     return fn
 
@@ -197,6 +203,8 @@ def fine_tune_and_eval(model_name: str, hp: dict, args, ds_train, ds_test) -> di
         "precision": round(float(test_metrics["eval_precision"]), 6),
         "recall": round(float(test_metrics["eval_recall"]), 6),
         "f1": round(float(test_metrics["eval_f1"]), 6),
+            "tp": int(test_metrics["eval_tp"]), "fp": int(test_metrics["eval_fp"]),
+        "fn": int(test_metrics["eval_fn"]), "tn": int(test_metrics["eval_tn"]),
     }
     if getattr(args, "external_csv", None):
         row.update(external_recall(model, tokenizer, args.external_csv,
@@ -275,6 +283,8 @@ def evaluate_only(model_name: str, label: str, ds_test, external_csv=None,
         "precision": round(float(metrics["eval_precision"]), 6),
         "recall": round(float(metrics["eval_recall"]), 6),
         "f1": round(float(metrics["eval_f1"]), 6),
+            "tp": int(metrics["eval_tp"]), "fp": int(metrics["eval_fp"]),
+        "fn": int(metrics["eval_fn"]), "tn": int(metrics["eval_tn"]),
     }
     if external_csv:
         row.update(external_recall(model, tokenizer, external_csv, external_scope,
