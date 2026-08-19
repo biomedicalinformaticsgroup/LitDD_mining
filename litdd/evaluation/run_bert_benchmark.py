@@ -109,6 +109,10 @@ def parse_args() -> argparse.Namespace:
                         "training, which is the basis of the previously reported 98.5%% and "
                         "is NOT comparable to 'raw'.")
     p.add_argument("--external_threshold", type=float, default=0.5)
+    p.add_argument("--pred_dir", default=None,
+                   help="Dump per-example test-set predictions here, one CSV per (model, seed). "
+                        "Needed to test whether two models differ significantly: McNemar's test "
+                        "works on paired per-item outcomes, which aggregate metrics discard.")
     return p.parse_args()
 
 
@@ -135,6 +139,30 @@ def tokenize(ds, tokenizer, keep={"tiab", "label"}):
         return tokenizer(b["tiab"], truncation=True, max_length=512)
     return ds.map(fn, batched=True,
                   remove_columns=[c for c in ds.column_names if c not in keep])
+
+
+
+def dump_predictions(trainer, tok_test, ds_test, pred_dir: str, model_name: str, seed: int):
+    """Write per-example test predictions so model pairs can be compared statistically.
+
+    Aggregate F1 cannot say whether two models differ: 0.9265 vs 0.9217 on the same 2,779
+    items may be a handful of flipped predictions. McNemar's test needs the paired per-item
+    outcomes, which only exist if they are written out at evaluation time.
+    """
+    import numpy as np
+
+    os.makedirs(pred_dir, exist_ok=True)
+    logits = trainer.predict(tok_test).predictions
+    preds = np.argmax(logits, axis=-1)
+    labels = np.asarray(ds_test["label"])
+    safe = model_name.replace("/", "__")
+    path = os.path.join(pred_dir, f"{safe}__seed{seed}.csv")
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["idx", "label", "pred"])
+        for i, (l, p) in enumerate(zip(labels, preds)):
+            w.writerow([i, int(l), int(p)])
+    print(f"[INFO] wrote {len(preds)} predictions -> {path}", flush=True)
 
 
 def make_compute_metrics():
@@ -178,6 +206,11 @@ def hp_search_for_model(model_name: str, args) -> dict:
 
 
 def fine_tune_and_eval(model_name: str, hp: dict, args, ds_train, ds_test) -> dict:
+    # Seed BEFORE from_pretrained: the classification head is initialised at load time, so
+    # seeding afterwards leaves head init uncontrolled (finetune_seeds.py already did this).
+    from transformers import set_seed
+
+    set_seed(args.seed)
     print(f"\n=== Refit + test: {model_name} (HPs: {hp}) ===", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
@@ -197,6 +230,11 @@ def fine_tune_and_eval(model_name: str, hp: dict, args, ds_train, ds_test) -> di
         save_strategy="epoch",
         save_total_limit=1,
         seed=args.seed,
+        data_seed=args.seed,
+        # fp32 throughout. finetune_seeds.py trained the locked checkpoint in bf16 while this
+        # script ran fp32, so "the same protocol" produced numerically different models and the
+        # locked model could not be compared to its own base. Standardised on fp32: slower, but
+        # irrelevant at this scale and it removes an uncontrolled variable.
         report_to=[],
         logging_steps=200,
     )
@@ -220,6 +258,8 @@ def fine_tune_and_eval(model_name: str, hp: dict, args, ds_train, ds_test) -> di
             "tp": int(test_metrics["eval_tp"]), "fp": int(test_metrics["eval_fp"]),
         "fn": int(test_metrics["eval_fn"]), "tn": int(test_metrics["eval_tn"]),
     }
+    if getattr(args, "pred_dir", None):
+        dump_predictions(trainer, tok_test, ds_test, args.pred_dir, model_name, args.seed)
     if getattr(args, "external_csv", None):
         row.update(external_recall(model, tokenizer, args.external_csv,
                                    args.external_scope, args.external_threshold))
