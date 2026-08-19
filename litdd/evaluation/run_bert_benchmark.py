@@ -69,6 +69,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out_csv", default="results/bert_results.csv")
     p.add_argument("--models", nargs="+", default=None,
                    help="Override baseline list.")
+    p.add_argument("--litdd_label", default=None,
+                   help="Row label for --litdd_model_path (default: the path itself).")
     p.add_argument("--litdd_model_path", default=None,
                    help="If set, evaluate a previously fine-tuned LitDD-BERT checkpoint "
                         "(no re-training) and add a row.")
@@ -270,10 +272,20 @@ def external_recall(model, tokenizer, external_csv: str, scope: str,
 
 
 def evaluate_only(model_name: str, label: str, ds_test, external_csv=None,
-                  external_scope="raw", external_threshold=0.5) -> dict:
+                  external_scope="raw", external_threshold=0.5, seed: int = 42) -> dict:
+    """Evaluate a checkpoint as-is, with no fine-tuning.
+
+    For an already-fine-tuned model this scores the shipped weights. For a *base* model it
+    attaches a freshly-initialised classification head and scores that -- i.e. what the
+    pretrained encoder gives you before any task training. That head is random, so the seed
+    is fixed here: without it the numbers are an arbitrary draw and not reproducible.
+    """
+    from transformers import set_seed
+
+    set_seed(seed)
     print(f"\n=== Eval only: {label} ({model_name}) ===", flush=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
     tok_test = tokenize(ds_test, tokenizer)
     collator = DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=8)
     trainer = Trainer(
@@ -320,12 +332,16 @@ def main() -> int:
     shared = shared_hps(args)
 
     if args.litdd_model_path:
-        label = "LitDD-BERT (fine-tuned)"
+        # Name the row after the checkpoint, not a fixed string: several checkpoints are
+        # commonly scored into one CSV and a constant label makes the rows indistinguishable
+        # except by run order.
+        label = args.litdd_label or f"eval-only: {args.litdd_model_path}"
         if label not in existing:
             row = evaluate_only(args.litdd_model_path, label, ds_test,
                                 external_csv=args.external_csv,
                                 external_scope=args.external_scope,
-                                external_threshold=args.external_threshold)
+                                external_threshold=args.external_threshold,
+                                seed=args.seed)
             append_row(args.out_csv, row)
             print("->", row)
 
