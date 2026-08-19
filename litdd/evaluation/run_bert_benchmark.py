@@ -107,11 +107,13 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def load_existing(out_csv: str) -> set[str]:
+def load_existing(out_csv: str) -> set[tuple[str, str]]:
+    """(model, seed) pairs already recorded, so a resumed multi-seed sweep is not truncated."""
     if not os.path.exists(out_csv):
         return set()
     with open(out_csv, newline="") as f:
-        return {row["model"] for row in csv.DictReader(f) if row.get("model")}
+        return {(row["model"], str(row.get("seed", ""))) for row in csv.DictReader(f)
+                if row.get("model")}
 
 
 def append_row(out_csv: str, row: dict) -> None:
@@ -206,7 +208,7 @@ def fine_tune_and_eval(model_name: str, hp: dict, args, ds_train, ds_test) -> di
     test_metrics = trainer.evaluate(tok_test)
 
     row = {
-        "model": model_name,
+        "model": model_name, "seed": args.seed,
         "precision": round(float(test_metrics["eval_precision"]), 6),
         "recall": round(float(test_metrics["eval_recall"]), 6),
         "f1": round(float(test_metrics["eval_f1"]), 6),
@@ -296,7 +298,7 @@ def evaluate_only(model_name: str, label: str, ds_test, external_csv=None,
     )
     metrics = trainer.evaluate(tok_test)
     row = {
-        "model": label,
+        "model": label, "seed": seed,
         "precision": round(float(metrics["eval_precision"]), 6),
         "recall": round(float(metrics["eval_recall"]), 6),
         "f1": round(float(metrics["eval_f1"]), 6),
@@ -336,7 +338,7 @@ def main() -> int:
         # commonly scored into one CSV and a constant label makes the rows indistinguishable
         # except by run order.
         label = args.litdd_label or f"eval-only: {args.litdd_model_path}"
-        if label not in existing:
+        if (label, str(args.seed)) not in existing:
             row = evaluate_only(args.litdd_model_path, label, ds_test,
                                 external_csv=args.external_csv,
                                 external_scope=args.external_scope,
@@ -346,8 +348,8 @@ def main() -> int:
             print("->", row)
 
     for name in baselines:
-        if name in existing:
-            print(f"[SKIP] {name} already in {args.out_csv}")
+        if (name, str(args.seed)) in existing:
+            print(f"[SKIP] {name} seed={args.seed} already in {args.out_csv}")
             continue
         try:
             if args.cv_hp_search:
@@ -361,7 +363,8 @@ def main() -> int:
             print("->", row)
         except Exception as e:
             print(f"[ERROR] {name} failed: {e}")
-            append_row(args.out_csv, {"model": name, "precision": "", "recall": "", "f1": ""})
+            append_row(args.out_csv, {"model": name, "seed": args.seed,
+                                      "precision": "", "recall": "", "f1": ""})
         finally:
             gc.collect()
             if torch.cuda.is_available():
