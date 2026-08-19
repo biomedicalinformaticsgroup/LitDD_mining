@@ -19,7 +19,10 @@ chance). The current script fine-tunes every baseline with the same
 hyperparameter-selection protocol as LitDD-BERT, which is the standard for
 fair comparison on a binary classification task.
 
-Inputs:  ``ds_bert_train``, ``ds_test`` from ``final_traintest_dataset.py``.
+Inputs:  a training set and ``ds_test``. Prefer ``--train_ds_dir`` pointing at the
+         **annotated train set** (``ds_hirecall_train``); ``ds_bert_train`` from
+         ``final_traintest_dataset.py`` is deprecated and reproduces pre-revision
+         results only.
 Output:  ``bert_results.csv`` with columns ``model,precision,recall,f1``.
 
 Per baseline a CV sweep + refit costs roughly the same GPU-time as training
@@ -65,7 +68,9 @@ def parse_args() -> argparse.Namespace:
                         "directory, so --data_dir's convention cannot address them.")
     p.add_argument("--test_ds_dir", default=None, help="Explicit held-out test dataset.")
     p.add_argument("--data_dir", default="data",
-                   help="Directory containing ds_bert_train and ds_test.")
+                   help="Directory containing ds_bert_train and ds_test. DEPRECATED for training: "
+                        "prefer --train_ds_dir with the annotated train set "
+                        "(ds_hirecall_train).")
     p.add_argument("--out_csv", default="results/bert_results.csv")
     p.add_argument("--models", nargs="+", default=None,
                    help="Override baseline list.")

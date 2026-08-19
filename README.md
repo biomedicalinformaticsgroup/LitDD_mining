@@ -233,9 +233,15 @@ The training data are in `data/annotated_pmid.csv` (columns:
 stratified split at the PMID-grouping level (so the same PMID/abstract never
 appears in both halves) and writes three HuggingFace `save_to_disk` directories:
 
+> **Terminology.** The **annotated train set** is `revision/external_recall/ds_hirecall_train`
+> (17,335 rows) — the original clinician annotations plus the reviewer-confirmed molecular
+> positives and independent curated-set literature. It is what the released screen was trained
+> on and what any new model should be trained on. **`ds_bert_train` below is deprecated**: it is
+> the original 80% split (11,201 rows) and is retained only to reproduce pre-revision results.
+
 | Directory          | Purpose                                          |
 |--------------------|--------------------------------------------------|
-| `ds_bert_train`    | Train portion for the BERT classifier            |
+| `ds_bert_train`    | *(deprecated)* original train portion for the BERT classifier |
 | `ds_cross_train`   | Train portion for the cross-encoder (= `ds_bert_train`) |
 | `ds_test`          | Held-out test set — only touched once, after refit |
 

@@ -1,5 +1,11 @@
 # Training
 
+> **Terminology.** The **annotated train set** = `revision/external_recall/ds_hirecall_train`
+> (17,335 rows: original clinician annotations + reviewer-confirmed molecular positives +
+> independent curated-set literature). This is what the released screen was trained on and
+> what new models should be trained on. **`ds_bert_train` is deprecated** — the original 80%
+> split (11,201 rows), retained only for reproducing pre-revision results.
+
 Which script produced what. The distinction matters for reproducibility (Reviewer 2 R2-R1 /
 R2-S4): the released models come from a specific subset of these, and the revision-era
 ablations live in `experiments/` rather than here.
