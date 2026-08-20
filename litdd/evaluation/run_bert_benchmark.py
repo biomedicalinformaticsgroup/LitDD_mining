@@ -135,8 +135,14 @@ def append_row(out_csv: str, row: dict) -> None:
 
 
 def tokenize(ds, tokenizer, keep={"tiab", "label"}):
+    # Use each model's own capacity rather than a fixed 512. ModernBERT allows 8,192; the
+    # classic BERTs 512. Hard-coding 512 silently truncated the ModernBERT models' inputs,
+    # and left this script disagreeing with finetune_seeds.py on a variable neither controlled.
+    limit = getattr(tokenizer, "model_max_length", 512) or 512
+    limit = min(limit, 8192)  # guard against tokenizers reporting a sentinel like 1e30
+
     def fn(b):
-        return tokenizer(b["tiab"], truncation=True, max_length=512)
+        return tokenizer(b["tiab"], truncation=True, max_length=limit)
     return ds.map(fn, batched=True,
                   remove_columns=[c for c in ds.column_names if c not in keep])
 

@@ -11,6 +11,7 @@ this only produces the defensible reported figure.
 from __future__ import annotations
 
 import argparse
+import os
 import gc
 import hashlib
 
@@ -50,9 +51,13 @@ def train_once(ds_train, ds_test, tokenizer, seed, out_dir):
     model = AutoModelForSequenceClassification.from_pretrained(MODEL, num_labels=2)
     tt = ds_train.map(lambda b: tokenizer(b["tiab"], truncation=True, max_length=MAX_LENGTH), batched=True)
     te = ds_test.map(lambda b: tokenizer(b["tiab"], truncation=True, max_length=MAX_LENGTH), batched=True)
+    # fp32 (bf16=False): this script trained the shipped checkpoint in bf16 while
+    # run_bert_benchmark.py evaluated its base in fp32, so "the same protocol" produced
+    # numerically different models and the shipped model could not be compared to its own
+    # base. See plan section 4a-bis.
     args = TrainingArguments(output_dir=out_dir, num_train_epochs=HP["epochs"], seed=seed, data_seed=seed,
         per_device_train_batch_size=HP["bs"], per_device_eval_batch_size=HP["bs"], learning_rate=HP["lr"],
-        weight_decay=HP["wd"], logging_steps=300, report_to="none", save_strategy="no", bf16=torch.cuda.is_available())
+        weight_decay=HP["wd"], logging_steps=300, report_to="none", save_strategy="no", bf16=False)
     tr = Trainer(model=model, args=args, train_dataset=tt, processing_class=tokenizer,
         data_collator=DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=8), compute_metrics=metrics_fn())
     tr.train()
@@ -121,8 +126,14 @@ def main():
         row["heldout_recall_all_pct"] = round(100 * (ho_p >= 0.5).mean(), 1)
         rows.append(row)
         print(row)
-        if args.save_dir and seed == seeds[-1]:
-            model.save_pretrained(args.save_dir)
+        if args.save_dir:
+            # Save every seed, not just the last. The shipped checkpoint should be the MEDIAN
+            # draw, which cannot be identified until all seeds have run -- the previous
+            # last-seed-wins rule shipped an arbitrary one, and seed 42 landed low.
+            d = os.path.join(args.save_dir, f"seed_{seed}")
+            model.save_pretrained(d)
+            tokenizer.save_pretrained(d)
+            print(f"[INFO] saved seed {seed} -> {d}", flush=True)
             tokenizer.save_pretrained(args.save_dir)
             print(f"  saved LitDD screen checkpoint (seed {seed}) -> {args.save_dir}")
         import torch
