@@ -261,8 +261,12 @@ def fine_tune_and_eval(model_name: str, hp: dict, args, ds_train, ds_test) -> di
     if getattr(args, "pred_dir", None):
         dump_predictions(trainer, tok_test, ds_test, args.pred_dir, model_name, args.seed)
     if getattr(args, "external_csv", None):
-        row.update(external_recall(model, tokenizer, args.external_csv,
-                                   args.external_scope, args.external_threshold))
+        row.update(external_recall(
+            model, tokenizer, args.external_csv, args.external_scope,
+            args.external_threshold,
+            pred_path=(os.path.join(args.pred_dir,
+                                    f"EXT__{model_name.replace('/', '__')}__seed{args.seed}.csv")
+                       if args.pred_dir else None)))
     return row
 
 
@@ -273,7 +277,8 @@ def _b10(gene: str) -> int:
 
 
 def external_recall(model, tokenizer, external_csv: str, scope: str,
-                    threshold: float, max_length: int | None = None) -> dict:
+                    threshold: float, max_length: int | None = None,
+                    pred_path: str | None = None) -> dict:
     """Recall on an external truth corpus, per source and overall.
 
     Reported alongside test F1 because a screen can look strong on a held-out split of its
@@ -311,6 +316,16 @@ def external_recall(model, tokenizer, external_csv: str, scope: str,
 
     out = {"external_scope": scope, "external_n": len(ext),
            "external_recall_all": round(float((probs >= threshold).mean()), 4)}
+    if pred_path:
+        # Per-paper calls, so external recall can be compared against another system on the
+        # same papers with a paired test rather than by eyeballing two rates.
+        os.makedirs(os.path.dirname(pred_path) or ".", exist_ok=True)
+        with open(pred_path, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["pmid", "prob", "pred"])
+            for pmid, pr in zip(ext["pmid"].tolist(), probs):
+                w.writerow([pmid, round(float(pr), 6), int(pr >= threshold)])
+        print(f"[INFO] wrote {len(probs)} external predictions -> {pred_path}", flush=True)
     if "source" in ext.columns:
         for src, m in ext.groupby("source").groups.items():
             idx = ext.index.get_indexer(m)
@@ -319,7 +334,8 @@ def external_recall(model, tokenizer, external_csv: str, scope: str,
 
 
 def evaluate_only(model_name: str, label: str, ds_test, external_csv=None,
-                  external_scope="raw", external_threshold=0.5, seed: int = 42) -> dict:
+                  external_scope="raw", external_threshold=0.5, seed: int = 42,
+                  pred_dir: str | None = None) -> dict:
     """Evaluate a checkpoint as-is, with no fine-tuning.
 
     For an already-fine-tuned model this scores the shipped weights. For a *base* model it
@@ -351,8 +367,10 @@ def evaluate_only(model_name: str, label: str, ds_test, external_csv=None,
         "fn": int(metrics["eval_fn"]), "tn": int(metrics["eval_tn"]),
     }
     if external_csv:
-        row.update(external_recall(model, tokenizer, external_csv, external_scope,
-                                   external_threshold))
+        row.update(external_recall(
+            model, tokenizer, external_csv, external_scope, external_threshold,
+            pred_path=(os.path.join(pred_dir, f"EXT__{label.replace('/', '__')}.csv")
+                       if pred_dir else None)))
     return row
 
 
@@ -388,7 +406,7 @@ def main() -> int:
                                 external_csv=args.external_csv,
                                 external_scope=args.external_scope,
                                 external_threshold=args.external_threshold,
-                                seed=args.seed)
+                                seed=args.seed, pred_dir=args.pred_dir)
             append_row(args.out_csv, row)
             print("->", row)
 
