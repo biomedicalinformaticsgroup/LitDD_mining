@@ -1,0 +1,43 @@
+# Dependencies the LitDD image adds ON TOP OF the vLLM base image.
+#
+# Deliberately excludes torch, vllm and transformers: those ship with the base image as a
+# mutually-consistent set, and re-pinning them here is exactly the conflict that made
+# requirements.txt unbuildable (reviewer point R2-R2). Use containers/pip-freeze.txt from a
+# built image for the full resolved environment.
+#
+# Lower bounds, not exact pins, so pip can satisfy them against whatever the base image
+# already has; the built image's pip-freeze is the reproducible artefact.
+
+# Streaming parquet IO for the screen. `datasets` is REQUIRED, not convenience:
+# bert_predict_vllm.py streams shards (ROW_BATCH_SIZE=8192) so the corpus is never
+# materialised in memory. Absent from the vLLM base image.
+datasets>=3.0
+pyarrow>=17
+pandas>=2.2
+polars>=1.5
+
+# Cross-encoder stage
+sentence-transformers>=3.0
+scikit-learn>=1.5
+scipy>=1.11
+
+# PubMed ingestion (download -> XML -> parquet)
+pubmed_parser>=0.5
+lxml>=5.2
+requests>=2.32
+
+# Ontology / graph work in the downstream analysis stages
+networkx>=3.3
+node2vec>=0.4.6
+owlready2>=0.46
+pronto>=2.5
+
+# HPO annotation
+FastHPOCR>=1.0
+
+# Evaluation and figures
+evaluate>=0.4
+matplotlib>=3.8
+umap-learn>=0.5
+datamapplot>=0.4
+tqdm>=4.66

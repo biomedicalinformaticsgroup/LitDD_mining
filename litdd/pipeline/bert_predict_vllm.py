@@ -257,22 +257,54 @@ def process_one_parquet_with_tokenizer(
 
 
 def load_vllm_engine(model_id: str, max_length: int, tp_size: int = 1,
-                     dtype: str = "bfloat16") -> LLM:
+                     dtype: str = "float32") -> LLM:
     """Load the screen under vLLM.
 
-    dtype defaults to bfloat16: the released screen is ModernBERT, which is bf16-native,
-    and fp16 activations can overflow through its RoPE/GeGLU path. H100/A100 both support
-    bf16 natively, so there is no throughput cost. Pass dtype="float16" only for a
-    pre-ModernBERT checkpoint.
+    dtype defaults to float32, matching the numerics the released checkpoint was trained,
+    locked and evaluated in. Measured on the released checkpoint over all 2,779 ds_test rows
+    (revision/vllm_modernbert_check.csv, 1xH100, vLLM 0.23.0):
+
+        fp32  F1 0.9206  positive-rate 26.23%  FPR 3.549%  183 rows/s/GPU
+        bf16  F1 0.9213  positive-rate 26.27%  FPR 3.549%  240 rows/s/GPU
+
+    i.e. bf16 is numerically fine -- one disagreement in 2,779, 0.036pp on positive rate --
+    but fp32 costs only ~24% throughput, and at that price there is no reason to deploy in
+    different numerics from the published artefact. Note F1 is a weak guide here: across
+    training seeds F1 moves 0.0013 while the deployment FPR proxy moves 5.00-10.37%, and over
+    ~35M records 0.1pp of positive rate is ~35,000 records. Choose on positive-rate
+    stability, not F1.
+
+    Pass dtype="bfloat16" to trade that provenance tidiness for throughput.
     """
-    llm = LLM(
+    # vLLM renamed the pooling-model selector between versions: `task="classify"` works up to
+    # ~0.10.x, but 0.23.0 removed it from EngineArgs (raising TypeError) in favour of
+    # `runner`/`convert`. The screen must run on the newer vLLM so a single image can also
+    # serve GPT-OSS-20B for the LLM stage, so try the variants in order rather than pinning
+    # to one API. Verified: 0.10.1.1 accepts task=, 0.23.0 accepts runner=/convert=.
+    base = dict(
         model=model_id,
-        task="classify",
         dtype=dtype,
         max_seq_len_to_capture=max_length,
         tensor_parallel_size=tp_size,
     )
-    return llm
+    variants = [
+        ("task=classify", dict(task="classify")),
+        ("runner=pooling,convert=classify", dict(runner="pooling", convert="classify")),
+        ("runner=pooling", dict(runner="pooling")),
+        ("auto-detect", dict()),
+    ]
+    last_err = None
+    for name, extra in variants:
+        try:
+            llm = LLM(**base, **extra)
+            print(f"vLLM engine constructed via {name} (dtype={dtype})")
+            return llm
+        except TypeError as e:
+            last_err = e
+            continue
+    raise RuntimeError(
+        f"No vLLM pooling API variant accepted by this build; last error: {last_err}"
+    )
 
 
 def process_all_parquets(
@@ -284,7 +316,7 @@ def process_all_parquets(
     num_shards: int = 1,
     fail_fast: bool = False,
     tp_size: int = 1,
-    dtype: str = "bfloat16",
+    dtype: str = "float32",
 ):
     llm = load_vllm_engine(model_id, max_length, tp_size=tp_size, dtype=dtype)
 
@@ -332,8 +364,11 @@ def parse_args():
     ap.add_argument("--max_length", type=int, default=MAX_LENGTH, help="Max sequence length for vLLM (truncation)")
     ap.add_argument("--input_dir", default=DEFAULT_INPUT_DIR, help="Parquet shards to classify")
     ap.add_argument("--processed_dir", default=DEFAULT_PROCESSED_DIR, help="Output directory")
-    ap.add_argument("--dtype", default="bfloat16",
-                    help="vLLM dtype (default bfloat16; ModernBERT is bf16-native)")
+    ap.add_argument("--dtype", default="float32",
+                    help="vLLM dtype. Default float32 -- the numerics the released "
+                         "checkpoint was trained, locked and evaluated in. bfloat16 is "
+                         "~1.3x faster and differs on 1/2779 test rows (0.036pp positive "
+                         "rate); see load_vllm_engine() for the measurement.")
     ap.add_argument("--fail_fast", action="store_true", help="Stop on first error instead of skipping the parquet file")
     ap.add_argument(
         "--device",
