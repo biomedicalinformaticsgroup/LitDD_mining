@@ -170,10 +170,25 @@ def process_one_parquet_with_tokenizer(
     base = os.path.basename(parquet_path)
     stem = os.path.splitext(base)[0]
     out_path = os.path.join(out_dir, f"{stem}_bert_processed.parquet")
+    # Write to a sidecar first and rename only once the shard is complete. Writing straight
+    # to out_path means a SIGKILL -- pod deletion, preemption, an OOM kill -- leaves a
+    # TRUNCATED parquet at the final name, which SKIP_IF_EXISTS then skips on restart,
+    # silently dropping records with no error anywhere. os.replace is atomic within a
+    # filesystem, so the final name only ever appears on a whole shard. This is what makes
+    # the job safe to stop and resume with a different GPU count.
+    tmp_path = os.path.join(out_dir, f".{stem}_bert_processed.parquet.partial")
 
     if SKIP_IF_EXISTS and os.path.exists(out_path):
         print(f"Skipping (already exists): {out_path}")
         return True
+
+    # A leftover sidecar means a previous run was killed mid-shard; discard and redo it.
+    if os.path.exists(tmp_path):
+        try:
+            os.remove(tmp_path)
+            print(f"[RESUME] Discarded incomplete shard from an earlier run: {tmp_path}")
+        except OSError:
+            print(f"[WARN] Could not remove stale partial: {tmp_path}")
 
     try:
         ds = load_dataset("parquet", data_files=parquet_path, split="train", streaming=True)
@@ -207,7 +222,7 @@ def process_one_parquet_with_tokenizer(
                 table = table_from_batch_with_schema(batch, preds, out_schema)
 
                 if writer is None:
-                    writer = pq.ParquetWriter(out_path, schema=out_schema, compression=PARQUET_COMPRESSION)
+                    writer = pq.ParquetWriter(tmp_path, schema=out_schema, compression=PARQUET_COMPRESSION)
 
                 writer.write_table(table)
                 total_rows += table.num_rows
@@ -230,31 +245,39 @@ def process_one_parquet_with_tokenizer(
             if writer is not None:
                 writer.close()
         except Exception:
-            print(f"[WARN] Failed to close writer for: {out_path}")
+            print(f"[WARN] Failed to close writer for: {tmp_path}")
             traceback.print_exc()
 
     if file_failed:
-        if os.path.exists(out_path):
+        if os.path.exists(tmp_path):
             try:
-                os.remove(out_path)
-                print(f"[CLEANUP] Removed partial output: {out_path}")
+                os.remove(tmp_path)
+                print(f"[CLEANUP] Removed partial output: {tmp_path}")
             except Exception:
-                print(f"[WARN] Failed to remove partial output: {out_path}")
+                print(f"[WARN] Failed to remove partial output: {tmp_path}")
                 traceback.print_exc()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         return False
 
     if total_rows > 0:
+        # Atomic publish: the final name appears only for a complete shard, so an
+        # interrupted run can never be mistaken for a finished one on restart.
+        try:
+            os.replace(tmp_path, out_path)
+        except OSError:
+            print(f"[ERROR] Failed to publish {tmp_path} -> {out_path}")
+            traceback.print_exc()
+            return False
         print(f"Wrote {total_rows} rows to {out_path}")
     else:
         print(f"No eligible rows in {parquet_path}; no output written.")
-        if os.path.exists(out_path):
+        if os.path.exists(tmp_path):
             try:
-                os.remove(out_path)
-                print(f"[CLEANUP] Removed empty output: {out_path}")
+                os.remove(tmp_path)
+                print(f"[CLEANUP] Removed empty output: {tmp_path}")
             except Exception:
-                print(f"[WARN] Failed to remove empty output: {out_path}")
+                print(f"[WARN] Failed to remove empty output: {tmp_path}")
                 traceback.print_exc()
 
     return True
