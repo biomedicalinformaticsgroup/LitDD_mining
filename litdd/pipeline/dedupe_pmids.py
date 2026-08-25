@@ -64,12 +64,30 @@ DEFAULT_EXCLUDE_PUBTYPES = (
 # the RepublishedIn RefType below -- which is what makes keeping the publication type safe.
 
 # CommentsCorrections RefTypes to exclude. These are NOT MeSH and pubmed_parser does not
-# expose them at all, so they must come from extract_corrections.py. RetractionIn is the more
-# reliable marker for a retracted paper than the publication type, because it can be present
-# on records whose publication_types was never updated to include D016441.
+# expose them at all, so they must come from extract_corrections.py.
 #
-# The In/Of and In/For suffixes are opposites, so both directions are listed where both should
-# go: the notice and the paper it concerns are each excluded.
+# The two mechanisms are COMPLEMENTARY IN DIRECTION, not redundant -- this is the reason the
+# RefType pass is needed, measured on the 2026 corpus:
+#
+#   publication types mark the NOTICE        RefTypes ...Of/...For also mark the notice
+#   RefTypes ...In mark the PAPER the notice concerns -- which publication type cannot express
+#
+#   reftype                     pmids   not caught by publication type
+#   RetractionOf               32,352        0    notices: fully covered by D016440
+#   ErratumFor                207,703        0    notices: fully covered by D016425
+#   ExpressionOfConcernFor      3,827        0
+#   RetractionIn               34,178        0    <- retractions agree almost exactly
+#   ErratumIn                 349,161  347,078    <- the papers that HAVE a correction
+#   ExpressionOfConcernIn       4,413    3,526
+#   RepublishedIn               1,450    1,400
+#   RetractedandRepublishedIn      74       48
+#
+# So for RETRACTIONS the two agree essentially perfectly (RetractionIn 34,178 vs D016441
+# 34,180, symmetric difference 2) -- publication type alone does NOT leak retracted papers.
+# The RefType pass earns its place on ErratumIn: 347,078 papers carrying a published
+# correction, which no publication type marks, because D016425 labels the erratum notice
+# rather than the article it corrects. Same pattern for ExpressionOfConcernIn and the
+# superseded-republication markers.
 DEFAULT_EXCLUDE_REFTYPES = (
     "RetractionIn",            # this paper WAS retracted
     "RetractionOf",            # this IS the retraction notice
@@ -80,11 +98,24 @@ DEFAULT_EXCLUDE_REFTYPES = (
     "RepublishedIn",           # SUPERSEDED predecessor of a corrected republication;
                                # its RepublishedFrom counterpart (the corrected version)
                                # is deliberately NOT excluded.
+    "RetractedandRepublishedIn",   # superseded version that was retracted then republished;
+                                   # mirrors RepublishedIn. Its RetractedandRepublishedFrom
+                                   # counterpart (the corrected republication) is retained,
+                                   # consistent with keeping D016439.
 )
 
-# Deliberately NOT excluded: CommentIn/CommentOn (commentary, not correction),
+# Deliberately NOT excluded: RepublishedFrom / RetractedandRepublishedFrom (the corrected
+# republications -- the valid science), CommentIn/CommentOn (commentary, not correction),
 # UpdateIn/UpdateOf, ReprintIn/ReprintOf, OriginalReportIn, SummaryForPatientsIn,
-# AssociatedDataset, and D016426 Scientific Integrity Review (491).
+# AssociatedDataset, AssociatedPublication, and D016426 Scientific Integrity Review (491).
+#
+# Full RefType census of the 2026 corpus (3,346,504 links over 1,600 files):
+#   CommentIn 1,268,042 | CommentOn 1,252,824 | ErratumIn 390,627 | ErratumFor 247,327
+#   UpdateOf 105,713 | UpdateIn 63,967 | RetractionOf 38,128 | RetractionIn 36,962
+#   ExpressionOfConcernFor 5,933 | ExpressionOfConcernIn 5,363 | ReprintOf 3,280
+#   ReprintIn 3,248 | RepublishedFrom 1,698 | OriginalReportIn 1,615 | RepublishedIn 1,496
+#   SummaryForPatientsIn 1,406 | AssociatedDataset 462 | AssociatedPublication 442
+#   RetractedandRepublishedIn 86 | RetractedandRepublishedFrom 79
 
 
 def shard_order_key(path: str) -> str:
