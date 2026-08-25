@@ -4,7 +4,17 @@
 Two facts about the MEDLINE distribution make this necessary, and neither was handled
 before: updatefiles **reissue** records that already appear in the annual baseline (a
 revised abstract, a corrected date), and they carry ``DeleteCitation`` entries for records
-PubMed has withdrawn. ``pubmed_parser`` surfaces the latter as a ``delete`` flag.
+PubMed has withdrawn.
+
+.. warning::
+   ``pubmed_parser`` exposes a ``delete`` field but **it never fires**: measured on the full
+   2026 corpus it is True for 0 of 45,056,462 records, across both baseline and updatefiles,
+   even though the raw updatefile XML plainly contains ``<DeleteCitation>`` blocks.
+   ``<DeleteCitation>`` is a sibling of ``<PubmedArticle>`` holding bare ``<PMID>`` elements
+   with no article body, so a parser walking article records never emits a row for them.
+   Withdrawn PMIDs must therefore be supplied via ``--deleted_pmids``, produced by
+   ``extract_deleted_pmids.py``, which reads the raw XML directly. The ``delete`` column is
+   still honoured if it ever starts working, but it cannot be relied on alone.
 
 Left alone, both propagate: a duplicated PMID is screened twice, cross-encoded twice and
 adjudicated twice, so it can contribute two identical ``(PMID, G2P_ID)`` rows to the final
@@ -45,6 +55,11 @@ def parse_args() -> argparse.Namespace:
                    help="Directory holding parquet_download_files/")
     p.add_argument("--out", default=None,
                    help="Manifest path (default <download_dir>/pmid_keep.parquet)")
+    p.add_argument("--deleted_pmids", default=None,
+                   help="File of withdrawn PMIDs, one per line, from extract_deleted_pmids.py. "
+                        "Required in practice: pubmed_parser's `delete` flag never fires "
+                        "(0/45,056,462 on the 2026 corpus) because <DeleteCitation> carries no "
+                        "article body. Defaults to <download_dir>/deleted_pmids.txt if present.")
     return p.parse_args()
 
 
@@ -74,6 +89,20 @@ def main() -> int:
     total = df.height
 
     deleted_pmids = set(df.filter(pl.col("delete"))["pmid"].to_list())
+    from_flag = len(deleted_pmids)
+
+    # The real source of withdrawals: PMIDs parsed straight out of <DeleteCitation>.
+    deleted_path = args.deleted_pmids or os.path.join(args.download_dir, "deleted_pmids.txt")
+    from_file = 0
+    if os.path.exists(deleted_path):
+        with open(deleted_path) as fh:
+            extra = {ln.strip() for ln in fh if ln.strip()}
+        from_file = len(extra)
+        deleted_pmids |= extra
+    else:
+        print(f"[warn] no withdrawn-PMID file at {deleted_path}; withdrawn papers will NOT be "
+              f"excluded (pubmed_parser's `delete` flag alone finds none). "
+              f"Run extract_deleted_pmids.py first.")
     df = df.filter(~pl.col("pmid").is_in(list(deleted_pmids)) if deleted_pmids else pl.lit(True))
 
     # Later shards supersede earlier ones for the same PMID.
@@ -84,7 +113,8 @@ def main() -> int:
 
     keep.write_parquet(out_path)
     print(f"records scanned        : {total}")
-    print(f"withdrawn (DeleteCitation): {len(deleted_pmids)}")
+    print(f"withdrawn (DeleteCitation): {len(deleted_pmids)} "
+          f"(delete flag: {from_flag}, DeleteCitation file: {from_file})")
     print(f"duplicate occurrences  : {total - len(deleted_pmids) - keep.height}")
     print(f"unique PMIDs kept      : {keep.height}")
     print(f"manifest -> {out_path}")

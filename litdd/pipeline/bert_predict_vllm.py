@@ -66,7 +66,12 @@ def safe_pubdate_gt_1980(x: Dict[str, Any]) -> bool:
         pd = int(pd) if pd is not None else -1
     except Exception:
         pd = -1
-    return (x.get("languages") == "eng") and (pd > 1980)
+    # Membership, not equality. MEDLINE records multiple languages as a delimited string
+    # (`eng;spa`, `por;eng`, ...), so an exact match silently discarded 134,817 English
+    # records in the 2026 corpus -- measured, not estimated. These are genuinely English
+    # papers and the screen can read them.
+    langs = x.get("languages") or ""
+    return ("eng" in langs) and (pd > 1980)
 
 
 def make_tiab(x: Dict[str, Any]) -> Dict[str, Any]:
