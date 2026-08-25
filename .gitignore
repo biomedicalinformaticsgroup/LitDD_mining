@@ -97,6 +97,7 @@ data/reference/
 # Offline wheelhouses staged for GPU pods (no egress from the cluster). Wheels are
 # ABI-specific, so there is one per target image Python:
 #   data/wheelhouse/       cp310 -- nvcr.io/nvidia/pytorch:24.10-py3 (training/eval jobs)
+#   data/wheelhouse_py311/ cp311 -- python:3.11-slim (CPU ingest: XML->parquet, dedupe)
 #   data/wheelhouse_py312/ cp312 -- vllm/vllm-openai (screen + LLM stages; the image ships
 #                          neither datasets nor pyarrow nor pandas, which the screen needs
 #                          for streaming). Superseded once the container image lands.
@@ -106,4 +107,6 @@ data/reference/
 #     datasets pyarrow pandas
 data/wheelhouse/
 data/wheelhouse_py312/
+data/wheelhouse_py311/
 .pylibs/
+.pylibs311/
