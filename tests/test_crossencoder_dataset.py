@@ -23,7 +23,7 @@ sys.path.insert(0, str(ROOT))
 from litdd.threads import build_lgmde_map, load_gene_names  # noqa: E402
 from litdd.training.build_crossencoder_dataset import (  # noqa: E402
     filter_aug_rows,
-    gene_entry_counts,
+    panel_gene_info,
     parse_g2p_id,
     pmid_set,
     rerender,
@@ -90,8 +90,9 @@ def test_parse_g2p_id():
 
 
 def test_aug_filter_keeps_single_entry_genes_only(g2p_csv):
-    counts = gene_entry_counts(g2p_csv)
-    assert counts["AFP"] == 2 and counts["NF1"] == 1
+    id2gene, counts = panel_gene_info(g2p_csv)
+    assert id2gene["G2P00001"] == "AFP"
+    assert counts["G2P00001"] == 2 and counts["G2P00410"] == 1
     thread_map = build_lgmde_map(g2p_csv)
     df = pd.DataFrame({
         "tiab": ["aug single", "aug multi", "aug neg", "normal"],

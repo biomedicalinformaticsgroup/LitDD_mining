@@ -49,12 +49,19 @@ def parse_g2p_id(thread: str) -> str:
     return str(thread).split(SEP, 1)[0].strip()
 
 
-def gene_entry_counts(g2p_csv: str) -> dict[str, int]:
-    """{gene symbol: number of distinct G2P entries} for the current panel."""
+def panel_gene_info(g2p_csv: str) -> tuple[dict[str, str], dict[str, int]]:
+    """({g2p_id: gene symbol}, {g2p_id: entry count of that gene}) for the current panel.
+
+    Keyed by g2p_id, never parsed out of the thread string — thread variants (multi-line
+    contextualised threads in particular) do not share the flat field layout.
+    """
     df = pd.read_csv(g2p_csv, dtype=str)
     df.columns = [c.strip() for c in df.columns]
-    counts = df.drop_duplicates("g2p id").groupby("gene symbol")["g2p id"].nunique()
-    return counts.to_dict()
+    df = df.drop_duplicates("g2p id")
+    id2gene = dict(zip(df["g2p id"].str.strip(), df["gene symbol"].str.strip()))
+    per_gene = df.groupby("gene symbol")["g2p id"].nunique()
+    id2count = {gid: int(per_gene.get(g, 0)) for gid, g in id2gene.items()}
+    return id2gene, id2count
 
 
 def load_thread_map(variant: str, g2p_csv: str, gene_info: str | None,
@@ -99,11 +106,10 @@ def filter_aug_rows(df: pd.DataFrame, aug_keys: set[tuple[str, str]],
     external truth independently asserts (``external_keys``) is disease-level verified even
     if the aug worksheet also named it, so it is exempt from the drop.
     """
-    key = list(zip(df["tiab"], df["g2p_id"] if "g2p_id" in df.columns
-                   else df["g2p_lgmde"].map(parse_g2p_id)))
+    ids = df["g2p_id"] if "g2p_id" in df.columns else df["g2p_lgmde"].map(parse_g2p_id)
+    key = list(zip(df["tiab"], ids))
     is_aug_pos = pd.Series([k in aug_keys for k in key], index=df.index) & (df["label"] == 1)
-    gene = df["g2p_lgmde"].str.split(SEP).str[1].str.strip()
-    multi_entry = gene.map(lambda g: entry_counts.get(g, 0) != 1)
+    multi_entry = ids.map(lambda gid: entry_counts.get(gid, 0) != 1)
     drop = is_aug_pos & multi_entry
     if external_keys:
         verified = pd.Series([k in external_keys for k in key], index=df.index)
@@ -209,8 +215,9 @@ def main() -> int:
                        aug["g2p_id"].str.strip()))
     ext = pd.read_csv(args.external_csv, dtype=str).fillna("")
     external_keys = set(zip(ext["tiab"], ext["g2p_id"].str.strip()))
+    id2gene, id2count = panel_gene_info(args.g2p_csv)
     df_train, n_aug_pos, n_aug_dropped = filter_aug_rows(
-        df_train, aug_keys, gene_entry_counts(args.g2p_csv), external_keys)
+        df_train, aug_keys, id2count, external_keys)
     print(f"[Info] aug pair rows in train: {n_aug_pos} positives; "
           f"dropped {n_aug_dropped} multi-entry-gene positives (external-verified exempt)")
     df_train, train_conflicts = dedupe_pairs(df_train, "train")
@@ -267,10 +274,10 @@ def main() -> int:
         "aug_pair_positives_in_train": n_aug_pos,
         "aug_multi_entry_positives_dropped": n_aug_dropped,
         "label_conflict_pairs_dropped": {
-            "train": sorted({parse_g2p_id(t) + " | " + t.split(SEP)[1]
-                             for t in train_conflicts["g2p_lgmde"]}),
-            "test": sorted({parse_g2p_id(t) + " | " + t.split(SEP)[1]
-                            for t in test_conflicts["g2p_lgmde"]}),
+            "train": sorted({f"{gid} | {id2gene.get(gid, '?')}"
+                             for gid in train_conflicts["g2p_id"]}),
+            "test": sorted({f"{gid} | {id2gene.get(gid, '?')}"
+                            for gid in test_conflicts["g2p_id"]}),
         },
         "panel_threads": len(thread_map),
     }
