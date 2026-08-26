@@ -16,10 +16,16 @@ pyarrow>=17
 pandas>=2.2
 polars>=1.5
 
-# Cross-encoder stage
-sentence-transformers>=3.0
+# Cross-encoder stage. The 5.x floor is required by training, not inference: the
+# CrossEncoderTrainer API and mine_hard_negatives(output_format="labeled-pair") that
+# litdd/training/{cv_hp_search_crossencoder,crossencode_finetune,mine_hard_negatives}.py
+# use. <6 because sentence-transformers 6.0 requires transformers>=5, ahead of the
+# transformers the vLLM base image pins.
+sentence-transformers>=5.0,<6
 scikit-learn>=1.5
 scipy>=1.11
+# transformers' Trainer (which CrossEncoderTrainer wraps) refuses to start without it.
+accelerate>=1.0
 
 # PubMed ingestion (download -> XML -> parquet)
 pubmed_parser>=0.5

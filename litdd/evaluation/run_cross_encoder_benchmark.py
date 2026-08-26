@@ -47,6 +47,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--g2p_csv", default=None,
                    help="DDG2P CSV. When given, ALSO score against the full panel — the "
                         "deployment-faithful pool. Costs len(tiabs) x len(panel) pairs.")
+    p.add_argument("--corpus_json", default=None,
+                   help="corpus.json from build_crossencoder_dataset.py — the full panel in "
+                        "a specific thread-variant rendering. Takes precedence over --g2p_csv "
+                        "for the full-panel pool (a variant-trained model must be benchmarked "
+                        "against its own rendering).")
+    p.add_argument("--dtype", choices=["fp32", "fp16", "bf16"], default="fp32",
+                   help="Model dtype for scoring. fp32 is the reporting standard; pass "
+                        "fp16/bf16 only for explicitly-labelled speed comparisons.")
     p.add_argument("--batch_size", type=int, default=256)
     p.add_argument("--skip_existing", action="store_true")
     return p.parse_args()
@@ -83,16 +91,19 @@ def load_full_panel(g2p_csv: str) -> list[str]:
 
 
 def topk_for_model(ds_test, model_name: str, batch_size: int,
-                   k_values: list[int], candidates: list[str] | None = None) -> dict:
+                   k_values: list[int], candidates: list[str] | None = None,
+                   dtype: str = "fp32") -> dict:
     """Top-k coverage of the true G2P record for one model over one candidate pool.
 
     ``candidates`` defaults to the distinct ``g2p_lgmde`` values in ds_test; pass the full
     panel for the deployment-faithful number.
     """
-    print(f"\n=== Evaluating cross-encoder: {model_name} ===", flush=True)
+    print(f"\n=== Evaluating cross-encoder: {model_name} ({dtype}) ===", flush=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model_kwargs = {"torch_dtype": torch.float16} if device == "cuda" else {}
-    model = CrossEncoder(model_name, device=device, model_kwargs=model_kwargs)
+    torch_dtype = {"fp32": torch.float32, "fp16": torch.float16,
+                   "bf16": torch.bfloat16}[dtype]
+    model = CrossEncoder(model_name, device=device,
+                         model_kwargs={"torch_dtype": torch_dtype})
 
     tiabs = sorted(set(ds_test["tiab"]))
     if candidates is None:
@@ -143,7 +154,11 @@ def main() -> int:
     models = args.models or DEFAULT_MODELS
 
     pools: list[tuple[str, list[str] | None]] = [("test", None)]
-    if args.g2p_csv:
+    if args.corpus_json:
+        import json
+        with open(args.corpus_json) as f:
+            pools.append(("full_panel", sorted(set(str(v) for v in json.load(f).values()))))
+    elif args.g2p_csv:
         pools.append(("full_panel", load_full_panel(args.g2p_csv)))
 
     for pool_name, candidates in pools:
@@ -153,7 +168,7 @@ def main() -> int:
                 continue
             try:
                 metrics = topk_for_model(ds_test, name, args.batch_size,
-                                         args.k_values, candidates)
+                                         args.k_values, candidates, dtype=args.dtype)
                 row = {"model": name, "pool": pool_name, **metrics}
                 append_row(args.out_csv, row, args.k_values)
                 print("->", row)

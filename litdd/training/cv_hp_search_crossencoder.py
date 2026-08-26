@@ -1,25 +1,40 @@
 #!/usr/bin/env python3
 """5-fold StratifiedGroupKFold hyperparameter search for the cross-encoder.
 
-Operates only on the training set. For each (learning_rate, epochs, ...)
-combination in the grid, fine-tunes a fresh cross-encoder on 4 folds of
-the (anchor=tiab, positive=g2p_lgmde) hard-negatives dataset and scores
-fold AUC / binary-F1 on the 5th. The combination with the highest mean
-fold F1 is written to ``--out_json`` (consumed by
-``litdd/training/crossencode_finetune.py --hp_json …``).
+Operates only on the training set. For each (learning_rate, epochs) combination
+in the grid, fine-tunes a fresh cross-encoder on 4 folds of the labeled-pair
+dataset and scores the 5th. The combination with the highest mean fold F1 is
+written to ``--out_json`` (consumed by ``crossencode_finetune.py --hp_json``);
+per-fold rows go to ``--out_csv``.
 
-Hard negatives are mined *inside each fold's train half* so a positive's
-nearest negatives never come from the validation half (no leakage).
+Leakage / rigour properties, each enforced here rather than assumed:
 
-Default grid is small (``lr × epochs`` = 2 combos × 5 folds = 10
-trainings).
+* **Grouped folds** — ``StratifiedGroupKFold`` on ``--group_col`` (default
+  ``tiab``); fold disjointness is asserted at runtime.
+* **Hard negatives are mined inside each fold's train half**, from that fold's
+  positives only, so a validation abstract never shapes the training pairs.
+  Mining depends on the fold, not the HP combo, so each fold is mined once and
+  the result reused across the whole grid.
+* **Annotated negatives included** — the human-labeled negative pairs from the
+  fold's train half join the mined negatives (they are gene-sharing near-misses,
+  the candidate distribution deployment actually scores). ``--no_annotated_negatives``
+  reproduces the original mined-only recipe.
+* **Seed set before model construction** (the transformers trainer only seeds
+  after the model is loaded).
+* **Validation metrics at a fixed 0.5 threshold** from raw ``model.predict``
+  scores in deployment pair order ``(tiab, thread)`` — no threshold tuned on the
+  validation half, and no reliance on evaluator classes that do so.
+
+Default grid is small (``lr x epochs`` = 2 combos x 5 folds = 10 trainings).
 """
 from __future__ import annotations
 
 import argparse
+import csv
 import gc
 import itertools
 import json
+import os
 import time
 from typing import Iterable
 
@@ -27,16 +42,7 @@ import numpy as np
 import pandas as pd
 import torch
 from datasets import Dataset, load_from_disk
-from sentence_transformers import CrossEncoder, SentenceTransformer
-from sentence_transformers.cross_encoder import (
-    CrossEncoderTrainer,
-    CrossEncoderTrainingArguments,
-)
-from sentence_transformers.cross_encoder.evaluation import (
-    CrossEncoderClassificationEvaluator,
-)
-from sentence_transformers.cross_encoder.losses import BinaryCrossEntropyLoss
-from sentence_transformers.util import mine_hard_negatives
+from sklearn.metrics import average_precision_score, precision_recall_fscore_support
 from sklearn.model_selection import StratifiedGroupKFold
 
 
@@ -52,15 +58,25 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--train_ds_dir", default="litdd/training/ds_cross_train",
                    help="Pair-level training dataset (tiab, g2p_lgmde, label).")
-    p.add_argument("--g2p_corpus_csv", required=True,
-                   help="Full G2P corpus CSV (used as candidate negatives during mining).")
+    p.add_argument("--corpus_json", default=None,
+                   help="corpus.json from build_crossencoder_dataset.py — the mining "
+                        "candidate pool in this arm's rendering.")
+    p.add_argument("--g2p_corpus_csv", default=None,
+                   help="Raw G2P export; flat-rendered as the corpus if no --corpus_json.")
     p.add_argument("--input_model", default="ncbi/MedCPT-Cross-Encoder")
     p.add_argument("--embed_model", default="abhinand/MedEmbed-large-v0.1",
                    help="Sentence-transformer used by mine_hard_negatives.")
     p.add_argument("--group_col", default="tiab")
     p.add_argument("--n_folds", type=int, default=5)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--precision", choices=["fp32", "fp16", "bf16"], default="fp32")
+    p.add_argument("--no_annotated_negatives", dest="include_annotated_negatives",
+                   action="store_false")
+    p.add_argument("--tag", default="",
+                   help="Free-text label (e.g. the thread-variant arm) recorded per CSV row.")
     p.add_argument("--out_json", default="litdd/training/crossencoder_hp_search.json")
+    p.add_argument("--out_csv", default=None,
+                   help="Per-fold, per-HP rows; appended to, so several arms can share one file.")
 
     # Grid
     p.add_argument("--lr_grid", nargs="+", default=["1e-5", "3e-5"])
@@ -72,50 +88,70 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def mine_negatives(fold_pos_df: pd.DataFrame, embed_model: str,
-                   g2p_corpus: list[str]) -> Dataset:
-    """Mine hard negatives inside the training half of one fold."""
-    ds = Dataset.from_pandas(fold_pos_df[["tiab", "g2p_lgmde"]], preserve_index=False)
-    embedder = SentenceTransformer(embed_model)
-    out = mine_hard_negatives(
-        dataset=ds,
-        model=embedder,
-        anchor_column_name="tiab",
-        positive_column_name="g2p_lgmde",
-        corpus=g2p_corpus,
-        range_min=5,
-        range_max=50,
-        max_score=0.95,
-        relative_margin=0.01,
-        num_negatives=5,
-        sampling_strategy="top",
-        batch_size=128,
-        output_format="labeled-pair",
-        use_faiss=False,
-    )
+def load_corpus(corpus_json: str | None, g2p_csv: str | None) -> list[str]:
+    if corpus_json:
+        with open(corpus_json) as f:
+            return sorted(set(str(v) for v in json.load(f).values()))
+    if g2p_csv:
+        from litdd.threads import build_lgmde_list
+        return build_lgmde_list(g2p_csv)
+    raise SystemExit("one of --corpus_json / --g2p_corpus_csv is required")
+
+
+def mine_all_folds(df: pd.DataFrame, fold_assignments: list, args,
+                   corpus: list[str]) -> list[Dataset]:
+    """Labeled-pair training set for each fold, mined from that fold's train half only.
+
+    Mining is a function of (fold, corpus, embedder) — not of the HP combo — so it runs
+    once per fold, before the grid loop, with a single embedder load.
+    """
+    from litdd.training.mine_hard_negatives import mine_labeled_pairs
+    from sentence_transformers import SentenceTransformer
+
+    embedder = SentenceTransformer(args.embed_model)
+    fold_train_sets: list[Dataset] = []
+    for fold_idx, (tr_idx, _) in enumerate(fold_assignments, start=1):
+        fold_train = df.iloc[tr_idx]
+        print(f"[Info] mining fold {fold_idx}: {int((fold_train['label'] == 1).sum())} "
+              f"positives", flush=True)
+        ds = Dataset.from_pandas(fold_train[["tiab", "g2p_lgmde", "label"]],
+                                 preserve_index=False)
+        fold_train_sets.append(mine_labeled_pairs(
+            ds, corpus, args.embed_model,
+            include_annotated_negatives=args.include_annotated_negatives,
+            embedder=embedder,
+        ))
     del embedder
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    return out
+    return fold_train_sets
 
 
-def evaluate_one_fold(
-    fold_train: pd.DataFrame,
-    fold_val: pd.DataFrame,
-    g2p_corpus: list[str],
-    args,
-    learning_rate: float,
-    epochs: int,
-    fold_idx: int,
-) -> dict:
+def eval_pairs(model, df_val: pd.DataFrame, batch_size: int) -> dict:
+    """Fixed-threshold (0.5) metrics from raw scores, in deployment pair order."""
+    pairs = list(zip(df_val["tiab"], df_val["g2p_lgmde"]))
+    scores = np.asarray(model.predict(pairs, batch_size=batch_size)).reshape(-1)
+    labels = df_val["label"].astype(int).to_numpy()
+    preds = (scores >= 0.5).astype(int)
+    prec, rec, f1, _ = precision_recall_fscore_support(
+        labels, preds, average="binary", zero_division=0)
+    ap = float(average_precision_score(labels, scores)) if labels.any() else 0.0
+    return {"f1": float(f1), "precision": float(prec), "recall": float(rec), "ap": ap}
+
+
+def train_one_fold(train_ds: Dataset, df_val: pd.DataFrame, args,
+                   learning_rate: float, epochs: int, fold_idx: int) -> dict:
+    from sentence_transformers import CrossEncoder
+    from sentence_transformers.cross_encoder import (
+        CrossEncoderTrainer,
+        CrossEncoderTrainingArguments,
+    )
+    from sentence_transformers.cross_encoder.losses import BinaryCrossEntropyLoss
+    from transformers import set_seed
+
     print(f"\n  -- fold {fold_idx} --", flush=True)
-    fold_train_pos = fold_train[fold_train["label"] == 1]
-    if fold_train_pos.empty:
-        return {"fold": fold_idx, "f1": 0.0, "precision": 0.0, "recall": 0.0,
-                "ap": 0.0, "runtime_s": 0.0}
-    hard_negs_ds = mine_negatives(fold_train_pos, args.embed_model, g2p_corpus)
-
+    set_seed(args.seed)  # BEFORE model construction, so any head init is governed by it
     model = CrossEncoder(args.input_model)
     loss = BinaryCrossEntropyLoss(model)
 
@@ -129,32 +165,38 @@ def evaluate_one_fold(
         eval_strategy="no",
         save_strategy="no",
         seed=args.seed,
+        data_seed=args.seed,
+        fp16=args.precision == "fp16",
+        bf16=args.precision == "bf16",
         report_to=[],
     )
-    trainer = CrossEncoderTrainer(
-        model=model, args=targs, train_dataset=hard_negs_ds, loss=loss,
-    )
+    trainer = CrossEncoderTrainer(model=model, args=targs, train_dataset=train_ds,
+                                  loss=loss)
     t0 = time.time()
     trainer.train()
     runtime = time.time() - t0
 
-    val_eval = CrossEncoderClassificationEvaluator(
-        sentence_pairs=list(zip(fold_val["g2p_lgmde"], fold_val["tiab"])),
-        labels=list(fold_val["label"].astype(int)),
-        name=f"cv_fold_{fold_idx}",
-    )
-    metrics = val_eval(model)
-    f1 = float(metrics.get(val_eval.primary_metric, metrics.get("binary_f1", 0.0)))
-    prec = float(metrics.get("binary_precision", 0.0))
-    rec = float(metrics.get("binary_recall", 0.0))
-    ap = float(metrics.get("average_precision", 0.0))
+    metrics = eval_pairs(model, df_val, args.eval_bs)
+    metrics.update({"fold": fold_idx, "runtime_s": round(runtime, 1)})
 
     del trainer, model
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    return {"fold": fold_idx, "f1": f1, "precision": prec, "recall": rec,
-            "ap": ap, "runtime_s": round(runtime, 1)}
+    return metrics
+
+
+def append_csv(path: str, row: dict) -> None:
+    fieldnames = ["tag", "learning_rate", "epochs", "train_bs", "warmup_ratio",
+                  "precision_mode", "fold", "f1", "precision", "recall", "ap",
+                  "runtime_s"]
+    new = not os.path.exists(path)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "a", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        if new:
+            w.writeheader()
+        w.writerow(row)
 
 
 def main() -> int:
@@ -164,33 +206,26 @@ def main() -> int:
         raise SystemExit(f"--group_col '{args.group_col}' not in dataset columns "
                          f"{ds_train.column_names}.")
     df = ds_train.to_pandas()
-
-    g2p_csv = pd.read_csv(args.g2p_corpus_csv, dtype=str, keep_default_na=False)
-    if "g2p_lgmde" not in g2p_csv.columns:
-        # Build the LGMDE join string from the canonical G2P columns
-        # (matches litdd/training/mine_hard_negatives.py).
-        lgmde_cols = [
-            "g2p id", "gene symbol", "gene mim", "hgnc id", "previous gene symbols",
-            "disease name", "disease mim", "disease MONDO", "allelic requirement",
-            "cross cutting modifier", "confidence", "inferred variant consequence",
-            "variant types", "molecular mechanism", "molecular mechanism categorisation",
-        ]
-        present = [c for c in lgmde_cols if c in g2p_csv.columns]
-        if not present:
-            raise SystemExit(f"{args.g2p_corpus_csv} has neither 'g2p_lgmde' nor any of "
-                             f"the canonical G2P columns {lgmde_cols}.")
-        g2p_csv["g2p_lgmde"] = g2p_csv[present].astype(str).agg(" - ".join, axis=1)
-    g2p_corpus = list(g2p_csv["g2p_lgmde"])
+    corpus = load_corpus(args.corpus_json, args.g2p_corpus_csv)
+    print(f"[Info] {len(df)} pairs, {len(corpus)} corpus threads, tag={args.tag!r}")
 
     y = df["label"].astype(int).values
     groups = df[args.group_col].values
     sgkf = StratifiedGroupKFold(n_splits=args.n_folds, shuffle=True, random_state=args.seed)
     fold_assignments = list(sgkf.split(np.zeros(len(df)), y, groups))
 
+    # Grouping is the leakage control: verify it rather than trust it.
+    for fold_idx, (tr_idx, va_idx) in enumerate(fold_assignments, start=1):
+        shared = set(groups[tr_idx]) & set(groups[va_idx])
+        assert not shared, f"fold {fold_idx}: {len(shared)} groups on both sides"
+    print(f"[Info] fold grouping verified: no '{args.group_col}' value crosses a fold")
+
+    fold_train_sets = mine_all_folds(df, fold_assignments, args, corpus)
+
     lrs = parse_floats(args.lr_grid)
     epochs_list = parse_ints(args.epochs_grid)
     grid = list(itertools.product(lrs, epochs_list))
-    print(f"[Info] HP grid: {len(grid)} combos × {args.n_folds} folds = "
+    print(f"[Info] HP grid: {len(grid)} combos x {args.n_folds} folds = "
           f"{len(grid) * args.n_folds} cross-encoder trainings.")
 
     results = []
@@ -198,18 +233,16 @@ def main() -> int:
         print(f"\n=== combo {combo_idx}/{len(grid)} : lr={lr} epochs={epochs} ===")
         fold_metrics = []
         for fold_idx, (tr_idx, va_idx) in enumerate(fold_assignments, start=1):
-            fm = evaluate_one_fold(
-                fold_train=df.iloc[tr_idx],
-                fold_val=df.iloc[va_idx],
-                g2p_corpus=g2p_corpus,
-                args=args,
-                learning_rate=lr,
-                epochs=epochs,
-                fold_idx=fold_idx,
-            )
+            fm = train_one_fold(fold_train_sets[fold_idx - 1], df.iloc[va_idx], args,
+                                learning_rate=lr, epochs=epochs, fold_idx=fold_idx)
             print(f"    fold {fold_idx}: f1={fm['f1']:.4f} ap={fm['ap']:.4f} "
                   f"({fm['runtime_s']:.0f}s)")
             fold_metrics.append(fm)
+            if args.out_csv:
+                append_csv(args.out_csv, {
+                    "tag": args.tag, "learning_rate": lr, "epochs": epochs,
+                    "train_bs": args.train_bs, "warmup_ratio": args.warmup_ratio,
+                    "precision_mode": args.precision, **fm})
         f1s = np.array([m["f1"] for m in fold_metrics])
         results.append({
             "learning_rate": lr,
@@ -225,9 +258,12 @@ def main() -> int:
     results.sort(key=lambda r: -r["mean_f1"])
     best = results[0]
     out = {
+        "tag": args.tag,
         "n_folds": args.n_folds,
         "input_model": args.input_model,
         "group_col": args.group_col,
+        "precision": args.precision,
+        "include_annotated_negatives": args.include_annotated_negatives,
         "results": results,
         "best": {k: best[k] for k in ("learning_rate", "epochs", "train_bs", "warmup_ratio")},
     }

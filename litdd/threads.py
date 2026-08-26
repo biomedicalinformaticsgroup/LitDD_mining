@@ -30,6 +30,8 @@ on an unresolvable field rather than silently emitting a blank.
 """
 from __future__ import annotations
 
+import gzip
+
 import pandas as pd
 
 # (canonical field, accepted column names in order of preference)
@@ -78,8 +80,58 @@ def load_g2p(g2p_csv: str) -> pd.DataFrame:
     return df
 
 
-def build_lgmde_map(g2p_csv: str, strict: bool = True) -> dict[str, str]:
-    """Return ``{g2p_id: lgmde_thread}`` for every entry in the export."""
+def load_gene_names(gene_info_path: str) -> dict[str, str]:
+    """``{key: full gene name}`` from an NCBI ``gene_info`` dump (gzipped TSV).
+
+    Keys are both the official symbol (``ARG1``) and the numeric HGNC id (``"603"``),
+    so a G2P row can be resolved by ``hgnc id`` first and ``gene symbol`` as fallback.
+    The name is ``description`` (e.g. ``arginase 1``) — the field a TIAB that says
+    "arginase" can align against when the thread's symbol alone cannot.
+    """
+    names: dict[str, str] = {}
+    with gzip.open(gene_info_path, "rt") as f:
+        header = f.readline().lstrip("#").rstrip("\n").split("\t")
+        idx = {c: i for i, c in enumerate(header)}
+        for line in f:
+            row = line.rstrip("\n").split("\t")
+            desc = row[idx["description"]]
+            if not desc or desc == "-":
+                continue
+            symbol = row[idx["Symbol"]]
+            if symbol and symbol != "-":
+                names.setdefault(symbol, desc)
+            for xref in row[idx["dbXrefs"]].split("|"):
+                # gene_info renders the HGNC xref as "HGNC:HGNC:603"
+                if xref.startswith("HGNC:"):
+                    names.setdefault(xref.split(":")[-1], desc)
+    return names
+
+
+def _gene_name_for_row(row, resolved: dict[str, str | None], gene_names: dict[str, str]) -> str:
+    """Full gene name for one G2P row: HGNC id first, symbol as fallback, '' if unknown."""
+    hgnc_col = resolved.get("hgnc_id")
+    if hgnc_col is not None and pd.notna(row[hgnc_col]):
+        v = row[hgnc_col]
+        key = str(int(v)) if isinstance(v, float) and v == int(v) else str(v).replace("HGNC:", "")
+        if key in gene_names:
+            return gene_names[key]
+    sym_col = resolved.get("gene_symbol")
+    if sym_col is not None and pd.notna(row[sym_col]):
+        return gene_names.get(str(row[sym_col]), "")
+    return ""
+
+
+def build_lgmde_map(g2p_csv: str, strict: bool = True,
+                    gene_names: dict[str, str] | None = None) -> dict[str, str]:
+    """Return ``{g2p_id: lgmde_thread}`` for every entry in the export.
+
+    ``gene_names`` (from :func:`load_gene_names`) selects the *gene-name* thread
+    variant: the full gene name is inserted as an extra field directly after
+    ``previous gene symbols``, so gene-identifying text stays contiguous. With the
+    default ``None`` the rendering is byte-identical to what the released
+    cross-encoder was fine-tuned on — do not pass ``gene_names`` on the deployment
+    path unless the deployed model was trained on that variant.
+    """
     df = load_g2p(g2p_csv)
     resolved: list[tuple[str, str | None]] = [
         (field, _resolve(df.columns, accepted)) for field, accepted in LGMDE_FIELDS
@@ -101,22 +153,26 @@ def build_lgmde_map(g2p_csv: str, strict: bool = True) -> dict[str, str]:
     # str() on the raw cell reproduces the training rendering exactly: NaN -> "nan",
     # numeric MIMs -> "613113.0". Do not "clean" these without re-finetuning the
     # cross-encoder, which was fine-tuned on strings produced this way.
+    resolved_by_field = dict(resolved)
     out: dict[str, str] = {}
     for _, row in df.iterrows():
         values = []
         for field, col in resolved:
             if col is None:
                 values.append("")
-                continue
-            v = row[col]
-            # Training rendered the HGNC id with its prefix and no float artefact.
-            if field == "hgnc_id" and pd.notna(v):
-                v = f"HGNC:{int(v) if isinstance(v, float) and v == int(v) else v}"
-            values.append(str(v))
+            else:
+                v = row[col]
+                # Training rendered the HGNC id with its prefix and no float artefact.
+                if field == "hgnc_id" and pd.notna(v):
+                    v = f"HGNC:{int(v) if isinstance(v, float) and v == int(v) else v}"
+                values.append(str(v))
+            if field == "previous_gene_symbols" and gene_names is not None:
+                values.append(_gene_name_for_row(row, resolved_by_field, gene_names))
         out[str(row[id_col])] = SEPARATOR.join(values)
     return out
 
 
-def build_lgmde_list(g2p_csv: str, strict: bool = True) -> list[str]:
+def build_lgmde_list(g2p_csv: str, strict: bool = True,
+                     gene_names: dict[str, str] | None = None) -> list[str]:
     """Unique LGMDE threads, for use as the cross-encoder candidate pool."""
-    return sorted(set(build_lgmde_map(g2p_csv, strict=strict).values()))
+    return sorted(set(build_lgmde_map(g2p_csv, strict=strict, gene_names=gene_names).values()))
