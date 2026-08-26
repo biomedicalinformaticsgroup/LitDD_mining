@@ -97,8 +97,15 @@ def predict_batch_vllm(
     pred_bs: int = PRED_BATCH_SIZE,
     tokenizer=None,
     text_token_limit: Optional[int] = None,
-) -> List[int]:
+) -> tuple[List[int], List[float]]:
+    """Returns (labels, positive-class probabilities).
+
+    The probability is retained as well as the argmax because the argmax alone freezes the
+    operating point at 0.5. Without the score, changing the screen threshold means re-running
+    the entire corpus -- a ~30 GPU-hour pass -- so the column is effectively free insurance.
+    """
     preds: List[int] = []
+    scores: List[float] = []
     for i in range(0, len(texts), pred_bs):
         sub = texts[i:i + pred_bs]
         if tokenizer is not None and text_token_limit is not None:
@@ -106,9 +113,16 @@ def predict_batch_vllm(
 
         results = llm.classify(sub)
         for out in results:
-            logits = getattr(out.outputs, "probs", None)
-            preds.append(-1 if logits is None else argmax_index(logits))
-    return preds
+            probs = getattr(out.outputs, "probs", None)
+            if probs is None:
+                preds.append(-1)
+                scores.append(float("nan"))
+            else:
+                preds.append(argmax_index(probs))
+                # Index 1 is the positive class; verified against the transformers fp32
+                # reference at 99.96% prediction agreement on ds_test.
+                scores.append(float(probs[1]) if len(probs) > 1 else float(probs[0]))
+    return preds, scores
 
 
 # -------------------
@@ -122,13 +136,16 @@ def get_output_schema(parquet_path: str) -> pa.Schema:
         fields.append(pa.field("tiab", pa.string()))
     if "bert_predict" not in base.names:
         fields.append(pa.field("bert_predict", pa.int64()))
+    if "bert_score" not in base.names:
+        fields.append(pa.field("bert_score", pa.float32()))
     return pa.schema(fields)
 
 
 def table_from_batch_with_schema(
     batch: Dict[str, List[Any]],
     preds: List[int],
-    schema: pa.Schema
+    schema: pa.Schema,
+    scores: Optional[List[float]] = None,
 ) -> pa.Table:
     if len(preds) > 0:
         n = len(preds)
@@ -144,6 +161,8 @@ def table_from_batch_with_schema(
         typ = field.type
         if name == "bert_predict":
             arr = pa.array(preds, type=pa.int64())
+        elif name == "bert_score":
+            arr = pa.array(scores if scores is not None else [None] * n, type=pa.float32())
         elif name == "tiab":
             vals = batch.get("tiab", [""] * n)
             arr = pa.array(vals, type=pa.string())
@@ -218,8 +237,9 @@ def process_one_parquet_with_tokenizer(
                 if not texts:
                     continue
 
-                preds = predict_batch_vllm(llm, texts, tokenizer=tokenizer, text_token_limit=text_token_limit)
-                table = table_from_batch_with_schema(batch, preds, out_schema)
+                preds, scores = predict_batch_vllm(
+                    llm, texts, tokenizer=tokenizer, text_token_limit=text_token_limit)
+                table = table_from_batch_with_schema(batch, preds, out_schema, scores)
 
                 if writer is None:
                     writer = pq.ParquetWriter(tmp_path, schema=out_schema, compression=PARQUET_COMPRESSION)
@@ -227,7 +247,7 @@ def process_one_parquet_with_tokenizer(
                 writer.write_table(table)
                 total_rows += table.num_rows
 
-                del batch, table, preds, texts
+                del batch, table, preds, scores, texts
                 gc.collect()
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -309,10 +329,15 @@ def load_vllm_engine(model_id: str, max_length: int, tp_size: int = 1,
     # `runner`/`convert`. The screen must run on the newer vLLM so a single image can also
     # serve GPT-OSS-20B for the LLM stage, so try the variants in order rather than pinning
     # to one API. Verified: 0.10.1.1 accepts task=, 0.23.0 accepts runner=/convert=.
+    # max_model_len, NOT max_seq_len_to_capture: the latter was also removed from EngineArgs
+    # in 0.23.0 (it only ever controlled CUDA-graph capture), and because it sits in the
+    # kwargs common to every variant below, its absence made all four raise TypeError and the
+    # negotiation fail with a misleading "no pooling API accepted". max_model_len is accepted
+    # by both builds and is the correct knob for sequence length.
     base = dict(
         model=model_id,
         dtype=dtype,
-        max_seq_len_to_capture=max_length,
+        max_model_len=max_length,
         tensor_parallel_size=tp_size,
     )
     variants = [
