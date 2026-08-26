@@ -11,9 +11,9 @@ this only produces the defensible reported figure.
 from __future__ import annotations
 
 import argparse
-import os
 import gc
 import hashlib
+import os
 
 import numpy as np
 import pandas as pd
@@ -39,7 +39,6 @@ def metrics_fn():
 
 
 def train_once(ds_train, ds_test, tokenizer, seed, out_dir):
-    import torch
     from transformers import (
         AutoModelForSequenceClassification,
         DataCollatorWithPadding,

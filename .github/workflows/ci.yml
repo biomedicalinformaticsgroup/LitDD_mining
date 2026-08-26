@@ -26,7 +26,11 @@ jobs:
           python-version: "3.11"
 
       - name: Lint (ruff)
-        run: uvx ruff check .
+        # Pinned: an unpinned `uvx ruff` re-lints old code with whatever rules the newest
+        # release ships, so a green branch starts failing with no code change (that is how
+        # this step first broke). Bump the pin deliberately, fixing new findings in the
+        # same commit.
+        run: uvx ruff@0.16.4 check .
 
       - name: Unit tests (CPU only)
         run: >-
@@ -44,6 +48,10 @@ jobs:
           fetch-depth: 0
 
       - name: Scan for committed secrets (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Runs the gitleaks binary directly: gitleaks-action@v2 now requires a paid
+        # GITLEAKS_LICENSE for organisation-owned repos, while the CLI itself is free.
+        run: |
+          GITLEAKS_VERSION=8.24.3
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks git --redact --no-banner --exit-code 1 .

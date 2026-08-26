@@ -38,8 +38,9 @@ node2vec>=0.4.6
 owlready2>=0.46
 pronto>=2.5
 
-# HPO annotation
-FastHPOCR>=1.0
+# HPO annotation. FastHPOCR's released versions are 0.x — a >=1.0 floor matches nothing
+# on PyPI and was what broke the first image build.
+FastHPOCR>=0.1.4
 
 # Evaluation and figures
 evaluate>=0.4

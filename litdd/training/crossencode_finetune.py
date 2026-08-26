@@ -108,8 +108,8 @@ def train_one_seed(args, hp: dict, seed: int, ds_train, ds_test) -> tuple[dict, 
         with open(os.path.join(args.pred_dir, f"{tag}.csv"), "w", newline="") as f:
             w = csv.writer(f)
             w.writerow(["label", "pred", "score"])
-            for l, s in zip(labels, scores):
-                w.writerow([int(l), int(s >= 0.5), f"{float(s):.6f}"])
+            for lab, sc in zip(labels, scores):
+                w.writerow([int(lab), int(sc >= 0.5), f"{float(sc):.6f}"])
 
     del trainer
     gc.collect()

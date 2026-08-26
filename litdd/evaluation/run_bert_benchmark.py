@@ -166,8 +166,8 @@ def dump_predictions(trainer, tok_test, ds_test, pred_dir: str, model_name: str,
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["idx", "label", "pred"])
-        for i, (l, p) in enumerate(zip(labels, preds)):
-            w.writerow([i, int(l), int(p)])
+        for i, (lab, p) in enumerate(zip(labels, preds)):
+            w.writerow([i, int(lab), int(p)])
     print(f"[INFO] wrote {len(preds)} predictions -> {path}", flush=True)
 
 

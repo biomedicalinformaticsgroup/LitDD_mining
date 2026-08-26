@@ -43,7 +43,6 @@ from glob import glob
 
 import polars as pl
 
-
 # Retractions and corrections, excluded from the corpus by MeSH publication type.
 # Counts are from the full 2026 download (45,056,462 records; see
 # revision/kco/publication_types_2026.csv for all 85 types observed).

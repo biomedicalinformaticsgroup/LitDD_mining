@@ -36,7 +36,6 @@ import traceback
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
 import polars as pl
 
 # NOTE: torch and sentence_transformers are imported lazily inside the functions that

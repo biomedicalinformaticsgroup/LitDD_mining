@@ -105,8 +105,9 @@ def mine_all_folds(df: pd.DataFrame, fold_assignments: list, args,
     Mining is a function of (fold, corpus, embedder) — not of the HP combo — so it runs
     once per fold, before the grid loop, with a single embedder load.
     """
-    from litdd.training.mine_hard_negatives import mine_labeled_pairs
     from sentence_transformers import SentenceTransformer
+
+    from litdd.training.mine_hard_negatives import mine_labeled_pairs
 
     embedder = SentenceTransformer(args.embed_model)
     fold_train_sets: list[Dataset] = []

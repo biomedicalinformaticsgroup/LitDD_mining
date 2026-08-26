@@ -12,9 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "litdd" / "pipeline"))
 
-import pytest
-
 import llm_map  # noqa: E402
+import pytest  # noqa: E402
 
 
 def test_extract_last_answer_single():

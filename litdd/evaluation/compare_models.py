@@ -22,7 +22,6 @@ import csv
 import glob
 import os
 import random
-from collections import defaultdict
 
 
 def load(path: str) -> tuple[list[int], list[int]]:
@@ -32,9 +31,9 @@ def load(path: str) -> tuple[list[int], list[int]]:
 
 
 def f1(labels, preds) -> float:
-    tp = sum(1 for l, p in zip(labels, preds) if l == 1 and p == 1)
-    fp = sum(1 for l, p in zip(labels, preds) if l == 0 and p == 1)
-    fn = sum(1 for l, p in zip(labels, preds) if l == 1 and p == 0)
+    tp = sum(1 for lab, p in zip(labels, preds) if lab == 1 and p == 1)
+    fp = sum(1 for lab, p in zip(labels, preds) if lab == 0 and p == 1)
+    fn = sum(1 for lab, p in zip(labels, preds) if lab == 1 and p == 0)
     return 2 * tp / (2 * tp + fp + fn) if (2 * tp + fp + fn) else 0.0
 
 
@@ -42,8 +41,8 @@ def mcnemar_exact(labels, a, b) -> tuple[int, int, float]:
     """Exact two-sided McNemar. Returns (b_only, c_only, p)."""
     from math import comb
 
-    b_only = sum(1 for l, x, y in zip(labels, a, b) if (x == l) and (y != l))
-    c_only = sum(1 for l, x, y in zip(labels, a, b) if (x != l) and (y == l))
+    b_only = sum(1 for lab, x, y in zip(labels, a, b) if (x == lab) and (y != lab))
+    c_only = sum(1 for lab, x, y in zip(labels, a, b) if (x != lab) and (y == lab))
     n = b_only + c_only
     if n == 0:
         return b_only, c_only, 1.0
@@ -80,7 +79,7 @@ def cochran_q(labels: list[int], preds_by_model: dict[str, list[int]]) -> tuple[
 
     names = list(preds_by_model)
     k = len(names)
-    correct = [[1 if p == l else 0 for l, p in zip(labels, preds_by_model[n])] for n in names]
+    correct = [[1 if p == lab else 0 for lab, p in zip(labels, preds_by_model[n])] for n in names]
     col = [sum(c) for c in correct]                       # per-model correct counts
     row = [sum(c[i] for c in correct) for i in range(len(labels))]  # models correct per item
     num = (k - 1) * (k * sum(g * g for g in col) - sum(col) ** 2)
