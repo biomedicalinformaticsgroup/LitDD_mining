@@ -88,10 +88,10 @@ def main() -> int:
     for ax in (ax_tr, ax_fire, ax_cr):
         ax.axvline(args.deployed, color=INK2, lw=1, ls="--")
         ax.axvline(t_opt, color=INK2, lw=1, ls=":")
-    ax_cr.annotate(f"deployed {args.deployed:.2f}", (args.deployed, 0.615), color=INK2,
-                   fontsize=8.5, ha="right", xytext=(-4, 0), textcoords="offset points")
-    ax_cr.annotate(f"F0.5 max {t_opt:.2f}", (t_opt, 0.615), color=INK2, fontsize=8.5,
-                   ha="left", xytext=(4, 0), textcoords="offset points")
+    ax_cr.annotate(f"deployed {args.deployed:.2f}", (args.deployed, 0.815), color=INK2,
+                   fontsize=8.5, ha="right", va="top", xytext=(-4, 0), textcoords="offset points")
+    ax_cr.annotate(f"F0.5 max {t_opt:.2f}", (t_opt, 0.815), color=INK2, fontsize=8.5,
+                   ha="left", va="top", xytext=(4, 0), textcoords="offset points")
     ax_cr.legend(frameon=False, fontsize=8.5, loc="lower left", labelcolor=INK)
 
     fig.suptitle("Cross-encoder gate: what each threshold buys and costs (3-seed means)",
