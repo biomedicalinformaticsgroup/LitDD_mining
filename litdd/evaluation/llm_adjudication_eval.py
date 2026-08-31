@@ -177,6 +177,9 @@ def per_tiab_table(llm: pd.DataFrame, gold: pd.DataFrame, cutoff: float) -> pd.D
             "uncertain": bool(getattr(r, "answer_uncertain", False) or False),
             "hallucinated": getattr(r, "answer_ids_in_candidates", None) is False,
             "truncated": getattr(r, "finish_reason", None) == "length",
+            # No LLM row at all: the TIAB never reached the LLM (dropped by an upstream hard
+            # gate such as the gene filter). Its gold ids count as FN in every view.
+            "no_llm_row": not isinstance(getattr(r, "generated_text", None), str),
             "gen_tokens": getattr(r, "gen_tokens", None),
             "prompt_tokens": getattr(r, "prompt_tokens", None),
         })
@@ -267,7 +270,8 @@ def view_pair_level(t: pd.DataFrame, pairs: pd.DataFrame) -> dict:
 def rates(t: pd.DataFrame) -> dict:
     n = len(t)
     out = {"n_tiabs": n}
-    for c in ("no_match", "unparsed", "format_invalid", "uncertain", "hallucinated", "truncated"):
+    for c in ("no_match", "unparsed", "format_invalid", "uncertain", "hallucinated", "truncated",
+              "no_llm_row"):
         out[f"{c}_rate"] = round(float(t[c].mean()), 4) if n else float("nan")
         out[f"{c}_n"] = int(t[c].sum())
     for c in ("gen_tokens", "prompt_tokens"):
