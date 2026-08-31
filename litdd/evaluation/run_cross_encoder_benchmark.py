@@ -39,6 +39,8 @@ DEFAULT_MODELS = [
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--data_dir", default="data")
+    p.add_argument("--test_subdir", default="ds_test",
+                   help="Test dataset directory under --data_dir (e.g. ds_cross_test).")
     p.add_argument("--out_csv", default="results/cv_results.csv")
     p.add_argument("--models", nargs="+", default=None,
                    help="Model paths/IDs. Include the fine-tuned LitDD cross-encoder path here.")
@@ -149,7 +151,7 @@ def topk_for_model(ds_test, model_name: str, batch_size: int,
 
 def main() -> int:
     args = parse_args()
-    ds_test = load_from_disk(os.path.join(args.data_dir, "ds_test"))
+    ds_test = load_from_disk(os.path.join(args.data_dir, args.test_subdir))
     existing = load_existing(args.out_csv) if args.skip_existing else set()
     models = args.models or DEFAULT_MODELS
 
