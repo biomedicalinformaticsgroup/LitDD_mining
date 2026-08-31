@@ -19,6 +19,10 @@ Repository = "https://github.com/biomedicalinformaticsgroup/LitDD_mining"
 [tool.setuptools.packages.find]
 include = ["litdd*"]
 
+[tool.setuptools.package-data]
+# The verbatim adjudication prompt (R3.8 appendix) ships with the package.
+litdd = ["pipeline/prompts/*.txt"]
+
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"

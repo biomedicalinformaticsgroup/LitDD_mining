@@ -61,6 +61,29 @@ def test_reproduces_training_rendering(g2p_csv):
     )
 
 
+def test_2025_export_layout_renders_the_annotated_set_threads(tmp_path):
+    """The 2025-02-15 export (the panel the annotated set was labelled against) stores the
+    HGNC id as a prefixed string and calls the last field 'molecular mechanism
+    categorisation'. It must render to the same 15-field string as the annotated set --
+    no 'HGNC:HGNC:' and no missing-column error -- so the LLM evaluation can re-render the
+    same panel the labels refer to."""
+    p = tmp_path / "g2p_2025.csv"
+    p.write_text(textwrap.dedent("""\
+        g2p id,gene symbol,gene mim,hgnc id,previous gene symbols,disease name,disease mim,disease MONDO,allelic requirement,cross cutting modifier,confidence,inferred variant consequence,variant types,molecular mechanism,molecular mechanism categorisation,molecular mechanism evidence,panel
+        G2P00117,COL11A2,120290,HGNC:2187,DFNA13; DFNB53; HKE5,COL11A2-related otospondylomegaepiphyseal dysplasia,215150,,biallelic_autosomal,restricted mutation set,definitive,altered gene product structure,,dominant negative,inferred,,DD
+        G2P09999,TEST1,,HGNC:9999,,TEST1-related disorder,,,,,,,,,,,DD
+        """))
+    # (the blank MIMs on the second row give the columns the float dtype the real export
+    # has, which is what produces the "120290.0" rendering the annotated set carries)
+    thread = build_lgmde_map(str(p))["G2P00117"]
+    assert thread == (
+        "G2P00117 - COL11A2 - 120290.0 - HGNC:2187 - DFNA13; DFNB53; HKE5 - "
+        "COL11A2-related otospondylomegaepiphyseal dysplasia - 215150.0 - nan - "
+        "biallelic_autosomal - restricted mutation set - definitive - "
+        "altered gene product structure - nan - dominant negative - inferred"
+    )
+
+
 def test_missing_column_raises_rather_than_blanking(tmp_path):
     """A renamed/absent column must fail loudly, not silently emit an empty field."""
     p = tmp_path / "bad.csv"

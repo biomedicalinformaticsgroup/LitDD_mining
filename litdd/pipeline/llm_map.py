@@ -1,18 +1,57 @@
+"""LLM adjudication stage: map each screened, cross-encoded TIAB to G2P entries.
+
+Reads the cross-encoder shards (``tiab`` + ``top5_cross``), renders the adjudication prompt
+for each row, runs the model under vLLM and writes ``{shard}__llm.parquet`` with the parsed
+answer in ``llm_dis_map`` (``G2Pxxxxx``, ``G2Pa;G2Pb`` or ``NO MATCH``). Downstream,
+``final_data_clean.py`` reads exactly ``pmid``, ``llm_dis_map`` and ``top5_cross``; the last
+is passed through untouched because it carries the scores for the 0.9 gate.
+
+The prompt lives in ``prompts/original_paper.txt`` (the verbatim text reported in the
+manuscript) and is rendered through the model's chat template, so instruct/reasoning models
+see a proper user turn rather than a bare completion string. Reasoning effort, decoding and
+engine limits are explicit CLI arguments and are recorded per shard in ``run_meta.json``.
+
+torch and vllm are imported lazily inside ``run_llm_over_cross_shards`` so the deterministic
+helpers (prompt building, answer parsing, sharding) import and unit-test without the GPU stack.
+"""
+from __future__ import annotations
+
 import argparse
+import functools
 import gc
 import glob
+import json
 import os
 import re
+import subprocess
+import sys
+import time
 
 import numpy as np
 import pandas as pd
 
-# NOTE: torch and vllm are imported lazily inside run_llm_over_cross_shards so the
-# deterministic helpers (prompt building, answer parsing, sharding) can be imported and
-# unit-tested without the GPU stack installed.
+PROMPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompts")
+DEFAULT_PROMPT_FILE = os.path.join(PROMPT_DIR, "original_paper.txt")
+
+G2P_ID_RE = re.compile(r"G2P\d+")
+NO_MATCH = "NO MATCH"
 
 
-def build_llm_prompt(tiab, candidate_lines):
+# --------------------------------------------------------------------------------------
+# Prompt
+# --------------------------------------------------------------------------------------
+@functools.lru_cache(maxsize=8)
+def load_prompt_template(path: str = DEFAULT_PROMPT_FILE) -> str:
+    """Read a prompt template. Placeholders: {n}, {plural}, {tiab}, {candidate_lines}."""
+    with open(path, encoding="utf-8") as f:
+        template = f.read()
+    for key in ("{n}", "{tiab}", "{candidate_lines}"):
+        if key not in template:
+            raise ValueError(f"prompt template {path} lacks the {key} placeholder")
+    return template
+
+
+def build_llm_prompt(tiab, candidate_lines, template_path: str = DEFAULT_PROMPT_FILE):
     """Render the adjudication prompt for one TIAB and its candidate threads.
 
     The candidate count is data-driven, not fixed at 5: with the gene-mention filter moved
@@ -36,85 +75,183 @@ def build_llm_prompt(tiab, candidate_lines):
             "sending them to the LLM."
         )
     plural = "thread" if n == 1 else "threads"
-    return (
-            f"""System/Developer Instruction:
-        You are an expert in genetic disease, and mapping a title+abstract (TIAB) to one or more specific G2P LGMDE threads. You will receive:
-        - A TIAB
-        - {n} candidate LGMDE {plural}, numbered 1-{n} (each includes its G2P ID, gene(s), allelic requirement, inheritance, mechanism, evidence, disease name)
-
-        Goal:
-        Return the G2P ID(s) from the provided candidates that best match the TIAB, or NO MATCH if none apply.
-
-        Critical constraints:
-        - Only choose from the {n} candidate(s) listed below. Do not invent any other ID.
-        - Prefer selecting at least one candidate over NO MATCH unless the TIAB is clearly non-human only, describes somatic disease only, or references no overlapping gene(s) with the candidates.
-        - Output exactly one line in the specified schema and nothing else.
-
-        Decision rubric (apply in this order):
-        1) Extract from the TIAB:
-        - Human evidence: Does it describe human patients (case(s), cohort)? 
-            - If only non-human models (mouse, zebrafish, cell lines) with no human patients, even if non-human model relates to a human disease, this is NO MATCH. 
-        - Type of disease: Germline disease only. If only somatic cancer described in the TIAB, this is NO MATCH, unless there is evidence this is part of a developmental syndrome. For example, genetic variants in hepatocellular cancer are likely to be somatic, even in human subjects. Alteratively mention of Juvenile Myelomonocytic Leukemia with Noonan syndrome is part of a wider syndromic developmental disorder.
-        - Type of study: If polymorphism or GWAS or genome-wide association study explictly mentioned, this is NO MATCH
-        - Gene(s): exact gene symbols and aliases. Ignore vague gene families unless the exact gene symbol is present.
-        - Inheritance/allelic clues: autosomal recessive/dominant, X-linked, biallelic, homozygous, compound heterozygous, de novo, heterozygous, multiplex families, consanguinity.
-        - Disease name(s) and synonyms.
-        - Key phenotypes (organ systems, hallmark features).
-
-        2) Candidate screening (must pass to be considered):
-        - Gene: TIAB must mention at least one gene that exactly matches a candidate gene (allow common aliases). If no gene overlap with any candidate, return NO MATCH.
-        - Human: TIAB must include human subjects or clear human diagnostic statements. If absent and only non-human, return NO MATCH.
-        - Disease type: TIAB must not describe somatic variation e.g. in cancer, or polymorphisms in GWAS for common diseases. 
-        - Negation: TIAB must not describe a negative association e.g. Variants in gene X do not cause disease Y. 
-
-        3) Evidence scoring per candidate (use to rank):
-        - Gene match: required.
-        - Allelic requirement:
-            - If TIAB explicitly states zygosity/inheritance, it must be compatible with the candidate.
-            - If TIAB does not state zygosity/inheritance, do NOT reject the candidate; instead rely on disease name, inheritance words (if present), and phenotype overlap to disambiguate.
-            - If there are two candidate matches for a TIAB without zygosity/inheritance, choose the most common match. For example, if Marfan syndrome is mentioned it is much more likely to be the monoallelic form (common) than the biallelic form (very rare).
-        - Disease name/synonym: strong positive evidence if the TIAB mentions the same disease name or clear synonym (including eponyms).
-        - Phenotype: positive if hallmark/system-level features align (partial matches acceptable).
-            - If the phenotype does not match but the gene and allelic requirement clearly match, consider returning the matching candidate anyway, as this may indicate differences in disease-gene curation rather than the underlying molecular basis of disease.
-            - For example, PDHA1 may be PDHA1-related intellectual disability monoallelic_X_hemizygous or PDHA1-related pyruvate dehydrogenase E1-alpha deficiency monoallelic_X_heterozygous.
-            - In this case, if the tiab mentions PDHA1 variants in boys, it is more important that the gene and allelic requirement match than there is an exact match to the phenotype/disease name.
-        - Title emphasis: features in the title or opening sentence weigh more.
-
-        4) Selection:
-        - If exactly one candidate has a gene match and either:
-            a) explicit allelic requirement match, or
-            b) disease name/synonym match, or
-            c) ≥2 hallmark phenotypic features match,
-            return this candidate.
-        - If multiple candidates share the same gene:
-            - Use explicit allelic statements (if present) to disambiguate; else use disease name/synonyms; else use phenotype; else use inheritance words (AR/AD/X-linked); else prefer what the title emphasizes.
-        - If the TIAB clearly describes multiple matching diseases/genes among the candidates, return all matching IDs (semicolon-separated).
-        - Only return NO MATCH if:
-            - No gene overlap with any candidate, or
-            - The abstract is non-human only (no human patients), or
-            - The evidence is clearly incompatible (e.g., explicit dominant in TIAB vs strict biallelic candidate) for all candidates.
-
-        Output schema (strict):
-        - Return exactly one line:
-        ANSWER: G2PID
-        or ANSWER: G2PID;G2PID
-        or ANSWER: NO MATCH
-
-    TIAB:
-    {tiab}
-
-    Candidate LGMDE Threads:
-    """
-            + "\n".join(f"{i+1}) {c}" for i, c in enumerate(candidate_lines))
-            + "\nReturn exactly one line in the schema above."
+    numbered = "\n".join(f"{i + 1}) {c}" for i, c in enumerate(candidate_lines))
+    return load_prompt_template(template_path).format(
+        n=n, plural=plural, tiab=tiab, candidate_lines=numbered
     )
 
 
+# --------------------------------------------------------------------------------------
+# Answer parsing
+# --------------------------------------------------------------------------------------
 def extract_last_answer(text):
-    matches = re.findall(r'ANSWER:\s*(.*)', text or "")
-    return matches[-1].strip() if matches else None
+    """Text after the LAST ``ANSWER:`` in the generation, or None.
+
+    Taking the last occurrence tolerates reasoning traces that quote the schema before the
+    final line (DeepSeek-R1 ``<think>`` blocks; GPT-OSS harmony output where the analysis
+    channel and the final channel are concatenated as ``...assistantfinalANSWER: ...``).
+    """
+    # Locate every marker first (a greedy `(.*)` would swallow a later marker on the same
+    # line, which is exactly the harmony ``...assistantfinalANSWER:`` case).
+    marks = list(re.finditer(r"ANSWER:\s*", text or "", flags=re.IGNORECASE))
+    if not marks:
+        return None
+    return (text[marks[-1].end():].split("\n", 1)[0]).strip()
 
 
+def candidate_ids(candidate_lines) -> list[str]:
+    """The G2P id at the head of each candidate thread (flat or contextualised)."""
+    ids = []
+    for c in candidate_lines:
+        m = G2P_ID_RE.search(str(c))
+        ids.append(m.group(0) if m else None)
+    return ids
+
+
+def parse_answer(raw_answer, allowed_ids=None) -> dict:
+    """Normalise the text after ``ANSWER:`` into the ``llm_dis_map`` contract.
+
+    Returns a dict with:
+      llm_dis_map            "G2Pxxxxx", "G2Pa;G2Pb", "NO MATCH", or None (no parseable answer)
+      answer_format_valid    True when the answer is exactly the schema (ids ; ids, NO MATCH)
+      answer_uncertain       True when the model said UNCERTAIN (mapped to NO MATCH)
+      answer_ids_in_candidates
+                             True when every returned id is one of the offered candidates
+                             (None when there are no ids or no candidate list was given)
+
+    IDs are extracted with ``G2P\\d+`` so decorations ("G2P01236 (EFTUD2)", markdown, a
+    trailing full stop) do not turn a correct answer into a "hallucination" downstream.
+    Hallucinated ids are NOT removed here -- ``final_data_clean.py`` drops them against the
+    panel -- they are only flagged so the rate is measurable.
+    """
+    out = {
+        "llm_dis_map": None,
+        "answer_format_valid": False,
+        "answer_uncertain": False,
+        "answer_ids_in_candidates": None,
+    }
+    if raw_answer is None:
+        return out
+    text = str(raw_answer).strip().strip("`*\"' ").rstrip(".").strip()
+    upper = text.upper()
+    if "UNCERTAIN" in upper and not G2P_ID_RE.search(text):
+        out.update(llm_dis_map=NO_MATCH, answer_uncertain=True,
+                   answer_format_valid=upper == "UNCERTAIN")
+        return out
+    if "NO MATCH" in upper and not G2P_ID_RE.search(text):
+        out.update(llm_dis_map=NO_MATCH, answer_format_valid=upper == NO_MATCH)
+        return out
+    ids = []
+    for m in G2P_ID_RE.findall(text):
+        if m not in ids:
+            ids.append(m)
+    if not ids:
+        return out
+    out["llm_dis_map"] = ";".join(ids)
+    out["answer_format_valid"] = re.fullmatch(r"G2P\d+(\s*;\s*G2P\d+)*", text) is not None
+    if allowed_ids is not None:
+        allowed = {a for a in allowed_ids if a}
+        out["answer_ids_in_candidates"] = all(i in allowed for i in ids)
+    return out
+
+
+# --------------------------------------------------------------------------------------
+# Candidate rendering
+# --------------------------------------------------------------------------------------
+def to_labels(x, max_candidates=None):
+    """Normalise a top-k cell into a list of candidate label strings.
+
+    max_candidates=None keeps every candidate, which is what the data-driven
+    configuration wants: the number of candidates follows from the genes actually
+    mentioned in the TIAB, so it is not fixed at 5.
+    """
+    if x is None or (isinstance(x, float) and pd.isna(x)):
+        return []
+
+    def item_to_label(item):
+        if isinstance(item, dict):
+            return str(item.get("label", "")).strip() or None
+        if isinstance(item, (list, tuple)) and len(item) >= 1:
+            return str(item[0]).strip() or None
+        try:
+            import pyarrow as pa
+            if isinstance(item, pa.Scalar):
+                return item_to_label(item.as_py())
+        except Exception:  # noqa: BLE001
+            pass
+        if isinstance(item, str):
+            return item.strip() or None
+        return None
+
+    if isinstance(x, (list, tuple, np.ndarray)):
+        labels = []
+        for it in (x.tolist() if isinstance(x, np.ndarray) else x):
+            lab = item_to_label(it)
+            if lab:
+                labels.append(lab)
+        return labels if max_candidates is None else labels[:max_candidates]
+
+    if isinstance(x, str):
+        import ast
+        obj = None
+        try:
+            obj = json.loads(x)
+        except Exception:  # noqa: BLE001
+            try:
+                obj = ast.literal_eval(x)
+            except Exception:  # noqa: BLE001
+                return []
+        return to_labels(obj, max_candidates)
+
+    try:
+        import pyarrow as pa
+        if isinstance(x, pa.Scalar):
+            return to_labels(x.as_py(), max_candidates)
+    except Exception:  # noqa: BLE001
+        pass
+    return []
+
+
+def load_context_threads(path: str) -> dict[str, str]:
+    """``{g2p_id: contextualised multi-line thread}`` from the offline-built JSON.
+
+    Lines whose value is the literal ``None`` (an empty enrichment field) are dropped:
+    they carry no information and cost tokens on every candidate.
+    """
+    with open(path, encoding="utf-8") as f:
+        raw = json.load(f)
+    out = {}
+    for k, v in raw.items():
+        if k.startswith("__"):
+            continue
+        lines = [ln for ln in str(v).splitlines() if not ln.rstrip().endswith(": None")]
+        out[k] = "\n".join(lines).strip()
+    return out
+
+
+def contextualise(labels, context: dict[str, str], missing_counter: dict | None = None):
+    """Swap each flat thread for its contextualised block, falling back to the flat text.
+
+    A missing id is a panel-version mismatch (the JSON was built from a different G2P
+    export than the candidates). It is counted rather than raised so a handful of retired
+    entries do not kill a corpus run, but the count is reported in run_meta.json.
+    """
+    out = []
+    for lab in labels:
+        m = G2P_ID_RE.search(lab)
+        gid = m.group(0) if m else None
+        if gid in context:
+            out.append(context[gid])
+        else:
+            out.append(lab)
+            if missing_counter is not None:
+                missing_counter["missing"] = missing_counter.get("missing", 0) + 1
+    return out
+
+
+# --------------------------------------------------------------------------------------
+# Sharding
+# --------------------------------------------------------------------------------------
 def batched_indices(start, end, batch_size):
     i = start
     while i < end:
@@ -148,171 +285,179 @@ def row_slice_for_worker(n_rows, shard_index, num_shards):
     return list(range(shard_index, n_rows, num_shards))
 
 
+# --------------------------------------------------------------------------------------
+# Provenance
+# --------------------------------------------------------------------------------------
+def _git_sha() -> str | None:
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+        # Pods run as root over a user-owned checkout; without safe.directory git refuses.
+        return subprocess.run(["git", "-c", "safe.directory=*", "-C", here, "rev-parse", "HEAD"],
+                              capture_output=True, text=True, timeout=10).stdout.strip() or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _versions() -> dict:
+    v = {"python": sys.version.split()[0]}
+    for mod in ("vllm", "torch", "transformers"):
+        try:
+            v[mod] = __import__(mod).__version__
+        except Exception:  # noqa: BLE001
+            v[mod] = None
+    return v
+
+
+# --------------------------------------------------------------------------------------
+# Driver
+# --------------------------------------------------------------------------------------
 def run_llm_over_cross_shards(
     shards_dir,
     llm_model,
     out_dir=None,
-    batch_size=32,
     temperature=0.0,
     top_p=1.0,
-    max_tokens=2048,
+    max_tokens=8192,
     shard_index=None,
     num_shards=None,
     save_every=1000,
     tensor_parallel_size=None,
     max_candidates=None,
     max_num_seqs=512,
+    max_model_len=16384,
+    gpu_memory_utilization=0.90,
+    dtype="auto",
+    seed=0,
+    reasoning_effort="medium",
+    use_chat_template=True,
+    prompt_file=DEFAULT_PROMPT_FILE,
+    threads="vanilla",
+    context_json=None,
+    limit=None,
 ):
     """
     - Reads *.parquet from shards_dir
-    - Builds prompts from 'tiab' and 'top5_cross'
-    - Runs vLLM in batches
-    - Incrementally writes output parquet per shard every `save_every` rows,
-      overwriting the same file each time:
-        columns added: 'top_5_cross_lgmde', 'llm_prompt', 'generated_text', 'llm_dis_map'
-    - Shard-aware: if shard_index/num_shards are provided, each worker processes
-      its subset of shard files (index % num_shards == shard_index).
+    - Builds prompts from 'tiab' and 'top5_cross' (optionally swapping in contextualised threads)
+    - Runs vLLM once per checkpoint window (continuous batching), resumable per shard
+    - Writes {shard}[_w{shard_index}]__llm.parquet = input columns +
+        topk_cross_lgmde / top_5_cross_lgmde  (candidate text the LLM saw)
+        llm_prompt, generated_text, llm_answer_raw, llm_dis_map,
+        answer_format_valid, answer_uncertain, answer_ids_in_candidates,
+        finish_reason, prompt_tokens, gen_tokens
+      and {shard}[_w{shard_index}]__llm.run_meta.json with settings, versions and throughput.
     """
     import torch
     from vllm import LLM, SamplingParams
 
-    os.makedirs(out_dir or shards_dir, exist_ok=True)
     out_dir = out_dir or shards_dir
+    os.makedirs(out_dir, exist_ok=True)
 
-    # Initialize LLM once for all shards
-    sampling_params = SamplingParams(temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+    context = None
+    context_missing = {}
+    if threads == "context":
+        if not context_json:
+            raise ValueError("--threads context requires --context_json")
+        context = load_context_threads(context_json)
+        print(f"Loaded {len(context)} contextualised threads from {context_json}")
+
+    sampling_params = SamplingParams(temperature=temperature, top_p=top_p,
+                                     max_tokens=max_tokens, seed=seed)
     # The prompt is a ~5,000-character fixed rubric plus a short per-record suffix, so the
     # shared prefix dominates. Without prefix caching that rubric is re-prefilled once per
     # record -- ~10^9 redundant prefill tokens over a full corpus.
-    llm_kwargs = {"enable_prefix_caching": True, "max_num_seqs": max_num_seqs}
+    llm_kwargs = {
+        "enable_prefix_caching": True,
+        "max_num_seqs": max_num_seqs,
+        "max_model_len": max_model_len,
+        "gpu_memory_utilization": gpu_memory_utilization,
+        "seed": seed,
+    }
+    if dtype and dtype != "auto":
+        llm_kwargs["dtype"] = dtype
     if tensor_parallel_size is not None:
         llm_kwargs["tensor_parallel_size"] = int(tensor_parallel_size)
+    chat_kwargs = {}
+    if reasoning_effort:
+        # GPT-OSS reads this from the chat template ("Reasoning: medium"); models whose
+        # template does not use it ignore the variable.
+        chat_kwargs["reasoning_effort"] = reasoning_effort
+
+    t_engine = time.time()
     llm = LLM(model=llm_model, **llm_kwargs)
+    print(f"Engine up in {time.time() - t_engine:.0f}s")
+
+    settings = {
+        "stage": "llm_map",
+        "model": llm_model,
+        "prompt_file": os.path.abspath(prompt_file),
+        "use_chat_template": use_chat_template,
+        "reasoning_effort": reasoning_effort if use_chat_template else None,
+        "threads": threads,
+        "context_json": os.path.abspath(context_json) if context_json else None,
+        "temperature": temperature, "top_p": top_p, "max_tokens": max_tokens, "seed": seed,
+        "max_model_len": max_model_len, "max_num_seqs": max_num_seqs,
+        "gpu_memory_utilization": gpu_memory_utilization, "dtype": dtype,
+        "tensor_parallel_size": tensor_parallel_size, "max_candidates": max_candidates,
+        "shard_index": shard_index, "num_shards": num_shards,
+        "git_sha": _git_sha(), "image": os.environ.get("LITDD_IMAGE"),
+        "versions": _versions(),
+        "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+    }
 
     shard_paths = sorted(glob.glob(os.path.join(shards_dir, "*.parquet")))
-
     print(f"Found {len(shard_paths)} parquet shard(s) for this worker.")
+
+    extra_cols = ["llm_answer_raw", "llm_dis_map", "answer_format_valid", "answer_uncertain",
+                  "answer_ids_in_candidates", "finish_reason", "prompt_tokens", "gen_tokens"]
 
     for shard_path in shard_paths:
         print(f"Processing shard: {os.path.basename(shard_path)}")
+        t_shard = time.time()
         df = pd.read_parquet(shard_path)
         if num_shards and num_shards > 1:
             keep = row_slice_for_worker(len(df), shard_index, num_shards)
             df = df.iloc[keep].reset_index(drop=True)
             print(f"[shard {shard_index}/{num_shards}] rows for this worker: {len(df)}")
+        if limit:
+            df = df.iloc[:limit].reset_index(drop=True)
         if df.empty:
             print("  (no rows for this worker in this file)")
             continue
 
-        # Normalize and create list of LGMDE strings (up to 5) for the prompt
-        def to_labels(x, max_candidates=max_candidates):
-            """Normalise a top-k cell into a list of candidate label strings.
-
-            max_candidates=None keeps every candidate, which is what the data-driven
-            configuration wants: the number of candidates follows from the genes actually
-            mentioned in the TIAB, so it is not fixed at 5.
-            """
-            # Normalize None/NaN
-            if x is None or (isinstance(x, float) and pd.isna(x)):
-                return []
-
-            # Helper to normalize one item to a label string
-            def item_to_label(item):
-                # dict-like
-                if isinstance(item, dict):
-                    return str(item.get("label", "")).strip() or None
-
-                # tuple/list like (label, score)
-                if isinstance(item, (list, tuple)) and len(item) >= 1:
-                    return str(item[0]).strip() or None
-
-                # PyArrow scalars/structs -> convert to Python
-                try:
-                    import pyarrow as pa
-                    if isinstance(item, pa.Scalar):
-                        item = item.as_py()
-                        if isinstance(item, dict):
-                            return str(item.get("label", "")).strip() or None
-                        if isinstance(item, (list, tuple)) and len(item) >= 1:
-                            return str(item[0]).strip() or None
-                except Exception:
-                    pass
-
-                # Fallback: plain string
-                if isinstance(item, str):
-                    s = item.strip()
-                    return s or None
-
-                return None
-
-            # If it’s already a list/tuple/np.ndarray, iterate
-            if isinstance(x, (list, tuple, np.ndarray)):
-                labels = []
-                for it in (x.tolist() if isinstance(x, np.ndarray) else x):
-                    lab = item_to_label(it)
-                    if lab:
-                        labels.append(lab)
-                return labels if max_candidates is None else labels[:max_candidates]
-
-            # If it’s a string, try JSON then literal_eval
-            if isinstance(x, str):
-                import ast
-                import json
-                obj = None
-                try:
-                    obj = json.loads(x)
-                except Exception:
-                    try:
-                        obj = ast.literal_eval(x)
-                    except Exception:
-                        return []
-                return to_labels(obj)
-
-            # PyArrow List/Struct scalars at the top level
-            try:
-                import pyarrow as pa
-                if isinstance(x, pa.Scalar):
-                    return to_labels(x.as_py())
-            except Exception:
-                pass
-
-            return []
-
-    
-        df["topk_cross_lgmde"] = df["top5_cross"].apply(to_labels)
-        # Legacy alias: existing analyses (cascade_funnel, check_llm_data) read this name.
+        flat = df["top5_cross"].apply(lambda x: to_labels(x, max_candidates))
+        df["topk_cross_lgmde"] = flat.apply(
+            lambda labs: contextualise(labs, context, context_missing) if context else labs)
+        # Legacy alias: existing analyses (cascade_funnel, sample_audit) read this name.
         df["top_5_cross_lgmde"] = df["topk_cross_lgmde"]
-
-
-        # Build prompts
         df["llm_prompt"] = df.apply(
-            lambda row: build_llm_prompt(
-                tiab=row.get("tiab", ""),
-                candidate_lines=row.get("topk_cross_lgmde", []),
-            ),
+            lambda row: build_llm_prompt(row.get("tiab", ""), row["topk_cross_lgmde"],
+                                         template_path=prompt_file),
             axis=1,
         )
+        allowed = flat.apply(candidate_ids)
 
-        # temp just to check working
-        print("Sample candidates:", df["topk_cross_lgmde"].iloc[0] if len(df) else [])
-        print("Prompt preview:\n", df["llm_prompt"].iloc[0][:800])
-
+        print("Prompt preview:\n", df["llm_prompt"].iloc[0][-600:])
         N = len(df)
         print(f"Total rows in shard: {N}")
 
         base = os.path.splitext(os.path.basename(shard_path))[0]
         suffix = "" if shard_index is None else f"_w{shard_index}"
         out_parquet = os.path.join(out_dir, f"{base}{suffix}__llm.parquet")
+        meta_path = os.path.join(out_dir, f"{base}{suffix}__llm.run_meta.json")
 
         # Resume: on a preemptible cluster a multi-hour shard will be interrupted, and the
         # previous implementation restarted every shard from row 0.
         generated_texts = [""] * N
+        extras = {c: [None] * N for c in extra_cols}
         if os.path.exists(out_parquet):
             try:
-                prev = pd.read_parquet(out_parquet, columns=["generated_text"])
+                prev = pd.read_parquet(out_parquet)
                 if len(prev) == N:
                     generated_texts = ["" if pd.isna(t) else str(t)
                                        for t in prev["generated_text"].tolist()]
+                    for c in extra_cols:
+                        if c in prev.columns:
+                            extras[c] = prev[c].tolist()
                     done = sum(1 for t in generated_texts if t)
                     print(f"[RESUME] {done}/{N} rows already generated in {out_parquet}")
                 else:
@@ -322,7 +467,8 @@ def run_llm_over_cross_shards(
 
         def save_progress():
             df["generated_text"] = generated_texts
-            df["llm_dis_map"] = [extract_last_answer(t) for t in generated_texts]
+            for c in extra_cols:
+                df[c] = extras[c]
             df.to_parquet(out_parquet, index=False)
             print(f"[PROGRESS] Saved current progress to {out_parquet}", flush=True)
 
@@ -331,7 +477,7 @@ def run_llm_over_cross_shards(
             print("[SKIP] shard already complete")
             continue
 
-        # One generate() call per checkpoint window, not per `batch_size` rows.
+        # One generate() call per checkpoint window, not per fixed small batch.
         #
         # The previous code called llm.generate() on 12 prompts at a time, which defeats
         # vLLM's continuous batching: each call spins the scheduler up from zero, runs at
@@ -340,20 +486,65 @@ def run_llm_over_cross_shards(
         # magnitude below what that hardware does. Handing vLLM the whole window lets it
         # schedule continuously; `save_every` now controls only checkpoint granularity.
         window = save_every if save_every and save_every > 0 else N
+        t_gen = time.time()
         for w_start in range(0, len(todo), window):
             idx = todo[w_start:w_start + window]
             prompts = [df["llm_prompt"].iloc[i] for i in idx]
             print(f"  generating {len(prompts)} prompt(s) "
                   f"[{w_start + len(idx)}/{len(todo)} of this shard's outstanding rows]",
                   flush=True)
-            outputs = llm.generate(prompts, sampling_params)
+            if use_chat_template:
+                conversations = [[{"role": "user", "content": p}] for p in prompts]
+                outputs = llm.chat(conversations, sampling_params, use_tqdm=True,
+                                   chat_template_kwargs=chat_kwargs or None)
+            else:
+                outputs = llm.generate(prompts, sampling_params)
             for i, out in zip(idx, outputs):
-                generated_texts[i] = out.outputs[0].text
+                comp = out.outputs[0]
+                text = comp.text
+                generated_texts[i] = text if text else " "  # keep non-empty so resume skips it
+                raw = extract_last_answer(text)
+                parsed = parse_answer(raw, allowed.iloc[i])
+                extras["llm_answer_raw"][i] = raw
+                for k, v in parsed.items():
+                    extras[k][i] = v
+                extras["finish_reason"][i] = comp.finish_reason
+                extras["prompt_tokens"][i] = len(out.prompt_token_ids or [])
+                extras["gen_tokens"][i] = len(comp.token_ids or [])
             save_progress()
+        gen_seconds = time.time() - t_gen
 
-        print(f"[DONE] Shard completed: {os.path.basename(shard_path)}")
+        n_done = len(todo)
+        gen_tok = [extras["gen_tokens"][i] or 0 for i in todo]
+        prm_tok = [extras["prompt_tokens"][i] or 0 for i in todo]
+        meta = dict(settings)
+        meta.update({
+            "shard": os.path.basename(shard_path), "out_parquet": out_parquet,
+            "rows_total": N, "rows_generated_this_run": n_done,
+            "wall_clock_s": round(time.time() - t_shard, 1),
+            "generation_s": round(gen_seconds, 1),
+            "rows_per_s": round(n_done / gen_seconds, 3) if gen_seconds else None,
+            "prompt_tokens_total": int(sum(prm_tok)), "gen_tokens_total": int(sum(gen_tok)),
+            "gen_tokens_mean": float(np.mean(gen_tok)) if gen_tok else None,
+            "gen_tokens_p95": float(np.percentile(gen_tok, 95)) if gen_tok else None,
+            "gen_tokens_per_s": round(sum(gen_tok) / gen_seconds, 1) if gen_seconds else None,
+            "truncated_rows": int(sum(1 for i in todo if extras["finish_reason"][i] == "length")),
+            "no_match_rows": int(sum(1 for i in todo if extras["llm_dis_map"][i] == NO_MATCH)),
+            "unparsed_rows": int(sum(1 for i in todo if extras["llm_dis_map"][i] is None)),
+            "hallucinated_rows": int(sum(1 for i in todo
+                                         if extras["answer_ids_in_candidates"][i] is False)),
+            "context_threads_missing": context_missing.get("missing", 0),
+            # (no peak-memory field: vLLM v1 runs the engine in a child process, so the
+            # driver's torch.cuda counters read 0; gpu_memory_utilization is the budget.)
+            "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        })
+        with open(meta_path, "w") as f:
+            json.dump(meta, f, indent=2)
+        print(f"[DONE] Shard completed: {os.path.basename(shard_path)} "
+              f"({n_done} rows, {meta['rows_per_s']} rows/s, "
+              f"{meta['gen_tokens_mean']:.0f} mean gen tokens, "
+              f"{meta['truncated_rows']} truncated, {meta['unparsed_rows']} unparsed)")
 
-        # Optional: free some memory between shards (vLLM keeps its KV cache though)
         torch.cuda.empty_cache()
         gc.collect()
 
@@ -361,15 +552,35 @@ def run_llm_over_cross_shards(
 
 
 def parse_args():
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--shards_dir", required=True, type=str)
-    p.add_argument("--llm_model", required=True, type=str)
+    p.add_argument("--llm_model", required=True, type=str,
+                   help="HF id or local path; deployed: openai/gpt-oss-20b")
     p.add_argument("--out_dir", type=str, default=None)
-    p.add_argument("--batch_size", type=int, default=32)
+    p.add_argument("--batch_size", type=int, default=None,
+                   help="DEPRECATED, ignored: generation is one call per --save_every window.")
     p.add_argument("--temperature", type=float, default=0.0,
                    help="Mapping is treated as deterministic; default 0.0.")
     p.add_argument("--top_p", type=float, default=1.0)
-    p.add_argument("--max_tokens", type=int, default=2048)
+    p.add_argument("--max_tokens", type=int, default=8192,
+                   help="Generation budget incl. the reasoning trace; rows that hit it are "
+                        "flagged finish_reason=length and counted in run_meta.json.")
+    p.add_argument("--max_model_len", type=int, default=16384)
+    p.add_argument("--gpu_memory_utilization", type=float, default=0.90)
+    p.add_argument("--dtype", type=str, default="auto")
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--reasoning_effort", type=str, default="medium",
+                   choices=["low", "medium", "high", "none"],
+                   help="Passed to the chat template (GPT-OSS). 'none' omits it.")
+    p.add_argument("--no_chat_template", action="store_true",
+                   help="Send the prompt as a raw completion string (the pre-revision "
+                        "behaviour, kept so the DeepSeek deployment can be reproduced).")
+    p.add_argument("--prompt_file", type=str, default=DEFAULT_PROMPT_FILE)
+    p.add_argument("--threads", type=str, default="vanilla", choices=["vanilla", "context"],
+                   help="Candidate representation: the flat 15-field thread the "
+                        "cross-encoder scored, or the contextualised multi-line block "
+                        "(needs --context_json built from the SAME G2P export).")
+    p.add_argument("--context_json", type=str, default=None)
     p.add_argument("--shard_index", type=int, default=None)
     p.add_argument("--num_shards", type=int, default=None)
     p.add_argument("--save_every", type=int, default=1000)
@@ -382,6 +593,8 @@ def parse_args():
                    help="Cap on candidates shown to the LLM. Default None = no cap: the count "
                         "follows from the upstream candidate set (data-driven k). Set to 5 to "
                         "reproduce the original fixed top-5 behaviour.")
+    p.add_argument("--limit", type=int, default=None,
+                   help="Process only the first N rows of each shard (smoke tests).")
     return p.parse_args()
 
 
@@ -391,7 +604,6 @@ if __name__ == "__main__":
         shards_dir=args.shards_dir,
         llm_model=args.llm_model,
         out_dir=args.out_dir,
-        batch_size=args.batch_size,
         temperature=args.temperature,
         top_p=args.top_p,
         max_tokens=args.max_tokens,
@@ -401,4 +613,14 @@ if __name__ == "__main__":
         tensor_parallel_size=args.tensor_parallel_size,
         max_candidates=args.max_candidates,
         max_num_seqs=args.max_num_seqs,
+        max_model_len=args.max_model_len,
+        gpu_memory_utilization=args.gpu_memory_utilization,
+        dtype=args.dtype,
+        seed=args.seed,
+        reasoning_effort=None if args.reasoning_effort == "none" else args.reasoning_effort,
+        use_chat_template=not args.no_chat_template,
+        prompt_file=args.prompt_file,
+        threads=args.threads,
+        context_json=args.context_json,
+        limit=args.limit,
     )

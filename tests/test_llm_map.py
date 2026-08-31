@@ -75,6 +75,109 @@ def test_build_llm_prompt_singular_for_one_candidate():
     assert "1 candidate LGMDE thread," in prompt
 
 
+def test_prompt_file_is_the_rendered_prompt():
+    """The vendored prompt file (the R3.8 appendix) is what the pipeline actually sends."""
+    template = llm_map.load_prompt_template()
+    prompt = llm_map.build_llm_prompt("TIAB X", ["G2P00001 - A - x", "G2P00002 - B - y"])
+    head = template.split("{n}")[0]
+    assert prompt.startswith(head)
+    assert "{tiab}" not in prompt and "{candidate_lines}" not in prompt
+    assert prompt.rstrip().endswith("Return exactly one line in the schema above.")
+    # no stray f-string indentation survives in the rendered prompt
+    assert "\n        You are an expert" not in prompt
+    assert "\nYou are an expert" in prompt
+
+
+def test_prompt_matches_upstream_rubric_when_available():
+    """Byte-compare the rubric against Fabian's original_paper.txt if the checkout exists.
+
+    The only intended differences: the candidate-count sentences ({n}, numbered) and the
+    candidate insertion. The decision rubric itself must be identical, otherwise benchmark
+    numbers from the harness do not transfer to the pipeline.
+    """
+    upstream = ROOT / "upgraded-octo-happiness" / "prompt" / "baseline" / "original_paper.txt"
+    if not upstream.exists():
+        pytest.skip("upstream harness not checked out")
+    ours = llm_map.load_prompt_template()
+    theirs = upstream.read_text(encoding="utf-8")
+    def rubric(text):
+        start = text.index("Decision rubric")
+        end = text.index("Output schema")
+        return "\n".join(ln.rstrip() for ln in text[start:end].splitlines())
+    assert rubric(ours) == rubric(theirs)
+
+
+def test_extract_last_answer_handles_harmony_glue_and_case():
+    """GPT-OSS harmony output concatenates channels: '...assistantfinalANSWER: NO MATCH'."""
+    txt = "analysisThe gene is EFTUD2 ... ANSWER: G2P01236 would fit.assistantfinalANSWER: NO MATCH"
+    assert llm_map.extract_last_answer(txt) == "NO MATCH"
+    assert llm_map.extract_last_answer("answer: G2P00001") == "G2P00001"
+
+
+def test_parse_answer_schema_cases():
+    ok = llm_map.parse_answer("G2P01236", ["G2P01236", "G2P01399"])
+    assert ok == {"llm_dis_map": "G2P01236", "answer_format_valid": True,
+                  "answer_uncertain": False, "answer_ids_in_candidates": True}
+    multi = llm_map.parse_answer("G2P01236;G2P01399", ["G2P01236", "G2P01399"])
+    assert multi["llm_dis_map"] == "G2P01236;G2P01399" and multi["answer_format_valid"]
+    nm = llm_map.parse_answer("NO MATCH", ["G2P01236"])
+    assert nm["llm_dis_map"] == "NO MATCH" and nm["answer_format_valid"]
+    assert nm["answer_ids_in_candidates"] is None
+
+
+def test_parse_answer_recovers_decorated_ids_but_flags_format():
+    p = llm_map.parse_answer("**G2P01236** (EFTUD2).", ["G2P01236"])
+    assert p["llm_dis_map"] == "G2P01236"
+    assert p["answer_format_valid"] is False
+    assert p["answer_ids_in_candidates"] is True
+    # duplicates collapse, order kept
+    assert llm_map.parse_answer("G2P2; G2P1; G2P2", None)["llm_dis_map"] == "G2P2;G2P1"
+
+
+def test_parse_answer_flags_hallucination_and_uncertain():
+    h = llm_map.parse_answer("G2P99999", ["G2P00001"])
+    assert h["llm_dis_map"] == "G2P99999" and h["answer_ids_in_candidates"] is False
+    u = llm_map.parse_answer("UNCERTAIN", ["G2P00001"])
+    assert u["llm_dis_map"] == "NO MATCH" and u["answer_uncertain"] and u["answer_format_valid"]
+    none = llm_map.parse_answer(None, ["G2P00001"])
+    assert none["llm_dis_map"] is None and none["answer_format_valid"] is False
+    assert llm_map.parse_answer("I cannot decide", ["G2P00001"])["llm_dis_map"] is None
+
+
+def test_candidate_ids_from_flat_and_context_threads():
+    flat = "G2P01236 - EFTUD2 - 603892.0 - ..."
+    ctx = "G2P ID: G2P01399\nGene Symbol: CHD7\nDisease Name: CHARGE"
+    assert llm_map.candidate_ids([flat, ctx, "no id here"]) == ["G2P01236", "G2P01399", None]
+
+
+def test_contextualise_swaps_by_id_and_counts_misses():
+    ctx = {"G2P01236": "G2P ID: G2P01236\nGene Symbol: EFTUD2"}
+    counter = {}
+    out = llm_map.contextualise(["G2P01236 - EFTUD2 - x", "G2P09999 - ZZZ - y"], ctx, counter)
+    assert out == ["G2P ID: G2P01236\nGene Symbol: EFTUD2", "G2P09999 - ZZZ - y"]
+    assert counter == {"missing": 1}
+
+
+def test_load_context_threads_drops_literal_none_lines(tmp_path):
+    import json
+    p = tmp_path / "ctx.json"
+    p.write_text(json.dumps({
+        "__provenance__": {"panel": "x"},
+        "G2P00001": "G2P ID: G2P00001\nGene Symbol: A\nDisease Synonyms: None\nDisease Definition: None\nPhenotypes: a; b\n",
+    }))
+    ctx = llm_map.load_context_threads(str(p))
+    assert list(ctx) == ["G2P00001"]
+    assert ctx["G2P00001"] == "G2P ID: G2P00001\nGene Symbol: A\nPhenotypes: a; b"
+
+
+def test_to_labels_caps_only_when_asked():
+    cell = [{"label": "G2P1 - a", "score": 0.9}, ("G2P2 - b", 0.5), "G2P3 - c"]
+    assert llm_map.to_labels(cell) == ["G2P1 - a", "G2P2 - b", "G2P3 - c"]
+    assert llm_map.to_labels(cell, max_candidates=2) == ["G2P1 - a", "G2P2 - b"]
+    assert llm_map.to_labels(None) == []
+    assert llm_map.to_labels('[["G2P1 - a", 0.9]]') == ["G2P1 - a"]
+
+
 def test_batched_indices():
     assert list(llm_map.batched_indices(0, 5, 2)) == [(0, 2), (2, 4), (4, 5)]
     assert list(llm_map.batched_indices(0, 0, 2)) == []

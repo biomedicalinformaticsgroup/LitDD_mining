@@ -53,8 +53,14 @@ LGMDE_FIELDS: list[tuple[str, tuple[str, ...]]] = [
                              "variant_consequence")),
     ("variant_types", ("variant types", "variant_types")),
     ("molecular_mechanism", ("molecular mechanism", "molecular_mechanism")),
+    # The 2025-02-15 export (the panel the annotated set was labelled against) carried this
+    # field as "molecular mechanism categorisation" (values inferred/evidence); the 2026
+    # exports renamed it "molecular mechanism support" and re-used "categorisation" for a
+    # different column. Preference order keeps the 2026 exports on the right column; the
+    # fallback lets the annotated-set threads be re-rendered byte-identically.
     ("molecular_mechanism_support", ("molecular mechanism support",
-                                     "molecular_mechanism_support")),
+                                     "molecular_mechanism_support",
+                                     "molecular mechanism categorisation")),
 ]
 
 SEPARATOR = " - "
@@ -163,7 +169,9 @@ def build_lgmde_map(g2p_csv: str, strict: bool = True,
             else:
                 v = row[col]
                 # Training rendered the HGNC id with its prefix and no float artefact.
-                if field == "hgnc_id" and pd.notna(v):
+                # Older exports (2025-02-15) already carry the prefix as a string; do not
+                # double it, or the annotated-set threads stop matching the panel.
+                if field == "hgnc_id" and pd.notna(v) and not str(v).startswith("HGNC:"):
                     v = f"HGNC:{int(v) if isinstance(v, float) and v == int(v) else v}"
                 values.append(str(v))
             if field == "previous_gene_symbols" and gene_names is not None:
