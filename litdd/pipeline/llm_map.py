@@ -424,7 +424,12 @@ def run_llm_over_cross_shards(
             print("  (no rows for this worker in this file)")
             continue
 
+        n_uncapped = df["top5_cross"].apply(lambda x: len(to_labels(x, None)))
         flat = df["top5_cross"].apply(lambda x: to_labels(x, max_candidates))
+        capped_rows = int((n_uncapped > max_candidates).sum()) if max_candidates else 0
+        if capped_rows:
+            print(f"[CAP] {capped_rows} rows had more than {max_candidates} candidates; "
+                  f"showing the top {max_candidates} by cross-encoder score")
         df["topk_cross_lgmde"] = flat.apply(
             lambda labs: contextualise(labs, context, context_missing) if context else labs)
         # Legacy alias: existing analyses (cascade_funnel, sample_audit) read this name.
@@ -534,6 +539,9 @@ def run_llm_over_cross_shards(
             "hallucinated_rows": int(sum(1 for i in todo
                                          if extras["answer_ids_in_candidates"][i] is False)),
             "context_threads_missing": context_missing.get("missing", 0),
+            "candidates_per_row_mean": float(n_uncapped.mean()),
+            "candidates_per_row_max": int(n_uncapped.max()),
+            "rows_capped_by_max_candidates": capped_rows,
             # (no peak-memory field: vLLM v1 runs the engine in a child process, so the
             # driver's torch.cuda counters read 0; gpu_memory_utilization is the budget.)
             "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

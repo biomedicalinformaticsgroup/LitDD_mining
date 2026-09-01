@@ -283,7 +283,7 @@ def process_shard_candidates(
             labels.append(thread)
     print(f"[INFO] pairs to score: {len(pairs):,}")
 
-    model, _ = load_crossencoder(model_path, device=device, dtype=dtype)
+    model, _ = load_crossencoder(model_path, device, dtype)
     scores: List[float] = []
     for i in range(0, len(pairs), pair_batch_size):
         out = model.predict(pairs[i:i + pair_batch_size])
