@@ -142,13 +142,39 @@ def main() -> int:
         st["pred"] = {i for i in st["pred"] if sc.get(i, 0.0) >= 0.9}
         return st
 
-    all_rows += funnel("original (verified screen)", gold, [
+    orig_stages = [
         ("1 screen (BERT positive)", o_screen),
         ("2 cross-encoder top-5 contains curated entries", o_top5),
         ("3 LLM exact set", o_llm),
         ("4 gene-mention check (PubTator)", o_genecheck),
         ("5 score >= 0.9", o_gate),
-    ])
+    ]
+    all_rows += funnel("original (verified screen)", gold, orig_stages)
+
+    # hybrids: released add20k screen + old cross-encoder top-5 + {DeepSeek, GPT-OSS}, original order
+    gold_ns = pd.read_csv("revision/llm_eval/annotated_2025_newscreen/gold.csv")
+    gold_ns["row_id"] = gold_ns["row_id"].astype(str)
+    bert_ns = dict(zip(gold_ns["row_id"], gold_ns["bert_predict"]))
+    for label, eval_dir in [("hybrid: new screen + old CE top-5 + DeepSeek", "deepseek_deployed"),
+                            ("hybrid: new screen + old CE top-5 + GPT-OSS", "gptoss_vanilla")]:
+        per_h = pd.read_csv(f"revision/llm_eval/eval_2025_newscreen/{eval_dir}/eval_per_tiab.csv")
+        per_h["row_id"] = per_h["row_id"].astype(str)
+        pred_h = dict(zip(per_h["row_id"], per_h["pred"].map(sets)))
+
+        def h_screen(rid, st, b=bert_ns):
+            return st if b.get(rid, 0) == 1 else None
+
+        def h_llm(rid, st, p=pred_h):
+            st["pred"] = p.get(rid, set())
+            return st
+
+        all_rows += funnel(label, gold_ns, [
+            ("1 screen (BERT positive)", h_screen),
+            ("2 cross-encoder top-5 contains curated entries", o_top5),
+            ("3 LLM exact set", h_llm),
+            ("4 gene-mention check (PubTator)", o_genecheck),
+            ("5 score >= 0.9", o_gate),
+        ])
 
     # ------------------------------------------------------------------ revised pipeline
     gold26 = pd.read_csv("revision/llm_eval/annotated_2026/gold.csv")
