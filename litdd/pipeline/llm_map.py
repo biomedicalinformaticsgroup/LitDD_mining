@@ -51,7 +51,42 @@ def load_prompt_template(path: str = DEFAULT_PROMPT_FILE) -> str:
     return template
 
 
-def build_llm_prompt(tiab, candidate_lines, template_path: str = DEFAULT_PROMPT_FILE):
+def gene_of(candidate: str) -> str:
+    """Gene symbol of a candidate: 2nd ' - ' field of a flat thread, or the 'Gene Symbol:'
+    line of a contextualised block; '' when neither is present."""
+    m = re.search(r"^Gene Symbol:\s*(.+)$", str(candidate), flags=re.MULTILINE)
+    if m:
+        return m.group(1).strip()
+    parts = str(candidate).split(" - ")
+    return parts[1].strip() if len(parts) > 1 else ""
+
+
+def render_candidates(candidate_lines, layout: str = "flat") -> str:
+    """Number the candidates; ``layout='by_gene'`` groups them under one header per gene.
+
+    With the gene gate every entry of a mentioned gene is a candidate, so an allelic series
+    arrives as several near-identical lines interleaved with other genes' entries. Grouping
+    them makes the structure explicit -- 'these N entries are alternatives for the same gene;
+    pick among them' -- without changing the numbering the answer refers to.
+    """
+    candidate_lines = list(candidate_lines)
+    if layout == "flat":
+        return "\n".join(f"{i + 1}) {c}" for i, c in enumerate(candidate_lines))
+    if layout != "by_gene":
+        raise ValueError(f"unknown candidate layout {layout!r}")
+    groups: dict[str, list[tuple[int, str]]] = {}
+    for i, c in enumerate(candidate_lines):
+        groups.setdefault(gene_of(c) or "(gene not stated)", []).append((i, c))
+    out = []
+    for gene, items in groups.items():   # insertion order = cross-encoder score order
+        n = len(items)
+        out.append(f"Gene {gene} — {n} candidate {'entry' if n == 1 else 'entries (alternative disorders of this gene; choose among them)'}:")
+        out += [f"{i + 1}) {c}" for i, c in items]
+    return "\n".join(out)
+
+
+def build_llm_prompt(tiab, candidate_lines, template_path: str = DEFAULT_PROMPT_FILE,
+                     layout: str = "flat"):
     """Render the adjudication prompt for one TIAB and its candidate threads.
 
     The candidate count is data-driven, not fixed at 5: with the gene-mention filter moved
@@ -75,7 +110,7 @@ def build_llm_prompt(tiab, candidate_lines, template_path: str = DEFAULT_PROMPT_
             "sending them to the LLM."
         )
     plural = "thread" if n == 1 else "threads"
-    numbered = "\n".join(f"{i + 1}) {c}" for i, c in enumerate(candidate_lines))
+    numbered = render_candidates(candidate_lines, layout)
     return load_prompt_template(template_path).format(
         n=n, plural=plural, tiab=tiab, candidate_lines=numbered
     )
@@ -354,6 +389,7 @@ def run_llm_over_cross_shards(
     threads="vanilla",
     context_json=None,
     limit=None,
+    candidate_layout="flat",
 ):
     """
     - Reads *.parquet from shards_dir
@@ -413,6 +449,7 @@ def run_llm_over_cross_shards(
         "use_chat_template": use_chat_template,
         "reasoning_effort": reasoning_effort if use_chat_template else None,
         "threads": threads,
+        "candidate_layout": candidate_layout,
         "context_json": os.path.abspath(context_json) if context_json else None,
         "temperature": temperature, "top_p": top_p, "max_tokens": max_tokens, "seed": seed,
         "max_model_len": max_model_len, "max_num_seqs": max_num_seqs,
@@ -466,7 +503,8 @@ def run_llm_over_cross_shards(
         # Legacy alias: existing analyses (cascade_funnel, sample_audit) read this name.
         df["top_5_cross_lgmde"] = df["topk_cross_lgmde"]
         df["llm_prompt"] = [
-            build_llm_prompt(t, labs, template_path=prompt_file) if labs else None
+            build_llm_prompt(t, labs, template_path=prompt_file, layout=candidate_layout)
+            if labs else None
             for t, labs in zip(df.get("tiab", pd.Series([""] * len(df))), df["topk_cross_lgmde"])
         ]
         allowed = flat.apply(candidate_ids)
@@ -633,6 +671,10 @@ def parse_args():
                         "cross-encoder scored, or the contextualised multi-line block "
                         "(needs --context_json built from the SAME G2P export).")
     p.add_argument("--context_json", type=str, default=None)
+    p.add_argument("--candidate_layout", type=str, default="flat", choices=["flat", "by_gene"],
+                   help="How candidates are listed: one numbered line each (flat, the paper's "
+                        "layout) or grouped under a header per gene so an allelic series is "
+                        "visibly one choice (by_gene). Numbering is unchanged.")
     p.add_argument("--shard_index", type=int, default=None)
     p.add_argument("--num_shards", type=int, default=None)
     p.add_argument("--save_every", type=int, default=1000)
@@ -681,4 +723,5 @@ if __name__ == "__main__":
         threads=args.threads,
         context_json=args.context_json,
         limit=args.limit,
+        candidate_layout=args.candidate_layout,
     )

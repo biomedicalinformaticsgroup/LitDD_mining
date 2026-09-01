@@ -107,6 +107,39 @@ def test_prompt_matches_upstream_rubric_when_available():
     assert rubric(ours) == rubric(theirs)
 
 
+def test_prompt_variants_load_and_keep_the_contract():
+    """The single-best-per-gene and few-shot variants must keep every placeholder and the
+    output schema; the few-shot examples must come from the TRAIN split (asserted by PMID
+    absence from the test fixture when it is available)."""
+    for name in ("original_paper_singlebest.txt", "original_paper_fewshot.txt"):
+        path = ROOT / "litdd" / "pipeline" / "prompts" / name
+        llm_map.load_prompt_template(str(path))  # raises if a placeholder is missing
+        prompt = llm_map.build_llm_prompt("TIAB", ["G2P1 - A - x"], template_path=str(path))
+        assert "ANSWER: NO MATCH" in prompt and "1) G2P1 - A - x" in prompt
+        assert "{" not in prompt.replace("{}", "")
+    single = (ROOT / "litdd/pipeline/prompts/original_paper_singlebest.txt").read_text()
+    assert "SINGLE best-matching entry for that gene" in single
+    few = (ROOT / "litdd/pipeline/prompts/original_paper_fewshot.txt").read_text()
+    assert few.count("--- Example") == 2 and "ANSWER: G2P00178" in few and "End of examples" in few
+    assert "A Korean family with the Muenke syndrome" in few  # train-split abstract
+
+
+def test_render_candidates_by_gene_groups_but_keeps_numbering():
+    cands = ["G2P1 - FGFR3 - a", "G2P2 - CHD7 - b", "G2P3 - FGFR3 - c",
+             "G2P ID: G2P4\nGene Symbol: FGFR3\nDisease Name: d"]
+    flat = llm_map.render_candidates(cands, "flat")
+    assert flat.splitlines()[0] == "1) G2P1 - FGFR3 - a"
+    grouped = llm_map.render_candidates(cands, "by_gene")
+    lines = grouped.splitlines()
+    assert lines[0].startswith("Gene FGFR3 — 3 candidate entries")
+    assert "1) G2P1 - FGFR3 - a" in lines and "3) G2P3 - FGFR3 - c" in lines  # numbering kept
+    assert any(ln.startswith("Gene CHD7 — 1 candidate entry") for ln in lines)
+    # the contextualised block is attributed to FGFR3 via its Gene Symbol line
+    assert lines.index("4) G2P ID: G2P4") < lines.index("2) G2P2 - CHD7 - b")
+    prompt = llm_map.build_llm_prompt("t", cands, layout="by_gene")
+    assert "Gene FGFR3 — 3 candidate entries" in prompt and "numbered 1-4" in prompt
+
+
 def test_extract_last_answer_handles_harmony_glue_and_case():
     """GPT-OSS harmony output concatenates channels: '...assistantfinalANSWER: NO MATCH'."""
     txt = "analysisThe gene is EFTUD2 ... ANSWER: G2P01236 would fit.assistantfinalANSWER: NO MATCH"

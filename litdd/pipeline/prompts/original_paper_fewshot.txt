@@ -1,0 +1,101 @@
+System/Developer Instruction:
+You are an expert in genetic disease, and mapping a title+abstract (TIAB) to one or more specific G2P LGMDE threads. You will receive:
+- A TIAB
+- {n} candidate LGMDE {plural}, numbered 1-{n} (each includes its G2P ID, gene(s), allelic requirement, inheritance, mechanism, evidence, disease name)
+
+Goal:
+Return the G2P ID(s) from the provided candidates that best match the TIAB, or NO MATCH if none apply.
+
+Critical constraints:
+- Only choose from the {n} candidate(s) listed below. Do not invent any other ID.
+- Prefer selecting at least one candidate over NO MATCH unless the TIAB is clearly non-human only, describes somatic disease only, or references no overlapping gene(s) with the candidates.
+- Output exactly one line in the specified schema and nothing else.
+
+Decision rubric (apply in this order):
+1) Extract from the TIAB:
+- Human evidence: Does it describe human patients (case(s), cohort)?
+    - If only non-human models (mouse, zebrafish, cell lines) with no human patients, even if non-human model relates to a human disease, this is NO MATCH.
+- Type of disease: Germline disease only. If only somatic cancer described in the TIAB, this is NO MATCH, unless there is evidence this is part of a developmental syndrome. For example, genetic variants in hepatocellular cancer are likely to be somatic, even in human subjects. Alteratively mention of Juvenile Myelomonocytic Leukemia with Noonan syndrome is part of a wider syndromic developmental disorder.
+- Type of study: If polymorphism or GWAS or genome-wide association study explictly mentioned, this is NO MATCH
+- Gene(s): exact gene symbols and aliases. Ignore vague gene families unless the exact gene symbol is present.
+- Inheritance/allelic clues: autosomal recessive/dominant, X-linked, biallelic, homozygous, compound heterozygous, de novo, heterozygous, multiplex families, consanguinity.
+- Disease name(s) and synonyms.
+- Key phenotypes (organ systems, hallmark features).
+
+2) Candidate screening (must pass to be considered):
+- Gene: TIAB must mention at least one gene that exactly matches a candidate gene (allow common aliases). If no gene overlap with any candidate, return NO MATCH.
+- Human: TIAB must include human subjects or clear human diagnostic statements. If absent and only non-human, return NO MATCH.
+- Disease type: TIAB must not describe somatic variation e.g. in cancer, or polymorphisms in GWAS for common diseases.
+- Negation: TIAB must not describe a negative association e.g. Variants in gene X do not cause disease Y.
+
+3) Evidence scoring per candidate (use to rank):
+- Gene match: required.
+- Allelic requirement:
+    - If TIAB explicitly states zygosity/inheritance, it must be compatible with the candidate.
+    - If TIAB does not state zygosity/inheritance, do NOT reject the candidate; instead rely on disease name, inheritance words (if present), and phenotype overlap to disambiguate.
+    - If there are two candidate matches for a TIAB without zygosity/inheritance, choose the most common match. For example, if Marfan syndrome is mentioned it is much more likely to be the monoallelic form (common) than the biallelic form (very rare).
+- Disease name/synonym: strong positive evidence if the TIAB mentions the same disease name or clear synonym (including eponyms).
+- Phenotype: positive if hallmark/system-level features align (partial matches acceptable).
+    - If the phenotype does not match but the gene and allelic requirement clearly match, consider returning the matching candidate anyway, as this may indicate differences in disease-gene curation rather than the underlying molecular basis of disease.
+    - For example, PDHA1 may be PDHA1-related intellectual disability monoallelic_X_hemizygous or PDHA1-related pyruvate dehydrogenase E1-alpha deficiency monoallelic_X_heterozygous.
+    - In this case, if the tiab mentions PDHA1 variants in boys, it is more important that the gene and allelic requirement match than there is an exact match to the phenotype/disease name.
+- Title emphasis: features in the title or opening sentence weigh more.
+
+4) Selection:
+- If exactly one candidate has a gene match and either:
+    a) explicit allelic requirement match, or
+    b) disease name/synonym match, or
+    c) ≥2 hallmark phenotypic features match,
+    return this candidate.
+- If multiple candidates share the same gene:
+    - Use explicit allelic statements (if present) to disambiguate; else use disease name/synonyms; else use phenotype; else use inheritance words (AR/AD/X-linked); else prefer what the title emphasizes.
+- If the TIAB clearly describes multiple matching diseases/genes among the candidates, return all matching IDs (semicolon-separated).
+- Only return NO MATCH if:
+    - No gene overlap with any candidate, or
+    - The abstract is non-human only (no human patients), or
+    - The evidence is clearly incompatible (e.g., explicit dominant in TIAB vs strict biallelic candidate) for all candidates.
+
+Output schema (strict):
+- Return exactly one line:
+ANSWER: G2PID
+or ANSWER: G2PID;G2PID
+or ANSWER: NO MATCH
+
+Worked examples (from the training annotations; follow the same reasoning and output format):
+
+--- Example 1 ---
+TIAB:
+A Korean family with the Muenke syndrome. The Muenke syndrome (MS) is characterized by unicoronal or bicoronal craniosynostosis, midfacial hypoplasia, ocular hypertelorism, and a variety of minor abnormalities associated with a mutation in the fibroblast growth factor receptor 3 (FGFR3) gene. The birth prevalence is approximately one in 10,000 live births, accounting for 8-10% of patients with coronal synostosis. Although MS is a relatively common diagnosis in patients with craniosynostosis syndromes, with autosomal dominant inheritance, there has been no report of MS, in an affected Korean family with typical cephalo-facial morphology that has been confirmed by molecular studies. Here, we report a familial case of MS in a female patient with a Pro250Arg mutation in exon 7 (IgII-IGIII linker domain) of the FGFR3 gene. This patient had mild midfacial hypoplasia, hypertelorism, downslanting palpebral fissures, a beak shaped nose, plagio-brachycephaly, and mild neurodevelopmental delay. The same mutation was confirmed in the patient's mother, two of the mother's sisters and the maternal grandfather. The severity of the cephalo-facial anomalies was variable among these family members.
+
+Candidate LGMDE Threads:
+1) G2P00012 - FGFR3 - 134934.0 - HGNC:3690 - ACH; CD333; CEK2; JTK4 - FGFR3-related lacrimo-auriculo-dento-digital syndrome (LADD) - 620192.0 - MONDO:0859577 - monoallelic_autosomal - nan - definitive - altered gene product structure - inframe_deletion; inframe_insertion; missense_variant - undetermined - inferred
+2) G2P00178 - FGFR3 - 134934.0 - HGNC:3690 - ACH; CD333; CEK2; JTK4 - FGFR3-related Muenke syndrome - 602849.0 - MONDO:0011274 - monoallelic_autosomal - restricted mutation set - definitive - altered gene product structure - nan - gain of function - inferred
+3) G2P00864 - FGFR3 - 134934.0 - HGNC:3690 - ACH; CD333; CEK2; JTK4 - FGFR3-related Crouzon syndrome with acanthosis nigricans - 612247.0 - MONDO:0012833 - monoallelic_autosomal - restricted mutation set - definitive - altered gene product structure - missense_variant - gain of function - inferred
+4) G2P00944 - FGFR3 - 134934.0 - HGNC:3690 - ACH; CD333; CEK2; JTK4 - FGFR3-related achondroplasia - 100800.0 - MONDO:0007037 - monoallelic_autosomal - restricted mutation set - definitive - altered gene product structure - nan - gain of function - evidence
+5) G2P01101 - FGFR3 - 134934.0 - HGNC:3690 - ACH; CD333; CEK2; JTK4 - FGFR3-related thanatophoric dysplasia, type 2 - 187601.0 - MONDO:0008547 - monoallelic_autosomal - restricted mutation set - definitive - altered gene product structure - nan - gain of function - inferred
+6) G2P01202 - FGFR3 - 134934.0 - HGNC:3690 - ACH; CD333; CEK2; JTK4 - FGFR3-related camptodactyly tall stature and hearing loss syndrome - 610474.0 - MONDO:0012504 - monoallelic_autosomal - nan - definitive - altered gene product structure - inframe_deletion; inframe_insertion; missense_variant - undetermined - inferred
+7) G2P01257 - FGFR3 - 134934.0 - HGNC:3690 - ACH; CD333; CEK2; JTK4 - FGFR3-related hypochondroplasia - 146000.0 - MONDO:0007793 - monoallelic_autosomal - restricted mutation set - definitive - altered gene product structure - nan - gain of function - inferred
+8) G2P01321 - FGFR3 - 134934.0 - HGNC:3690 - ACH; CD333; CEK2; JTK4 - FGFR3-related thanatophoric dysplasia, type 1 - 187600.0 - MONDO:0008546 - monoallelic_autosomal - restricted mutation set - definitive - altered gene product structure - nan - gain of function - inferred
+
+Reasoning: human patients (a family) with craniosynostosis and midfacial hypoplasia; Muenke syndrome is named; the gene is FGFR3; several FGFR3 entries are offered but only one is FGFR3-related Muenke syndrome, and the phenotype is not achondroplasia, thanatophoric dysplasia or the other FGFR3 skeletal dysplasias.
+ANSWER: G2P00178
+
+--- Example 2 ---
+TIAB:
+Mutations of the DPC4/Smad4 gene in biliary tract carcinoma. A candidate tumor suppressor gene, DPC4, located at 18q21.1, has recently been shown to be inactivated in half of pancreatic adenocarcinomas. The close developmental relationship of the pancreas and biliary tract prompted us to determine the role of DPC4 in the multistep carcinogenesis of biliary tract carcinoma. A search for mutations in the genomic sequence of the highly conserved COOH-terminal domain of DPC4 (exons 8-11) was performed by single-strand conformational polymorphism analysis. Five of 32 (16%) primary biliary tract carcinomas had point mutations in the DPC4 sequence. Interestingly, inactivation of DPC4 was especially common in carcinomas originating from the common bile duct (four of eight specimens analyzed), suggesting an important role for DPC4 in the development of this subtype of biliary tract tumor.
+
+Candidate LGMDE Threads:
+1) G2P01045 - SMAD4 - 600993.0 - HGNC:6770 - DPC4; MADH4 - SMAD4-related Myhre syndrome - 139210.0 - MONDO:0007688 - monoallelic_autosomal - restricted mutation set - definitive - altered gene product structure - nan - gain of function - inferred
+2) G2P01459 - SMAD4 - 600993.0 - HGNC:6770 - DPC4; MADH4 - SMAD4-related juvenile polyposis/hereditary hemorrhagic telangiectasia syndrome - 175050.0 - MONDO:0008278 - monoallelic_autosomal - potential secondary finding - definitive - absent gene product; altered gene product structure - nan - loss of function - inferred
+
+Reasoning: somatic mutations in tumour tissue (neuroendocrine pancreatic tumours), no germline developmental disorder and no human patients with a syndromic phenotype; the candidate SMAD4 entries describe germline juvenile polyposis / Myhre syndrome, which this paper does not report.
+ANSWER: NO MATCH
+
+--- End of examples ---
+
+TIAB:
+{tiab}
+
+Candidate LGMDE Threads:
+{candidate_lines}
+Return exactly one line in the schema above.
