@@ -143,6 +143,80 @@ def candidate_ids(candidate_lines) -> list[str]:
     return ids
 
 
+ROLES_MAPPED = ("causal", "co-causal")
+
+
+def extract_json_answer(text) -> dict | None:
+    """The LAST well-formed JSON object in the generation (harmony's final channel comes
+    last), or None. Tolerates ```json fences and text before/after the object."""
+    if not text:
+        return None
+    s = str(text)
+    end = s.rfind("}")
+    while end != -1:
+        depth = 0
+        for start in range(end, -1, -1):
+            if s[start] == "}":
+                depth += 1
+            elif s[start] == "{":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        obj = json.loads(s[start:end + 1])
+                        if isinstance(obj, dict) and "genes" in obj:
+                            return obj
+                    except json.JSONDecodeError:
+                        pass
+                    break
+        end = s.rfind("}", 0, end)
+    return None
+
+
+def parse_json_answer(obj: dict | None, allowed_ids=None) -> dict:
+    """Map the structured per-gene answer onto the llm_dis_map contract.
+
+    Entries of genes whose role is causal / co-causal form the mapping; every other role
+    contributes nothing. The 'answer' field is cross-checked and the per-gene roles and
+    confidences are kept so the adjudicator's reasons become auditable columns.
+    """
+    out = {"llm_dis_map": None, "answer_format_valid": False, "answer_uncertain": False,
+           "answer_ids_in_candidates": None, "llm_roles": None, "llm_confidence_min": None,
+           "json_answer_consistent": None}
+    if not obj:
+        return out
+    genes = obj.get("genes") or []
+    ids, roles, confs = [], [], []
+    ok = isinstance(genes, list)
+    for g in genes if ok else []:
+        if not isinstance(g, dict):
+            ok = False
+            continue
+        role = str(g.get("role", "")).strip().lower()
+        roles.append({"gene": g.get("gene"), "role": role, "confidence": g.get("confidence")})
+        if role in ROLES_MAPPED:
+            ents = g.get("entries") or ([g["entry"]] if g.get("entry") else [])
+            for e in ents:
+                m = G2P_ID_RE.search(str(e))
+                if m and m.group(0) not in ids:
+                    ids.append(m.group(0))
+            try:
+                confs.append(float(g.get("confidence")))
+            except (TypeError, ValueError):
+                pass
+    out["llm_roles"] = json.dumps(roles)
+    out["llm_confidence_min"] = min(confs) if confs else None
+    out["llm_dis_map"] = ";".join(ids) if ids else NO_MATCH
+    out["answer_format_valid"] = ok
+    ans = obj.get("answer")
+    if ans is not None:
+        ans_ids = set(G2P_ID_RE.findall(str(ans)))
+        out["json_answer_consistent"] = (ans_ids == set(ids)) if ids else (str(ans).strip().upper() == NO_MATCH)
+    if allowed_ids is not None and ids:
+        allowed = {a for a in allowed_ids if a}
+        out["answer_ids_in_candidates"] = all(i in allowed for i in ids)
+    return out
+
+
 def parse_answer(raw_answer, allowed_ids=None) -> dict:
     """Normalise the text after ``ANSWER:`` into the ``llm_dis_map`` contract.
 
@@ -390,6 +464,7 @@ def run_llm_over_cross_shards(
     context_json=None,
     limit=None,
     candidate_layout="flat",
+    output_format="answer",
 ):
     """
     - Reads *.parquet from shards_dir
@@ -450,6 +525,7 @@ def run_llm_over_cross_shards(
         "reasoning_effort": reasoning_effort if use_chat_template else None,
         "threads": threads,
         "candidate_layout": candidate_layout,
+        "output_format": output_format,
         "context_json": os.path.abspath(context_json) if context_json else None,
         "temperature": temperature, "top_p": top_p, "max_tokens": max_tokens, "seed": seed,
         "max_model_len": max_model_len, "max_num_seqs": max_num_seqs,
@@ -466,6 +542,7 @@ def run_llm_over_cross_shards(
     print(f"Found {len(shard_paths)} parquet shard(s) for this worker.")
 
     extra_cols = ["llm_answer_raw", "llm_dis_map", "answer_format_valid", "answer_uncertain",
+                  "llm_roles", "llm_confidence_min", "json_answer_consistent",
                   "answer_ids_in_candidates", "finish_reason", "prompt_tokens", "gen_tokens"]
 
     for shard_path in shard_paths:
@@ -588,8 +665,18 @@ def run_llm_over_cross_shards(
                 comp = out.outputs[0]
                 text = comp.text
                 generated_texts[i] = text if text else " "  # keep non-empty so resume skips it
-                raw = extract_last_answer(text)
-                parsed = parse_answer(raw, allowed.iloc[i])
+                if output_format == "json":
+                    obj = extract_json_answer(text)
+                    parsed = parse_json_answer(obj, allowed.iloc[i])
+                    raw = json.dumps(obj) if obj else extract_last_answer(text)
+                    if not obj:   # no JSON object: fall back to the ANSWER: line if present
+                        fb = parse_answer(raw, allowed.iloc[i])
+                        parsed.update({k: fb[k] for k in ("llm_dis_map", "answer_uncertain",
+                                                          "answer_ids_in_candidates")})
+                        parsed["answer_format_valid"] = False
+                else:
+                    raw = extract_last_answer(text)
+                    parsed = parse_answer(raw, allowed.iloc[i])
                 extras["llm_answer_raw"][i] = raw
                 for k, v in parsed.items():
                     extras[k][i] = v
@@ -671,6 +758,11 @@ def parse_args():
                         "cross-encoder scored, or the contextualised multi-line block "
                         "(needs --context_json built from the SAME G2P export).")
     p.add_argument("--context_json", type=str, default=None)
+    p.add_argument("--output_format", type=str, default="answer", choices=["answer", "json"],
+                   help="answer: the 'ANSWER: ids' line (original rubric). json: the structured "
+                        "per-gene object (role / entries / confidence) of prompts/"
+                        "original_paper_json.txt -- use with --prompt_file pointing at it; "
+                        "llm_dis_map = entries of causal and co-causal genes.")
     p.add_argument("--candidate_layout", type=str, default="flat", choices=["flat", "by_gene"],
                    help="How candidates are listed: one numbered line each (flat, the paper's "
                         "layout) or grouped under a header per gene so an allelic series is "
@@ -724,4 +816,5 @@ if __name__ == "__main__":
         context_json=args.context_json,
         limit=args.limit,
         candidate_layout=args.candidate_layout,
+        output_format=args.output_format,
     )

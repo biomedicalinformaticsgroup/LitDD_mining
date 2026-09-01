@@ -6,6 +6,7 @@ These exercise pure functions only (no vLLM/GPU). Run with
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -122,6 +123,39 @@ def test_prompt_variants_load_and_keep_the_contract():
     few = (ROOT / "litdd/pipeline/prompts/original_paper_fewshot.txt").read_text()
     assert few.count("--- Example") == 2 and "ANSWER: G2P00178" in few and "End of examples" in few
     assert "A Korean family with the Muenke syndrome" in few  # train-split abstract
+
+
+def test_json_prompt_variant_renders_with_literal_braces():
+    path = ROOT / "litdd/pipeline/prompts/original_paper_json.txt"
+    prompt = llm_map.build_llm_prompt("TIAB", ["G2P1 - A - x"], template_path=str(path))
+    assert '{"genes": [' in prompt and '"answer":' in prompt          # doubled braces rendered
+    assert "1) G2P1 - A - x" in prompt and "Return exactly one JSON object" in prompt
+
+
+def test_extract_and_parse_json_answer():
+    text = ('analysisThinking about it... {"not": "this"} assistantfinal'
+            '{"genes": [{"gene": "SCN2A", "role": "causal", "entries": ["G2P01716"], '
+            '"alternatives_considered": ["G2P00251"], "confidence": 0.9}, '
+            '{"gene": "SCN1A", "role": "differential", "entries": [], "confidence": 0.2}], '
+            '"answer": "G2P01716"}')
+    obj = llm_map.extract_json_answer(text)
+    assert obj and obj["answer"] == "G2P01716"
+    p = llm_map.parse_json_answer(obj, ["G2P01716", "G2P00251"])
+    assert p["llm_dis_map"] == "G2P01716" and p["answer_format_valid"] and p["json_answer_consistent"]
+    assert p["answer_ids_in_candidates"] is True and p["llm_confidence_min"] == 0.9
+    roles = json.loads(p["llm_roles"])
+    assert [r["role"] for r in roles] == ["causal", "differential"]
+    # co-causal genes are mapped; other roles are not; answer field inconsistency is flagged
+    obj2 = {"genes": [{"gene": "A", "role": "co-causal", "entries": ["G2P2"]},
+                      {"gene": "B", "role": "somatic", "entries": ["G2P3"]}], "answer": "G2P2;G2P3"}
+    p2 = llm_map.parse_json_answer(obj2, ["G2P2", "G2P3"])
+    assert p2["llm_dis_map"] == "G2P2" and p2["json_answer_consistent"] is False
+    # nothing causal -> NO MATCH
+    p3 = llm_map.parse_json_answer({"genes": [{"gene": "A", "role": "background", "entries": []}],
+                                    "answer": "NO MATCH"}, ["G2P2"])
+    assert p3["llm_dis_map"] == "NO MATCH" and p3["json_answer_consistent"] is True
+    assert llm_map.extract_json_answer("no json here ANSWER: G2P1") is None
+    assert llm_map.parse_json_answer(None)["llm_dis_map"] is None
 
 
 def test_render_candidates_by_gene_groups_but_keeps_numbering():

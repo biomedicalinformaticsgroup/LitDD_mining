@@ -55,17 +55,26 @@ def main() -> int:
          .agg(pmid=("pmid", "first"), label=("label", "max")))   # a pair labelled twice: positive wins
     a["in_panel"] = a["g2p_id"].isin(panel)
 
-    # the positive set must be exactly gold.csv (reduce_group kept every positive)
+    old = pd.read_csv(os.path.join(args.fixture_dir, "pairs.csv"))
+    old["row_id"] = old["row_id"].astype(str)
+    # Abstracts absent from the annotation file (augmentation / external positives in the
+    # training split have no clinician pairs) keep the split's own pairs.
+    covered = set(a["row_id"])
+    carry = old[~old["row_id"].isin(covered)].copy()
+    if "in_panel" not in carry.columns:
+        carry["in_panel"] = carry["g2p_id"].isin(panel)
+    # the positive set must be exactly gold.csv on covered abstracts (reduce_group kept every positive)
     pos = a[(a["label"] == 1) & a["in_panel"]].groupby("row_id")["g2p_id"].agg(lambda s: ";".join(sorted(set(s))))
     g = gold.set_index("row_id")["true_g2p_ids"].fillna("")
-    diff = [(rid, g.get(rid, ""), pos.get(rid, "")) for rid in set(g.index) | set(pos.index)
+    diff = [(rid, g.get(rid, ""), pos.get(rid, "")) for rid in (set(g.index) & covered) | set(pos.index)
             if (g.get(rid, "") or "") != (pos.get(rid, "") or "")]
     if diff:
         raise SystemExit(f"[ERROR] positive set differs from gold.csv for {len(diff)} abstracts, "
                          f"e.g. {diff[:3]}")
 
-    old = pd.read_csv(os.path.join(args.fixture_dir, "pairs.csv"))
-    out = a[["pmid", "row_id", "g2p_id", "label", "in_panel"]].sort_values(["row_id", "g2p_id"])
+    out = pd.concat([a[["pmid", "row_id", "g2p_id", "label", "in_panel"]],
+                     carry[["pmid", "row_id", "g2p_id", "label", "in_panel"]]],
+                    ignore_index=True).sort_values(["row_id", "g2p_id"])
     out.to_csv(os.path.join(args.fixture_dir, "pairs_full.csv"), index=False)
     pos_rows = set(out.loc[out["label"] == 1, "row_id"])
     report = {
@@ -74,6 +83,7 @@ def main() -> int:
         "negatives_on_positive_abstracts": int(((out["label"] == 0) & out["row_id"].isin(pos_rows)).sum()),
         "positive_abstracts_with_negatives": int(out[(out["label"] == 0) & out["row_id"].isin(pos_rows)]["row_id"].nunique()),
         "pairs_not_in_panel": int((~out["in_panel"]).sum()),
+        "abstracts_not_in_annotation_file": int(len(set(old["row_id"]) - covered)),
         "gold_unchanged": True,
     }
     with open(os.path.join(args.fixture_dir, "pairs_full.provenance.json"), "w") as f:
