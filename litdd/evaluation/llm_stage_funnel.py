@@ -195,12 +195,20 @@ def main() -> int:
         ("revised, top-3 (no gate)", "gptoss_2026_gated_k3", None, 3, False),
         ("revised, top-5 (no gate)", "gptoss_2026_gated_k5", None, 5, False),
         ("revised + symbol fallback, no gate", "gptoss_2026_gatedfb_tnone", None, None, True),
+        ("revised, prompt: single best entry per gene", "gptoss_2026_gated_singlebest", None, None, False),
+        ("revised, prompt: two worked examples", "gptoss_2026_gated_fewshot", None, None, False),
+        ("revised, layout: one block per gene", "gptoss_2026_gated_bygene", None, None, False),
+        ("revised, block per gene + single best", "gptoss_2026_gated_bygene_singlebest", None, None, False),
     ]
     for label, run_dir, thr, topk, use_fb in arms:
         eval_dir = run_dir
         shard = "candidates_gated_fb" if use_fb else "candidates_gated"
         entries = gate_entries_fb if use_fb else gate_entries
-        llm = pd.read_parquet(f"revision/llm_eval/runs/{run_dir}/{shard}_crossencoded_shard0-of-1__llm.parquet")
+        pq_path = f"revision/llm_eval/runs/{run_dir}/{shard}_crossencoded_shard0-of-1__llm.parquet"
+        if not os.path.exists(pq_path) or not os.path.exists(f"revision/llm_eval/eval_2026/{eval_dir}/eval_per_tiab.csv"):
+            print(f"[skip] {label}: run or evaluation not available yet")
+            continue
+        llm = pd.read_parquet(pq_path)
         llm["row_id"] = llm["row_id"].astype(str)
         sc_all = dict(zip(llm["row_id"], llm["top5_cross"].map(scores)))
         per = pd.read_csv(f"revision/llm_eval/eval_2026/{eval_dir}/eval_per_tiab.csv")
