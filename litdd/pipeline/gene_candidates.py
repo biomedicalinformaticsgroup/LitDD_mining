@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import re
 import sys
 
 import polars as pl
@@ -59,12 +60,40 @@ def parse_args() -> argparse.Namespace:
                         "HGNC names only. Disease-named genes (\"Bardet-Biedl syndrome 1\") "
                         "are blocklisted from forming stems either way, so enabling this "
                         "cannot make a syndrome mention match its whole gene family.")
+    p.add_argument("--symbol_fallback", action="store_true",
+                   help="For abstracts where PubTator3 has NO human gene annotation at all "
+                        "(coverage gap: old or title-only records), match G2P gene symbols "
+                        "verbatim in the text (case-sensitive, word-bounded, >=3 characters, "
+                        "minus SYMBOL_FALLBACK_BLOCKLIST). Never applied when PubTator "
+                        "annotated the abstract, so it cannot add ambiguity there. Measured on "
+                        "the annotated test split: recovers 9 of 9 curated abstracts PubTator "
+                        "left unannotated (DMD, ITPR1, NEXMIF, SCN8A, CPLANE1).")
     p.add_argument("--keep_unmatched", action="store_true",
                    help="Keep rows with no detected gene and give them the FULL panel as "
                         "candidates, instead of dropping them. Measured as unnecessary "
                         "(the gate retains 98.8%% of external-truth pairs), but retained so "
                         "the hard-gate/hybrid comparison can be re-run.")
     return p.parse_args()
+
+
+# Official G2P symbols that are also English words or clinical abbreviations. Only consulted
+# by --symbol_fallback, i.e. for abstracts PubTator did not annotate at all.
+SYMBOL_FALLBACK_BLOCKLIST = frozenset({
+    "CAT", "SET", "MAX", "WAS", "ACHE", "STAR", "REST", "MARS", "AIP", "MET", "ATM", "ARC",
+    "BAD", "BID", "CAD", "CAP", "COIL", "DIP", "FAT", "FLOT", "GAN", "HIP", "IMPACT", "KIT",
+    "LAMP", "LARGE", "MICE", "NODAL", "OCT", "PIGS", "RAN", "SHE", "SON", "SPAG", "TANK",
+    "TAT", "TUB", "WARS", "APEX", "CRISP", "MASS", "MICAL", "PALM", "PIGN", "SCAN", "SHOX",
+    "SLIT", "TRIP", "WISP", "ARMS", "ATP", "DNA", "RNA", "EEG", "MRI", "CNS", "IQ", "ASD",
+    "ADHD", "PCR", "CGH", "SNP", "CNV", "NGS", "WES", "WGS", "HPO", "MIM", "OMIM",
+})
+
+
+def find_symbols_verbatim(text: str, symbols: set[str]) -> set[str]:
+    """Panel symbols appearing verbatim (case-sensitive, word-bounded) in ``text``."""
+    if not text:
+        return set()
+    tokens = set(re.findall(r"(?<![A-Za-z0-9])[A-Z][A-Z0-9-]{2,}(?![A-Za-z0-9])", text))
+    return {t for t in tokens if t in symbols and t not in SYMBOL_FALLBACK_BLOCKLIST}
 
 
 def load_gene_to_g2p(path: str) -> dict[str, list[str]]:
@@ -111,15 +140,21 @@ def main() -> int:
 
     cand_col: list[list[str]] = []
     src_col: list[list[str]] = []
-    n_symbol = n_name = n_none = 0
+    n_symbol = n_name = n_fallback = n_none = 0
 
     for pmid, tiab in zip(df["pmid"].cast(pl.Utf8).to_list(), df["tiab"].to_list()):
         by_symbol = pub_genes.get(pmid, set()) & panel_symbols
         by_name = (matcher.find(tiab or "") if matcher is not None else set()) - by_symbol
+        # PubTator has no annotation for this PMID at all -> verbatim panel symbols in the text
+        by_fallback: set[str] = set()
+        if args.symbol_fallback and pmid not in pub_genes:
+            by_fallback = find_symbols_verbatim(tiab or "", panel_symbols) - by_name
         if by_symbol:
             n_symbol += 1
         if by_name:
             n_name += 1
+        if by_fallback:
+            n_fallback += 1
 
         ids: dict[str, str] = {}
         for sym in by_symbol:
@@ -128,6 +163,9 @@ def main() -> int:
         for sym in by_name:
             for gid in gene_to_g2p.get(sym, []):
                 ids.setdefault(gid, "name_match")
+        for sym in by_fallback:
+            for gid in gene_to_g2p.get(sym, []):
+                ids.setdefault(gid, "symbol_fallback")
 
         if not ids:
             n_none += 1
@@ -147,6 +185,7 @@ def main() -> int:
 
     print(f"\nrows with a symbol match : {n_symbol}")
     print(f"rows adding a name match : {n_name}")
+    print(f"rows via symbol fallback : {n_fallback} (PubTator had no annotation for the PMID)")
     print(f"rows with no gene        : {n_none} "
           f"({'kept via full-panel fallback' if args.keep_unmatched else 'DROPPED'})")
     print(f"rows retained            : {kept.height} / {df.height} "

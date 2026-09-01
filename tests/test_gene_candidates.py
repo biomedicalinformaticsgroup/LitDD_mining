@@ -147,3 +147,32 @@ def test_candidate_mode_emits_the_downstream_contract(tmp_path, monkeypatch):
     # data-driven k: nothing is truncated to 5 by default
     assert all(len(r) == len(c) for r, c in zip(df["top5_cross"].to_list(),
                                                 df["candidate_g2p_ids"].to_list()))
+
+
+def test_symbol_fallback_only_for_pubtator_unannotated_abstracts(tmp_path):
+    """PubTator3 has no annotation at all for some (old, title-only) records although the
+    gene symbol is verbatim in the text -- 9 curated test abstracts (DMD x6, ITPR1, NEXMIF,
+    SCN8A, CPLANE1). --symbol_fallback matches panel symbols verbatim there, and ONLY there:
+    an abstract PubTator did annotate must not gain fallback candidates."""
+    (tmp_path / "g2p.csv").write_text(G2P + "G2P00004,DMD,444,2928,,DMD-related Duchenne muscular dystrophy,310200,,monoallelic_X_hemizygous,,definitive,absent gene product,,loss of function,inferred\n")
+    (tmp_path / "hgnc.txt").write_text(HGNC)
+    with gzip.open(tmp_path / "gene_info.gz", "wt") as f:
+        f.write("#tax_id\tGeneID\tSymbol\n9606\t383\tARG1\n9606\t1756\tDMD\n")
+    with gzip.open(tmp_path / "g2pub.gz", "wt") as f:
+        f.write("100\tGene\t383\tARG1\tPubTator3\n")   # annotated: fallback must not apply
+    pl.DataFrame({
+        "pmid": ["100", "500", "600"],
+        "tiab": [
+            "A homozygous ARG1 variant; DMD is mentioned in passing.",   # PubTator: ARG1 only
+            "DMD carrier detection in a female with mosaic Turner's syndrome.",  # unannotated
+            "The CAT scan was normal; SET the MAX dose.",                # blocklisted words only
+        ],
+    }).write_parquet(tmp_path / "in.parquet")
+    without = _run(tmp_path)
+    assert without["pmid"].to_list() == ["100"]
+    with_fb = _run(tmp_path, "--symbol_fallback")
+    rows = {r["pmid"]: r for r in with_fb.to_dicts()}
+    assert set(rows) == {"100", "500"}                       # 600 still dropped
+    assert rows["100"]["candidate_g2p_ids"] == ["G2P00001"]  # no DMD added to an annotated row
+    assert rows["500"]["candidate_g2p_ids"] == ["G2P00004"]
+    assert rows["500"]["candidate_sources"] == ["symbol_fallback"]
