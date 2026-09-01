@@ -155,6 +155,10 @@ def main() -> int:
                     help="drop TIABs whose gold entry is not in --g2p_csv (and record them)")
     ap.add_argument("--screen_preds", default=None,
                     help="csv (pmid,label,prob,pred) overriding bert_predict, e.g. the released screen")
+    ap.add_argument("--corrections", default=None,
+                    help="data/annotation_corrections.csv: relabel positive pairs (pmid, g2p_id_from "
+                         "-> g2p_id_to) before building gold/pairs; the pickle's thread string is "
+                         "re-rendered from --g2p_csv for the corrected entry")
     ap.add_argument("--out_dir", required=True)
     args = ap.parse_args()
 
@@ -164,6 +168,23 @@ def main() -> int:
         raise SystemExit(f"[ERROR] {args.crossencoded_pkl} lacks {need - set(df.columns)}")
     anno = pd.read_csv(args.anno_csv, usecols=["pmid", "tiab"])
     panel = build_lgmde_map(args.g2p_csv)
+    n_corr = 0
+    if args.corrections:
+        corr = pd.read_csv(args.corrections, dtype=str)
+        pm = (anno.dropna(subset=["pmid"]).assign(pmid=lambda d: d["pmid"].astype(int).astype(str))
+              .drop_duplicates("tiab").set_index("tiab")["pmid"])
+        df = df.copy()
+        df["_pmid"] = df["tiab"].map(pm)
+        df["_id"] = df["g2p_lgmde"].map(thread_id)
+        for c in corr.itertuples(index=False):
+            m = (df["_pmid"] == c.pmid) & (df["_id"] == c.g2p_id_from) & (df["label"] == 1)
+            if m.any():
+                if c.g2p_id_to not in panel:
+                    raise SystemExit(f"[ERROR] correction target {c.g2p_id_to} not in {args.g2p_csv}")
+                df.loc[m, "g2p_lgmde"] = panel[c.g2p_id_to]
+                n_corr += int(m.sum())
+        df = df.drop(columns=["_pmid", "_id"])
+        print(f"[Info] applied {n_corr} label corrections from {args.corrections}")
     screen = None
     if args.screen_preds:
         sp = pd.read_csv(args.screen_preds, dtype={"pmid": str})
@@ -192,6 +213,8 @@ def main() -> int:
         "crossencoded_pkl": os.path.abspath(args.crossencoded_pkl),
         "anno_csv": os.path.abspath(args.anno_csv),
         "candidates": args.candidates,
+        "corrections": os.path.abspath(args.corrections) if args.corrections else None,
+        "n_label_corrections_applied": n_corr,
         "screen_preds": os.path.abspath(args.screen_preds) if args.screen_preds else
         "bert_predict from the pickle (originally deployed screen)",
         "panel_check": panel_report,

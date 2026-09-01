@@ -92,8 +92,10 @@ def find_symbols_verbatim(text: str, symbols: set[str]) -> set[str]:
     """Panel symbols appearing verbatim (case-sensitive, word-bounded) in ``text``."""
     if not text:
         return set()
-    tokens = set(re.findall(r"(?<![A-Za-z0-9])[A-Z][A-Z0-9-]{2,}(?![A-Za-z0-9])", text))
-    return {t for t in tokens if t in symbols and t not in SYMBOL_FALLBACK_BLOCKLIST}
+    # hyphenated symbols (NKX2-1, HLA-DRB1) are kept whole; a hyphen followed by lowercase
+    # ("ITPR1-related") ends the token so the bare symbol still matches
+    tokens = set(re.findall(r"(?<![A-Za-z0-9])[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*(?![A-Za-z0-9])", text))
+    return {t for t in tokens if len(t) >= 3 and t in symbols and t not in SYMBOL_FALLBACK_BLOCKLIST}
 
 
 def load_gene_to_g2p(path: str) -> dict[str, list[str]]:

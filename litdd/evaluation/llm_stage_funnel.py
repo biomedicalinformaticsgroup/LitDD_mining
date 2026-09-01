@@ -183,12 +183,24 @@ def main() -> int:
     cand26 = pd.read_parquet("revision/llm_eval/annotated_2026/candidates_gated.parquet")
     cand26["row_id"] = cand26["row_id"].astype(str)
     gate_entries = {r.row_id: set(list(r.candidate_g2p_ids)) for r in cand26.itertuples()}
-    for label, run_dir, eval_dir, thr in [
-        ("revised, no gate", "gptoss_2026_gated_tnone", "gptoss_2026_gated_tnone", None),
-        ("revised, gate 0.5", "gptoss_2026_gated_t05", "gptoss_2026_gated_t05", 0.5),
-        ("revised, gate 0.9 (deployed)", "gptoss_2026_gated", "gptoss_2026_gated", 0.9),
-    ]:
-        llm = pd.read_parquet(f"revision/llm_eval/runs/{run_dir}/candidates_gated_crossencoded_shard0-of-1__llm.parquet")
+    cand_fb = pd.read_parquet("revision/llm_eval/annotated_2026/candidates_gated_fb.parquet")
+    cand_fb["row_id"] = cand_fb["row_id"].astype(str)
+    gate_entries_fb = {r.row_id: set(list(r.candidate_g2p_ids)) for r in cand_fb.itertuples()}
+    arms = [
+        ("revised, no gate", "gptoss_2026_gated_tnone", None, None, False),
+        ("revised, gate 0.5", "gptoss_2026_gated_t05", 0.5, None, False),
+        ("revised, gate 0.9 (deployed)", "gptoss_2026_gated", 0.9, None, False),
+        ("revised, top-1 (no gate)", "gptoss_2026_gated_k1", None, 1, False),
+        ("revised, top-2 (no gate)", "gptoss_2026_gated_k2", None, 2, False),
+        ("revised, top-3 (no gate)", "gptoss_2026_gated_k3", None, 3, False),
+        ("revised, top-5 (no gate)", "gptoss_2026_gated_k5", None, 5, False),
+        ("revised + symbol fallback, no gate", "gptoss_2026_gatedfb_tnone", None, None, True),
+    ]
+    for label, run_dir, thr, topk, use_fb in arms:
+        eval_dir = run_dir
+        shard = "candidates_gated_fb" if use_fb else "candidates_gated"
+        entries = gate_entries_fb if use_fb else gate_entries
+        llm = pd.read_parquet(f"revision/llm_eval/runs/{run_dir}/{shard}_crossencoded_shard0-of-1__llm.parquet")
         llm["row_id"] = llm["row_id"].astype(str)
         sc_all = dict(zip(llm["row_id"], llm["top5_cross"].map(scores)))
         per = pd.read_csv(f"revision/llm_eval/eval_2026/{eval_dir}/eval_per_tiab.csv")
@@ -198,15 +210,18 @@ def main() -> int:
         def n_screen(rid, st):
             return st if bert26.get(rid, 0) == 1 else None
 
-        def n_genegate(rid, st):
-            if rid not in gate_entries:
+        def n_genegate(rid, st, entries=entries):
+            if rid not in entries:
                 return None
-            st["gold_alive"] = st["gold"] <= gate_entries[rid]
+            st["gold_alive"] = st["gold"] <= entries[rid]
             return st
 
-        def n_cegate(rid, st, thr=thr):
+        def n_cegate(rid, st, thr=thr, topk=topk):
             sc = sc_all.get(rid, {})
-            kept = {i for i, s in sc.items() if thr is None or s >= thr}
+            if topk is not None:
+                kept = set(sorted(sc, key=sc.get, reverse=True)[:topk])
+            else:
+                kept = {i for i, s in sc.items() if thr is None or s >= thr}
             if not kept:
                 return None
             st["gold_alive"] = st["gold_alive"] and st["gold"] <= kept
@@ -219,7 +234,7 @@ def main() -> int:
         all_rows += funnel(label, gold26, [
             ("1 screen (BERT positive)", n_screen),
             ("2 gene gate (PubTator + HGNC): abstract kept & curated entries among its genes' entries", n_genegate),
-            (f"3 cross-encoder score gate (>= {thr if thr is not None else 'none'})", n_cegate),
+            (f"3 cross-encoder {'top-' + str(topk) if topk else 'score gate (>= ' + str(thr if thr is not None else 'none') + ')'}", n_cegate),
             ("4 LLM exact set", n_llm),
         ])
 
