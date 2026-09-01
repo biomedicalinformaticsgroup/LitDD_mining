@@ -19,15 +19,19 @@ VIEWS = ("paper_legacy", "id_micro_screen_positives_only", "tiab_exact_screen_po
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--runs_dir", required=True)
+    ap.add_argument("--runs_dir", required=True, nargs="+",
+                    help="one or more directories holding <run>/eval_summary.json")
     ap.add_argument("--out_csv", required=True)
     args = ap.parse_args()
     rows = []
-    for path in sorted(glob.glob(os.path.join(args.runs_dir, "*", "eval_summary.json"))):
+    paths = sorted({p for d in args.runs_dir for p in glob.glob(os.path.join(d, "*", "eval_summary.json"))})
+    for path in paths:
         with open(path) as f:
             s = json.load(f)
         run = s.get("run", {})
-        r = {"run": s["label"], "model": run.get("model"), "threads": run.get("threads"),
+        r = {"run": s["label"], "fixture": os.path.basename(os.path.dirname(os.path.dirname(s["gold_csv"]))) if s.get("gold_csv") else None,
+             "model": run.get("model"), "threads": run.get("threads"),
+             "min_score": run.get("min_score"),
              "reasoning_effort": run.get("reasoning_effort"),
              "chat_template": run.get("use_chat_template"),
              "temperature": run.get("temperature"), "max_tokens": run.get("max_tokens"),
@@ -52,6 +56,11 @@ def main() -> int:
             r[f"stratum_{st}__id_micro_f1"] = (x.get("id_micro") or {}).get("f1")
         rows.append(r)
     df = pd.DataFrame(rows)
+    # The same run may have been scored twice (in-pod, and re-scored later with a fixed
+    # evaluator into another directory): keep the most recently written summary per run.
+    df["_mtime"] = [os.path.getmtime(p) for p in paths]
+    df = (df.sort_values("_mtime").drop_duplicates(subset=["run"], keep="last")
+          .drop(columns="_mtime").sort_values("run").reset_index(drop=True))
     os.makedirs(os.path.dirname(os.path.abspath(args.out_csv)), exist_ok=True)
     df.to_csv(args.out_csv, index=False)
     cols = ["run", "threads", "reasoning_effort", "rows_per_s", "no_match_rate", "truncated_rate",

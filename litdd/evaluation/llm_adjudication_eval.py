@@ -156,9 +156,11 @@ def per_tiab_table(llm: pd.DataFrame, gold: pd.DataFrame, cutoff: float) -> pd.D
         bert = int(getattr(r, "bert_predict", 1) or 0)
         p_screen = p_gated if bert == 1 else set()
         raw = getattr(r, "llm_dis_map", None)
+        has_row = isinstance(getattr(r, "generated_text", None), str)
         rows.append({
             key: getattr(r, key), "pmid": r.pmid,
             "n_gold": len(g), "gold": ";".join(sorted(g)), "pred": ";".join(sorted(p)),
+            "cand_ids": ";".join(sorted(scores)),  # every candidate the run scored (pre-gate)
             "multi_gold": len(g) > 1,
             "cands_share_gene": len(genes) != len(set(genes)),
             "n_candidates": len(scores),
@@ -172,9 +174,11 @@ def per_tiab_table(llm: pd.DataFrame, gold: pd.DataFrame, cutoff: float) -> pd.D
             "id_fn_screen": len(g - p_screen),
             "no_match": (str(raw).upper() == NO_MATCH) if raw is not None
             and not (isinstance(raw, float) and math.isnan(raw)) else False,
-            "unparsed": raw is None or (isinstance(raw, float) and math.isnan(raw)),
-            "format_invalid": getattr(r, "answer_format_valid", None) is False,
-            "uncertain": bool(getattr(r, "answer_uncertain", False) or False),
+            # answer-quality flags apply only to rows the LLM stage actually produced;
+            # rows dropped upstream are counted once, under no_llm_row.
+            "unparsed": has_row and (raw is None or (isinstance(raw, float) and math.isnan(raw))),
+            "format_invalid": has_row and getattr(r, "answer_format_valid", None) is False,
+            "uncertain": has_row and getattr(r, "answer_uncertain", None) is True,
             "hallucinated": getattr(r, "answer_ids_in_candidates", None) is False,
             "truncated": getattr(r, "finish_reason", None) == "length",
             # Reached the LLM stage but no candidate passed the pre-LLM score gate: recorded as
@@ -182,7 +186,7 @@ def per_tiab_table(llm: pd.DataFrame, gold: pd.DataFrame, cutoff: float) -> pd.D
             "skipped_no_candidates": getattr(r, "finish_reason", None) == "skipped",
             # No LLM row at all: the TIAB never reached the LLM (dropped by an upstream hard
             # gate such as the gene filter). Its gold ids count as FN in every view.
-            "no_llm_row": not isinstance(getattr(r, "generated_text", None), str),
+            "no_llm_row": not has_row,
             "gen_tokens": getattr(r, "gen_tokens", None),
             "prompt_tokens": getattr(r, "prompt_tokens", None),
         })
@@ -249,6 +253,15 @@ def view_pair_level(t: pd.DataFrame, pairs: pd.DataFrame) -> dict:
     pred_by = {str(getattr(r, key)): set(r.pred.split(";")) - {""} for r in t.itertuples(index=False)}
     pairs = pairs.copy()
     pairs[key] = pairs[key].astype(str)
+    # "Offered" = the retriever put the entry in front of the pipeline. Fixtures built with
+    # --candidates none carry no in_candidates column, so derive it from the candidates the
+    # run actually scored (top5_cross of the LLM parquet, before any pre-LLM score gate).
+    if "in_candidates" not in pairs.columns or pairs["in_candidates"].isna().all():
+        cands_by = {str(getattr(r, key)): set(str(r.cand_ids).split(";")) - {"", "nan"}
+                    for r in t.itertuples(index=False)}
+        pairs["in_candidates"] = [g in cands_by.get(k, set())
+                                  for k, g in zip(pairs[key], pairs["g2p_id"])]
+    pairs["in_candidates"] = pairs["in_candidates"].fillna(False).astype(bool)
     offered = pairs[pairs["in_candidates"]]
     tp = fp = fn = tn = 0
     for r in offered.itertuples(index=False):
@@ -310,6 +323,7 @@ def load_run_meta(paths: list[str]) -> dict:
         return {}
     m = metas[0]
     keep = {k: m.get(k) for k in ("model", "reasoning_effort", "use_chat_template", "threads",
+                                  "min_score", "max_candidates",
                                   "temperature", "top_p", "max_tokens", "max_model_len", "seed",
                                   "dtype", "git_sha", "image", "versions", "gpu", "source")}
     keep["rows_per_s"] = m.get("rows_per_s")
@@ -418,6 +432,7 @@ def main() -> int:
     print(f"rates: no_match {r['no_match_rate']:.3f}  unparsed {r['unparsed_rate']:.3f}  "
           f"format_invalid {r['format_invalid_rate']:.3f}  hallucinated {r['hallucinated_rate']:.3f}  "
           f"uncertain {r['uncertain_rate']:.3f}  truncated {r['truncated_rate']:.3f}  "
+          f"no_llm_row {r['no_llm_row_rate']:.3f}  skipped_by_gate {r['skipped_no_candidates_rate']:.3f}  "
           f"gen_tokens mean/p95 {r.get('gen_tokens_mean')}/{r.get('gen_tokens_p95')}")
     for k, v in summary["strata"].items():
         if v["id_micro"]:
