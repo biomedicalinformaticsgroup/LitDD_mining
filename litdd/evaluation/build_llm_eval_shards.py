@@ -147,7 +147,12 @@ def build(df: pd.DataFrame, anno: pd.DataFrame, panel: dict, with_candidates: bo
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--crossencoded_pkl", required=True)
+    ap.add_argument("--crossencoded_pkl", default=None,
+                    help="the paper's ds_test fixture (tiab, g2p_lgmde, label, bert_predict, top_5_cross)")
+    ap.add_argument("--dataset_dir", default=None,
+                    help="alternative input: a save_to_disk dataset with tiab, g2p_lgmde, label "
+                         "(e.g. the TRAIN split, for a development set); implies --candidates none "
+                         "and bert_predict=1 (the screen is not evaluated on its own training data)")
     ap.add_argument("--anno_csv", required=True, help="g2p_id_tiab_anno_df_FINAL.csv (pmid, tiab)")
     ap.add_argument("--g2p_csv", required=True, help="the export this arm of the evaluation uses")
     ap.add_argument("--candidates", choices=["paper", "none"], default="paper")
@@ -162,10 +167,22 @@ def main() -> int:
     ap.add_argument("--out_dir", required=True)
     args = ap.parse_args()
 
-    df = pd.read_pickle(args.crossencoded_pkl)
+    if args.dataset_dir:
+        from datasets import load_from_disk
+        df = load_from_disk(args.dataset_dir).to_pandas()
+        df["label"] = df["label"].astype(int)
+        df["bert_predict"] = 1
+        df["top_5_cross"] = [[] for _ in range(len(df))]
+        args.candidates = "none"
+        source = os.path.abspath(args.dataset_dir)
+    else:
+        if not args.crossencoded_pkl:
+            raise SystemExit("give --crossencoded_pkl or --dataset_dir")
+        df = pd.read_pickle(args.crossencoded_pkl)
+        source = os.path.abspath(args.crossencoded_pkl)
     need = {"tiab", "g2p_lgmde", "label", "bert_predict", "top_5_cross"}
     if not need <= set(df.columns):
-        raise SystemExit(f"[ERROR] {args.crossencoded_pkl} lacks {need - set(df.columns)}")
+        raise SystemExit(f"[ERROR] {source} lacks {need - set(df.columns)}")
     anno = pd.read_csv(args.anno_csv, usecols=["pmid", "tiab"])
     panel = build_lgmde_map(args.g2p_csv)
     n_corr = 0
@@ -176,13 +193,30 @@ def main() -> int:
         df = df.copy()
         df["_pmid"] = df["tiab"].map(pm)
         df["_id"] = df["g2p_lgmde"].map(thread_id)
+        corr["g2p_id_from"] = corr["g2p_id_from"].fillna("")
+        if "label" not in corr.columns:
+            corr["label"] = "1"
+        add_rows = []
         for c in corr.itertuples(index=False):
-            m = (df["_pmid"] == c.pmid) & (df["_id"] == c.g2p_id_from) & (df["label"] == 1)
-            if m.any():
-                if c.g2p_id_to not in panel:
-                    raise SystemExit(f"[ERROR] correction target {c.g2p_id_to} not in {args.g2p_csv}")
-                df.loc[m, "g2p_lgmde"] = panel[c.g2p_id_to]
-                n_corr += int(m.sum())
+            if c.g2p_id_to not in panel:
+                if c.g2p_id_from or int(c.label) == 1:
+                    print(f"[warn] correction target {c.g2p_id_to} not in {args.g2p_csv}; skipped")
+                continue
+            if c.g2p_id_from:
+                m = (df["_pmid"] == c.pmid) & (df["_id"] == c.g2p_id_from) & (df["label"] == 1)
+                if m.any():
+                    df.loc[m, "g2p_lgmde"] = panel[c.g2p_id_to]
+                    n_corr += int(m.sum())
+            elif int(c.label) == 1:
+                src = df[df["_pmid"] == c.pmid]
+                if len(src) and not ((df["_pmid"] == c.pmid) & (df["_id"] == c.g2p_id_to)).any():
+                    row = src.iloc[0].copy()
+                    row["g2p_lgmde"] = panel[c.g2p_id_to]
+                    row["label"] = 1
+                    add_rows.append(row)
+                    n_corr += 1
+        if add_rows:
+            df = pd.concat([df, pd.DataFrame(add_rows)], ignore_index=True)
         df = df.drop(columns=["_pmid", "_id"])
         print(f"[Info] applied {n_corr} label corrections from {args.corrections}")
     screen = None
@@ -210,7 +244,7 @@ def main() -> int:
     prov = {
         "built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "script": "litdd/evaluation/build_llm_eval_shards.py", "git_commit": sha,
-        "crossencoded_pkl": os.path.abspath(args.crossencoded_pkl),
+        "source": source,
         "anno_csv": os.path.abspath(args.anno_csv),
         "candidates": args.candidates,
         "corrections": os.path.abspath(args.corrections) if args.corrections else None,

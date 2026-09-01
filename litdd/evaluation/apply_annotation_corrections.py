@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Apply reviewed label corrections to the annotation files, traceably.
 
-``data/annotation_corrections.csv`` (pmid, g2p_id_from, g2p_id_to, reason, date, by) records
-every clinician-reviewed relabelling. This script applies it to:
+``data/annotation_corrections.csv`` (pmid, g2p_id_from, g2p_id_to, reason, date, by[, label])
+records every clinician-reviewed change: a row with ``g2p_id_from`` relabels that positive pair
+to ``g2p_id_to``; a row with an empty ``g2p_id_from`` ADDS a reviewed pair (``label`` 1 = new
+positive, 0 = new negative) -- the 2026-09-01 review of the adjudicator's unlabelled extra
+entries on co-reporting abstracts. This script applies it to:
 
   --anno_csv       the full pair annotation (g2p_id, pmid, tiab, label) -> --anno_out
                    (positive rows for (pmid, g2p_id_from) are moved to g2p_id_to; an existing
@@ -43,20 +46,32 @@ def main() -> int:
     corr = pd.read_csv(args.corrections, dtype=str)
     anno = pd.read_csv(args.anno_csv, dtype={"pmid": str, "g2p_id": str})
     anno["pmid"] = anno["pmid"].astype(float).astype(int).astype(str)
-    applied = 0
+    if "label" not in corr.columns:
+        corr["label"] = "1"
+    corr["g2p_id_from"] = corr["g2p_id_from"].fillna("")
+    applied = added = 0
+    tiab_of = anno.drop_duplicates("pmid").set_index("pmid")["tiab"]
     for c in corr.itertuples(index=False):
-        m = (anno["pmid"] == c.pmid) & (anno["g2p_id"] == c.g2p_id_from) & (anno["label"] == 1)
-        if not m.any():
-            raise SystemExit(f"[ERROR] no positive row for pmid {c.pmid} / {c.g2p_id_from}")
-        anno.loc[m, "g2p_id"] = c.g2p_id_to
-        applied += int(m.sum())
+        if c.g2p_id_from:      # relabel an existing positive pair
+            m = (anno["pmid"] == c.pmid) & (anno["g2p_id"] == c.g2p_id_from) & (anno["label"] == 1)
+            if not m.any():
+                raise SystemExit(f"[ERROR] no positive row for pmid {c.pmid} / {c.g2p_id_from}")
+            anno.loc[m, "g2p_id"] = c.g2p_id_to
+            applied += int(m.sum())
+        else:                  # add a reviewed pair (label 1 = new positive, 0 = new negative)
+            if c.pmid not in tiab_of.index:
+                raise SystemExit(f"[ERROR] pmid {c.pmid} not in the annotation (cannot add a pair)")
+            anno = pd.concat([anno, pd.DataFrame([{"g2p_id": c.g2p_id_to, "pmid": c.pmid,
+                                                    "tiab": tiab_of[c.pmid], "label": int(c.label)}])],
+                             ignore_index=True)
+            added += 1
     before = len(anno)
     anno = (anno.groupby(["pmid", "g2p_id"], as_index=False)
             .agg(tiab=("tiab", "first"), label=("label", "max")))
     anno = anno[["g2p_id", "pmid", "tiab", "label"]]
     os.makedirs(os.path.dirname(os.path.abspath(args.anno_out)), exist_ok=True)
     anno.to_csv(args.anno_out, index=False)
-    print(f"full annotation: {applied} positive rows relabelled, {before - len(anno)} merged; "
+    print(f"full annotation: {applied} positive rows relabelled, {added} reviewed pairs added, {before - len(anno)} merged; "
           f"wrote {args.anno_out} ({len(anno)} rows)")
 
     if args.pmid_csv:
@@ -67,6 +82,16 @@ def main() -> int:
         rep["_id"] = rep["g2p_lgmde"].str.split(" - ", n=1).str[0].str.strip()
         n = 0
         for c in corr.itertuples(index=False):
+            if not c.g2p_id_from:
+                if c.g2p_id_to not in panel:
+                    raise SystemExit(f"[ERROR] {c.g2p_id_to} not in {args.g2p_csv}")
+                if ((rep["pmid"] == c.pmid) & (rep["_id"] == c.g2p_id_to)).any():
+                    continue
+                rep = pd.concat([rep, pd.DataFrame([{"pmid": c.pmid, "g2p_lgmde": panel[c.g2p_id_to],
+                                                      "label": int(c.label), "_id": c.g2p_id_to}])],
+                                ignore_index=True)
+                n += 1
+                continue
             m = (rep["pmid"] == c.pmid) & (rep["_id"] == c.g2p_id_from) & (rep["label"] == 1)
             if not m.any():
                 print(f"[note] {args.pmid_csv}: no row for pmid {c.pmid} / {c.g2p_id_from} (skipped)")

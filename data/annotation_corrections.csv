@@ -1,31 +1,71 @@
-pmid,g2p_id_from,g2p_id_to,reason,date,by
-25439098,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-28486374,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-32089526,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-33275834,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-33352606,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-33633953,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-33750045,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-34583915,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-35440576,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-34116881,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-25342064,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-27148565,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-29097605,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-29150892,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-29307761,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-31911028,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-33117858,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-33229923,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-34631953,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-34790866,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-34933843,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-35094889,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-35211951,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-36210261,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-26582469,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-28448108,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-29619234,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-29908350,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-33777106,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
-36376392,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY
+pmid,g2p_id_from,g2p_id_to,reason,date,by,label
+25439098,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+28486374,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+32089526,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+33275834,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+33352606,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+33633953,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+33750045,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+34583915,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+35440576,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+34116881,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+25342064,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+27148565,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+29097605,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+29150892,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+29307761,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+31911028,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+33117858,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+33229923,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+34631953,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+34790866,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+34933843,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+35094889,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+35211951,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+36210261,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+26582469,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+28448108,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+29619234,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+29908350,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+33777106,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+36376392,G2P01518,G2P00694,PURA syndrome paper labelled against PDHA1-related intellectual disability; PURA entry is G2P00694,2026-09-01,MY,1
+10678662,,G2P00272,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+15706485,,G2P01631,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+16021471,,G2P00793,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'FALSE'),2026-09-01,MY,0
+16596670,,G2P01114,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+16596670,,G2P01379,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+19050725,,G2P00020,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+20012798,,G2P01013,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+21893419,,G2P01652,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE but extra entry is G2P01652'),2026-09-01,MY,1
+21893419,,G2P00251,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'TRUE but extra entry is G2P01652'),2026-09-01,MY,0
+22636604,,G2P00278,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+22636604,,G2P01475,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+24623842,,G2P01444,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+24738188,,G2P00034,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE for MECP2-related Rett syndrome (only) and CDKL5 '),2026-09-01,MY,1
+24738188,,G2P01596,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE for MECP2-related Rett syndrome (only) and CDKL5 '),2026-09-01,MY,1
+24738188,,G2P01023,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'TRUE for MECP2-related Rett syndrome (only) and CDKL5 '),2026-09-01,MY,0
+24738188,,G2P01392,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'TRUE for MECP2-related Rett syndrome (only) and CDKL5 '),2026-09-01,MY,0
+24885232,,G2P01084,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+25596306,,G2P01506,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+26283219,,G2P00566,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+27891178,,G2P00380,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'True only for DOCK8 and KANK1'),2026-09-01,MY,1
+27891178,,G2P00111,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'True only for DOCK8 and KANK1'),2026-09-01,MY,1
+27891178,,G2P00636,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'True only for DOCK8 and KANK1'),2026-09-01,MY,0
+27891178,,G2P00683,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'True only for DOCK8 and KANK1'),2026-09-01,MY,0
+27891178,,G2P00971,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'True only for DOCK8 and KANK1'),2026-09-01,MY,0
+27891178,,G2P01621,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'True only for DOCK8 and KANK1'),2026-09-01,MY,0
+28442529,,G2P00251,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+28495245,,G2P01050,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+29649454,,G2P00251,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+30046887,,G2P03477,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+30655572,,G2P02855,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+32903913,,G2P01490,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+32980524,,G2P00021,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+34401172,,G2P00761,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+34401172,,G2P01543,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+34737153,,G2P00376,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+36780047,,G2P03061,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+8644708,,G2P01586,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+9002682,,G2P01586,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+9217234,,G2P01586,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'FALSE'),2026-09-01,MY,0
+9817918,,G2P00020,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
