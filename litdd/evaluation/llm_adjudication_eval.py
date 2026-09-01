@@ -167,6 +167,9 @@ def per_tiab_table(llm: pd.DataFrame, gold: pd.DataFrame, cutoff: float) -> pd.D
             "bert_predict": bert, "max_cross": max(scores.values(), default=float("nan")),
             "genereviews": bool(getattr(r, "genereviews", False)),
             "exact_correct": p == g,
+            # end-to-end: screen positive AND (pre- or post-LLM) score gate AND exact set
+            "exact_correct_end_to_end": p_screen == g,
+            "final_pred": ";".join(sorted(p_screen)),
             "id_tp": len(p & g), "id_fp": len(p - g), "id_fn": len(g - p),
             "id_tp_gated": len(p_gated & g), "id_fp_gated": len(p_gated - g),
             "id_fn_gated": len(g - p_gated),
@@ -208,6 +211,23 @@ def view_tiab_exact(t: pd.DataFrame) -> dict:
     out = prf(tp, fp, fn)
     out["tn"] = tn
     out["accuracy"] = round(float(t["exact_correct"].mean()), 4) if len(t) else float("nan")
+    return out
+
+
+def view_end_to_end_exact(t: pd.DataFrame) -> dict:
+    """The original paper's criterion, cleanly, over ALL test abstracts: an abstract is a
+    true positive iff the screen passed it AND the entries that survive the score gate equal
+    the curated set exactly; a curated abstract that fails anywhere is a false negative; a
+    non-curated abstract that ends with any mapping is a false positive."""
+    has_gold = t["n_gold"] > 0
+    final_nonempty = t["final_pred"] != ""
+    tp = int((has_gold & t["exact_correct_end_to_end"]).sum())
+    fn = int((has_gold & ~t["exact_correct_end_to_end"]).sum())
+    fp = int((~has_gold & final_nonempty).sum() + (has_gold & final_nonempty & ~t["exact_correct_end_to_end"]).sum())
+    tn = int((~has_gold & ~final_nonempty).sum())
+    out = prf(tp, fp, fn)
+    out["tn"] = tn
+    out["n_abstracts"] = int(len(t))
     return out
 
 
@@ -401,6 +421,7 @@ def main() -> int:
         "run": load_run_meta(paths),
         "rates": rates(t),
         "paper_legacy": view_paper_legacy(t, pairs, args.score_cutoff),
+        "end_to_end_exact": view_end_to_end_exact(t),
         "tiab_exact": view_tiab_exact(t),
         "id_micro": view_id_micro(t),
         "id_micro_gated": view_id_micro(t, "_gated"),
@@ -421,7 +442,7 @@ def main() -> int:
     print(f"\n== {summary['label']}  ({len(t)} TIABs; model {summary['run'].get('model')}; "
           f"threads {summary['run'].get('threads')}; effort {summary['run'].get('reasoning_effort')})")
     print(f"{'view':<24}{'P':>8}{'R':>8}{'F1':>8}   tp/fp/fn")
-    for name in ("paper_legacy", "tiab_exact", "id_micro", "id_micro_gated",
+    for name in ("paper_legacy", "end_to_end_exact", "tiab_exact", "id_micro", "id_micro_gated",
                  "id_micro_screen_gated", "id_micro_screen_positives_only",
                  "tiab_exact_screen_positives_only", "pair_level"):
         v = summary[name]
