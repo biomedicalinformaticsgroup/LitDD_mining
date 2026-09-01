@@ -170,6 +170,16 @@ def test_load_context_threads_drops_literal_none_lines(tmp_path):
     assert ctx["G2P00001"] == "G2P ID: G2P00001\nGene Symbol: A\nPhenotypes: a; b"
 
 
+def test_to_labels_min_score_gates_before_the_llm():
+    cell = [{"label": "G2P1 - a", "score": 0.97}, {"label": "G2P2 - a", "score": 0.42},
+            {"label": "G2P3 - b", "score": 0.91}, ("G2P4 - c", 0.05), "G2P5 - unscored"]
+    assert llm_map.to_labels(cell, min_score=0.9) == ["G2P1 - a", "G2P3 - b", "G2P5 - unscored"]
+    assert llm_map.to_labels(cell, max_candidates=1, min_score=0.9) == ["G2P1 - a"]
+    assert llm_map.to_labels([{"label": "G2P9 - z", "score": 0.1}], min_score=0.9) == []
+    # no gate -> everything kept, order preserved
+    assert len(llm_map.to_labels(cell)) == 5
+
+
 def test_to_labels_caps_only_when_asked():
     cell = [{"label": "G2P1 - a", "score": 0.9}, ("G2P2 - b", 0.5), "G2P3 - c"]
     assert llm_map.to_labels(cell) == ["G2P1 - a", "G2P2 - b", "G2P3 - c"]

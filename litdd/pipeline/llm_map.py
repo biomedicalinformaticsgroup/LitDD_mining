@@ -158,37 +158,53 @@ def parse_answer(raw_answer, allowed_ids=None) -> dict:
 # --------------------------------------------------------------------------------------
 # Candidate rendering
 # --------------------------------------------------------------------------------------
-def to_labels(x, max_candidates=None):
+def to_labels(x, max_candidates=None, min_score=None):
     """Normalise a top-k cell into a list of candidate label strings.
 
     max_candidates=None keeps every candidate, which is what the data-driven
     configuration wants: the number of candidates follows from the genes actually
     mentioned in the TIAB, so it is not fixed at 5.
+
+    min_score drops candidates whose cross-encoder score is below the gate BEFORE the
+    LLM sees them (deployment order: gene gate -> cross-encoder on every entry of the
+    detected genes -> score gate -> LLM). Items without a score are kept.
     """
     if x is None or (isinstance(x, float) and pd.isna(x)):
         return []
 
-    def item_to_label(item):
+    def item_to_pair(item):
+        """-> (label, score or None) or None."""
         if isinstance(item, dict):
-            return str(item.get("label", "")).strip() or None
+            lab = str(item.get("label", "")).strip()
+            return (lab, item.get("score")) if lab else None
         if isinstance(item, (list, tuple)) and len(item) >= 1:
-            return str(item[0]).strip() or None
+            lab = str(item[0]).strip()
+            sc = item[1] if len(item) > 1 else None
+            return (lab, sc) if lab else None
         try:
             import pyarrow as pa
             if isinstance(item, pa.Scalar):
-                return item_to_label(item.as_py())
+                return item_to_pair(item.as_py())
         except Exception:  # noqa: BLE001
             pass
         if isinstance(item, str):
-            return item.strip() or None
+            return (item.strip(), None) if item.strip() else None
         return None
 
     if isinstance(x, (list, tuple, np.ndarray)):
         labels = []
         for it in (x.tolist() if isinstance(x, np.ndarray) else x):
-            lab = item_to_label(it)
-            if lab:
-                labels.append(lab)
+            pair = item_to_pair(it)
+            if not pair:
+                continue
+            lab, sc = pair
+            if min_score is not None and sc is not None:
+                try:
+                    if float(sc) < min_score:
+                        continue
+                except (TypeError, ValueError):
+                    pass
+            labels.append(lab)
         return labels if max_candidates is None else labels[:max_candidates]
 
     if isinstance(x, str):
@@ -201,15 +217,18 @@ def to_labels(x, max_candidates=None):
                 obj = ast.literal_eval(x)
             except Exception:  # noqa: BLE001
                 return []
-        return to_labels(obj, max_candidates)
+        return to_labels(obj, max_candidates, min_score)
 
     try:
         import pyarrow as pa
         if isinstance(x, pa.Scalar):
-            return to_labels(x.as_py(), max_candidates)
+            return to_labels(x.as_py(), max_candidates, min_score)
     except Exception:  # noqa: BLE001
         pass
     return []
+
+
+SKIPPED_TEXT = "[skipped: no candidate passed the score gate]"
 
 
 def load_context_threads(path: str) -> dict[str, str]:
@@ -323,6 +342,7 @@ def run_llm_over_cross_shards(
     save_every=1000,
     tensor_parallel_size=None,
     max_candidates=None,
+    min_score=None,
     max_num_seqs=512,
     max_model_len=16384,
     gpu_memory_utilization=0.90,
@@ -398,6 +418,7 @@ def run_llm_over_cross_shards(
         "max_model_len": max_model_len, "max_num_seqs": max_num_seqs,
         "gpu_memory_utilization": gpu_memory_utilization, "dtype": dtype,
         "tensor_parallel_size": tensor_parallel_size, "max_candidates": max_candidates,
+        "min_score": min_score,
         "shard_index": shard_index, "num_shards": num_shards,
         "git_sha": _git_sha(), "image": os.environ.get("LITDD_IMAGE"),
         "versions": _versions(),
@@ -425,23 +446,33 @@ def run_llm_over_cross_shards(
             continue
 
         n_uncapped = df["top5_cross"].apply(lambda x: len(to_labels(x, None)))
-        flat = df["top5_cross"].apply(lambda x: to_labels(x, max_candidates))
-        capped_rows = int((n_uncapped > max_candidates).sum()) if max_candidates else 0
+        n_gated = df["top5_cross"].apply(lambda x: len(to_labels(x, None, min_score)))
+        flat = df["top5_cross"].apply(lambda x: to_labels(x, max_candidates, min_score))
+        capped_rows = int((n_gated > max_candidates).sum()) if max_candidates else 0
         if capped_rows:
             print(f"[CAP] {capped_rows} rows had more than {max_candidates} candidates; "
                   f"showing the top {max_candidates} by cross-encoder score")
+        # Rows with no candidate left after the score gate never reach the model: they are
+        # recorded as NO MATCH with finish_reason="skipped" so the rate is visible downstream.
+        skipped = flat.apply(len) == 0
+        if min_score is not None:
+            print(f"[GATE] score >= {min_score}: {int((n_uncapped - n_gated).sum())} of "
+                  f"{int(n_uncapped.sum())} candidates removed; {int(skipped.sum())} of {len(df)} "
+                  f"rows left with no candidate (-> NO MATCH, not sent to the LLM)")
+        elif skipped.any():
+            print(f"[WARN] {int(skipped.sum())} rows have no candidates at all (-> NO MATCH)")
         df["topk_cross_lgmde"] = flat.apply(
             lambda labs: contextualise(labs, context, context_missing) if context else labs)
         # Legacy alias: existing analyses (cascade_funnel, sample_audit) read this name.
         df["top_5_cross_lgmde"] = df["topk_cross_lgmde"]
-        df["llm_prompt"] = df.apply(
-            lambda row: build_llm_prompt(row.get("tiab", ""), row["topk_cross_lgmde"],
-                                         template_path=prompt_file),
-            axis=1,
-        )
+        df["llm_prompt"] = [
+            build_llm_prompt(t, labs, template_path=prompt_file) if labs else None
+            for t, labs in zip(df.get("tiab", pd.Series([""] * len(df))), df["topk_cross_lgmde"])
+        ]
         allowed = flat.apply(candidate_ids)
 
-        print("Prompt preview:\n", df["llm_prompt"].iloc[0][-600:])
+        first_prompt = next((p for p in df["llm_prompt"] if p), "")
+        print("Prompt preview:\n", first_prompt[-600:])
         N = len(df)
         print(f"Total rows in shard: {N}")
 
@@ -476,6 +507,17 @@ def run_llm_over_cross_shards(
                 df[c] = extras[c]
             df.to_parquet(out_parquet, index=False)
             print(f"[PROGRESS] Saved current progress to {out_parquet}", flush=True)
+
+        for i in np.flatnonzero(skipped.to_numpy()):
+            generated_texts[i] = SKIPPED_TEXT
+            extras["llm_answer_raw"][i] = None
+            extras["llm_dis_map"][i] = NO_MATCH
+            extras["answer_format_valid"][i] = True
+            extras["answer_uncertain"][i] = False
+            extras["answer_ids_in_candidates"][i] = None
+            extras["finish_reason"][i] = "skipped"
+            extras["prompt_tokens"][i] = 0
+            extras["gen_tokens"][i] = 0
 
         todo = [i for i in range(N) if not generated_texts[i]]
         if not todo:
@@ -542,6 +584,8 @@ def run_llm_over_cross_shards(
             "candidates_per_row_mean": float(n_uncapped.mean()),
             "candidates_per_row_max": int(n_uncapped.max()),
             "rows_capped_by_max_candidates": capped_rows,
+            "candidates_removed_by_min_score": int((n_uncapped - n_gated).sum()),
+            "rows_skipped_no_candidates": int(skipped.sum()),
             # (no peak-memory field: vLLM v1 runs the engine in a child process, so the
             # driver's torch.cuda counters read 0; gpu_memory_utilization is the budget.)
             "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -601,6 +645,11 @@ def parse_args():
                    help="Cap on candidates shown to the LLM. Default None = no cap: the count "
                         "follows from the upstream candidate set (data-driven k). Set to 5 to "
                         "reproduce the original fixed top-5 behaviour.")
+    p.add_argument("--min_score", type=float, default=None,
+                   help="Cross-encoder score gate applied BEFORE the LLM: candidates below it "
+                        "are not shown; rows with none left are recorded as NO MATCH without a "
+                        "model call. Deployment: 0.9 (the same gate final_data_clean.py "
+                        "applies after the LLM).")
     p.add_argument("--limit", type=int, default=None,
                    help="Process only the first N rows of each shard (smoke tests).")
     return p.parse_args()
@@ -620,6 +669,7 @@ if __name__ == "__main__":
         save_every=args.save_every,
         tensor_parallel_size=args.tensor_parallel_size,
         max_candidates=args.max_candidates,
+        min_score=args.min_score,
         max_num_seqs=args.max_num_seqs,
         max_model_len=args.max_model_len,
         gpu_memory_utilization=args.gpu_memory_utilization,
