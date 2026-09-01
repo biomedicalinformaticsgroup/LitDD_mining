@@ -107,20 +107,53 @@ def analyse(name: str, per_tiab: pd.DataFrame, id2gene: dict, counts: dict) -> t
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--arm", action="append", required=True,
-                    help="NAME=per_tiab.csv:g2p_csv (the export that arm used)")
+                    help="NAME=per_tiab.csv:g2p_csv[:pairs.csv] (the export that arm used; "
+                         "pairs.csv enables the labelled-negative sibling specificity)")
     ap.add_argument("--out_csv", required=True)
     args = ap.parse_args()
 
-    tables, all_rows = {}, []
+    tables, all_rows, spec_rows = {}, [], []
     for spec in args.arm:
         name, rest = spec.split("=", 1)
-        per_tiab_csv, g2p_csv = rest.rsplit(":", 1)
+        parts = rest.split(":")
+        per_tiab_csv, g2p_csv = parts[0], parts[1]
+        pairs_csv = parts[2] if len(parts) > 2 else None
         id2gene, counts = gene_index(g2p_csv)
-        t, rows = analyse(name, pd.read_csv(per_tiab_csv), id2gene, counts)
+        per_tiab = pd.read_csv(per_tiab_csv)
+        t, rows = analyse(name, per_tiab, id2gene, counts)
         tables[name] = t
         all_rows += rows
+        if pairs_csv:
+            # Sibling specificity: clinician-labelled NEGATIVE pairs whose entry belongs to a
+            # multi-entry gene (these live on all-negative abstracts -- the split keeps only
+            # positive pairs on abstracts that have any positive, so precision of extra entries
+            # on positive abstracts is NOT measurable from labels; this is).
+            full = per_tiab.copy()
+            full["row_id"] = full["row_id"].astype(str)
+            full = full.set_index("row_id")
+            pairs = pd.read_csv(pairs_csv)
+            pairs["row_id"] = pairs["row_id"].astype(str)
+            neg = pairs[(pairs["label"] == 0)
+                        & pairs["g2p_id"].map(lambda x: counts.get(id2gene.get(x, "?"), 0) > 1)]
+            for subset_name, need_screen in (("all_tiabs", False), ("screen_positive", True)):
+                n = fp = 0
+                for r in neg.itertuples(index=False):
+                    if r.row_id not in full.index:
+                        continue
+                    if need_screen and int(full.loc[r.row_id, "bert_predict"]) != 1:
+                        continue
+                    n += 1
+                    fp += r.g2p_id in split_ids(full.loc[r.row_id, "pred"])
+                spec_rows.append({"arm": name, "subset": subset_name,
+                                  "labelled_negative_sibling_pairs": n, "wrongly_mapped": fp,
+                                  "false_mapping_rate": round(fp / n, 4) if n else None})
     out = pd.DataFrame(all_rows)
     out.to_csv(args.out_csv, index=False)
+    if spec_rows:
+        spec = pd.DataFrame(spec_rows)
+        spec.to_csv(args.out_csv.replace(".csv", "_sibling_specificity.csv"), index=False)
+        print("\nSibling specificity on labelled-negative pairs of multi-entry genes:")
+        print(spec.to_string(index=False))
     pd.set_option("display.width", 250)
     cols = ["arm", "subset", "stratum", "n_tiabs", "precision", "recall", "f1", "exact_accuracy",
             "err_wrong_sibling", "err_extra_sibling", "err_no_match", "err_other_gene", "err_not_reached"]
