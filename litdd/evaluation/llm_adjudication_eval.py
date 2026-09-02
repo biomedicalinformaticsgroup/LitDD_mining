@@ -135,7 +135,24 @@ def candidate_genes(top5) -> list[str]:
 
 
 # ----------------------------------------------------------------------------- scoring
-def per_tiab_table(llm: pd.DataFrame, gold: pd.DataFrame, cutoff: float) -> pd.DataFrame:
+def x_equivalence_map(g2p_csv: str) -> dict[str, str]:
+    """Entries of one gene with the IDENTICAL disease name differing only in
+    monoallelic_X_heterozygous vs monoallelic_X_hemizygous are interchangeable for scoring
+    (reviewer rule 2026-09-02): the abstract's patient sex decides which the curators filed
+    under, and either answer names the same disease. Maps each member to a canonical id."""
+    d = pd.read_csv(g2p_csv)
+    x = d[d["allelic requirement"].astype(str).str.startswith("monoallelic_X")]
+    canon: dict[str, str] = {}
+    for _, grp in x.groupby(["gene symbol", "disease name"]):
+        ids = sorted(grp["g2p id"].astype(str))
+        if len(ids) > 1:
+            for i in ids:
+                canon[i] = ids[0]
+    return canon
+
+
+def per_tiab_table(llm: pd.DataFrame, gold: pd.DataFrame, cutoff: float,
+                   canon: dict[str, str] | None = None) -> pd.DataFrame:
     key = "row_id" if "row_id" in llm.columns and "row_id" in gold.columns else "pmid"
     llm = llm.copy()
     llm[key] = llm[key].astype(str)
@@ -147,10 +164,12 @@ def per_tiab_table(llm: pd.DataFrame, gold: pd.DataFrame, cutoff: float) -> pd.D
         print(f"[WARN] {missing} gold TIABs have no LLM row (not generated / join failure)")
 
     rows = []
+    canon = canon or {}
     for r in df.itertuples(index=False):
-        g = gold_set(r.true_g2p_ids)
-        p = parse_set(getattr(r, "llm_dis_map", None))
+        g = {canon.get(i, i) for i in gold_set(r.true_g2p_ids)}
+        p = {canon.get(i, i) for i in parse_set(getattr(r, "llm_dis_map", None))}
         scores = candidate_scores(getattr(r, "top5_cross", None))
+        scores = {canon.get(i, i): s for i, s in scores.items()}
         genes = candidate_genes(getattr(r, "top5_cross", None))
         p_gated = {i for i in p if scores.get(i, 0.0) >= cutoff}
         bert = int(getattr(r, "bert_predict", 1) or 0)
@@ -396,6 +415,9 @@ def main() -> int:
     ap.add_argument("--score_cutoff", type=float, default=0.9)
     ap.add_argument("--out_prefix")
     ap.add_argument("--label", default=None)
+    ap.add_argument("--g2p_csv", default="revision/G2P_DD_2026-06-24.csv",
+                    help="panel used to build the X-het/X-hemi same-disease-name equivalence "
+                         "(reviewer rule); pass an empty string to disable")
     ap.add_argument("--compare", nargs=2, metavar=("A_PER_TIAB", "B_PER_TIAB"))
     args = ap.parse_args()
 
@@ -414,7 +436,8 @@ def main() -> int:
     gold = pd.read_csv(args.gold_csv)
     pairs = pd.read_csv(args.pairs_csv) if args.pairs_csv else None
 
-    t = per_tiab_table(llm, gold, args.score_cutoff)
+    canon = x_equivalence_map(args.g2p_csv) if args.g2p_csv else {}
+    t = per_tiab_table(llm, gold, args.score_cutoff, canon=canon)
     summary = {
         "label": args.label or os.path.basename(args.out_prefix),
         "llm_parquet": paths, "gold_csv": args.gold_csv, "score_cutoff": args.score_cutoff,
