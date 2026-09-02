@@ -23,8 +23,7 @@ import pandas as pd
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # run -> (fixture dir, split, design cutoff, description)
-F_T25 = "revision/llm_eval/annotated_2025"
-F_T25D = "revision/llm_eval/annotated_2025_deployedscreen"
+F_T25D = "revision/llm_eval/annotated_2025_deployedscreen"  # 2025 panel, verified screen
 F_T26 = "revision/llm_eval/annotated_2026"
 F_DEV = "revision/llm_eval/dev_train_2026"
 F_EXT = "revision/llm_eval/external_2026"
@@ -32,10 +31,10 @@ RUNS = {
     # original pipeline and hybrids (2025 panel; design = gene check + 0.9 gate after the LLM)
     "deepseek_deployed": (F_T25D, "test", 0.9, "ORIGINAL: old screen(verified), old CE top-5, DeepSeek-R1-14B, 0.9 gate after"),
     "gptoss_vanilla": (F_T25D, "test", 0.9, "original candidates + GPT-OSS (ablation: LLM swap only)"),
-    "deepseek_chat": (F_T25, "test", 0.9, "DeepSeek re-run through the chat template (control)"),
-    "gptoss_context": (F_T25, "test", 0.9, "contextualised threads"),
-    "gptoss_vanilla_low": (F_T25, "test", 0.9, "reasoning effort low"),
-    "gptoss_vanilla_high": (F_T25, "test", 0.9, "reasoning effort high (worse: truncation)"),
+    "deepseek_chat": (F_T25D, "test", 0.9, "DeepSeek re-run through the chat template (control)"),
+    "gptoss_context": (F_T25D, "test", 0.9, "contextualised threads"),
+    "gptoss_vanilla_low": (F_T25D, "test", 0.9, "reasoning effort low"),
+    "gptoss_vanilla_high": (F_T25D, "test", 0.9, "reasoning effort high (worse: truncation)"),
     # old-gate revised arms (superseded by the TIAB gate; kept for the ledger)
     "gptoss_2026_top5": (F_T26, "test", 0.0, "v2.0 CE full-panel top-5 -> LLM (original order, new models)"),
     "gptoss_2026_gated_tnone": (F_T26, "test", 0.0, "OLD gene gate -> v2.0 CE -> all entries -> LLM"),
