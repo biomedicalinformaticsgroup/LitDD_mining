@@ -69,3 +69,4 @@ pmid,g2p_id_from,g2p_id_to,reason,date,by,label
 9002682,,G2P01586,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
 9217234,,G2P01586,reviewer rejected extra mapping (review_possible_multimatch_annotated.csv: 'FALSE'),2026-09-01,MY,0
 9817918,,G2P00020,reviewer confirmed co-reported mapping (review_possible_multimatch_annotated.csv: 'TRUE'),2026-09-01,MY,1
+*,G2P01446,,REMOVE: SMARCA4-related rhabdoid tumor predisposition syndrome is a cancer condition out of scope for DDG2P evaluation (G2P00396 SMARCA4 Coffin-Siris is correct and kept); reviewer instruction,2026-09-02,MY,remove

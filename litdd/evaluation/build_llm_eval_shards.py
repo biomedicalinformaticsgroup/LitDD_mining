@@ -196,6 +196,13 @@ def main() -> int:
         corr["g2p_id_from"] = corr["g2p_id_from"].fillna("")
         if "label" not in corr.columns:
             corr["label"] = "1"
+        for c in corr[corr["label"].astype(str) == "remove"].itertuples(index=False):
+            m = (df["_id"] == c.g2p_id_from) & ((c.pmid == "*") | (df["_pmid"] == c.pmid))
+            n_corr += int(m.sum())
+            # relabel rather than drop: the abstract remains in the fixture (as a negative
+            # when this was its only positive), so row numbering and joins stay stable
+            df.loc[m, "label"] = 0
+        corr = corr[corr["label"].astype(str) != "remove"]
         add_rows = []
         for c in corr.itertuples(index=False):
             if c.g2p_id_to not in panel:

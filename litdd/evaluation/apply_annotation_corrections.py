@@ -51,7 +51,13 @@ def main() -> int:
     corr["g2p_id_from"] = corr["g2p_id_from"].fillna("")
     applied = added = 0
     tiab_of = anno.drop_duplicates("pmid").set_index("pmid")["tiab"]
+    removed = 0
     for c in corr.itertuples(index=False):
+        if str(c.label) == "remove":   # drop every pair for this entry (pmid '*' = all pmids)
+            m = (anno["g2p_id"] == c.g2p_id_from) & ((c.pmid == "*") | (anno["pmid"] == c.pmid))
+            removed += int(m.sum())
+            anno = anno[~m]
+            continue
         if c.g2p_id_from:      # relabel an existing positive pair
             m = (anno["pmid"] == c.pmid) & (anno["g2p_id"] == c.g2p_id_from) & (anno["label"] == 1)
             if not m.any():
@@ -71,7 +77,7 @@ def main() -> int:
     anno = anno[["g2p_id", "pmid", "tiab", "label"]]
     os.makedirs(os.path.dirname(os.path.abspath(args.anno_out)), exist_ok=True)
     anno.to_csv(args.anno_out, index=False)
-    print(f"full annotation: {applied} positive rows relabelled, {added} reviewed pairs added, {before - len(anno)} merged; "
+    print(f"full annotation: {applied} positive rows relabelled, {added} reviewed pairs added, {removed} pairs removed, {before - len(anno)} merged; "
           f"wrote {args.anno_out} ({len(anno)} rows)")
 
     if args.pmid_csv:
@@ -82,6 +88,11 @@ def main() -> int:
         rep["_id"] = rep["g2p_lgmde"].str.split(" - ", n=1).str[0].str.strip()
         n = 0
         for c in corr.itertuples(index=False):
+            if str(c.label) == "remove":
+                m = (rep["_id"] == c.g2p_id_from) & ((c.pmid == "*") | (rep["pmid"] == c.pmid))
+                n += int(m.sum())
+                rep = rep[~m]
+                continue
             if not c.g2p_id_from:
                 if c.g2p_id_to not in panel:
                     raise SystemExit(f"[ERROR] {c.g2p_id_to} not in {args.g2p_csv}")
