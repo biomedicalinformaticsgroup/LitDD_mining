@@ -74,6 +74,39 @@ def safe_pubdate_gt_1980(x: Dict[str, Any]) -> bool:
     return (x.get("languages") == "eng") and (pd > 1980)
 
 
+def load_keep_pmids(keep_parquet: str) -> Dict[str, set]:
+    """Load the dedupe/retraction keep-list as {source_shard: {pmid, ...}}.
+
+    ``pmid_keep.parquet`` is written by litdd/pipeline/dedupe_pmids.py and is the corpus
+    definition after PMID de-duplication (~9% of records appear in more than one baseline
+    file) and after removing retractions/corrections and DeleteCitation records. Screening
+    without it processes ~40.4M records instead of the 31.57M the pipeline is defined over,
+    and lets duplicate PMIDs through to the gene gate twice.
+
+    Keyed by source_shard so each input parquet only consults its own PMIDs; the manifest
+    records exactly one source shard per surviving PMID, so a record kept from a different
+    baseline file is correctly dropped here.
+    """
+    tbl = pq.read_table(keep_parquet, columns=["pmid", "source_shard"])
+    by_shard: Dict[str, set] = {}
+    for pmid, src in zip(tbl["pmid"].to_pylist(), tbl["source_shard"].to_pylist()):
+        by_shard.setdefault(src, set()).add(pmid)
+    print(f"[KEEP] {tbl.num_rows} PMIDs across {len(by_shard)} source shards "
+          f"from {keep_parquet}")
+    return by_shard
+
+
+def make_row_filter(keep_for_shard: Optional[set]):
+    """Eligibility predicate: English + post-1980, and (optionally) on the keep-list."""
+    if keep_for_shard is None:
+        return safe_pubdate_gt_1980
+
+    def _keep(x: Dict[str, Any]) -> bool:
+        return safe_pubdate_gt_1980(x) and (x.get("pmid") in keep_for_shard)
+
+    return _keep
+
+
 def make_tiab(x: Dict[str, Any]) -> Dict[str, Any]:
     title = x.get("title", "") or ""
     abstract = x.get("abstract", "") or ""
@@ -184,6 +217,7 @@ def process_one_parquet_with_tokenizer(
     llm: LLM,
     tokenizer,
     text_token_limit: int,
+    keep_for_shard: Optional[set] = None,
 ) -> bool:
     os.makedirs(out_dir, exist_ok=True)
     base = os.path.basename(parquet_path)
@@ -211,7 +245,7 @@ def process_one_parquet_with_tokenizer(
 
     try:
         ds = load_dataset("parquet", data_files=parquet_path, split="train", streaming=True)
-        ds = ds.filter(safe_pubdate_gt_1980)
+        ds = ds.filter(make_row_filter(keep_for_shard))
         ds = ds.map(make_tiab)
         ds = ds.batch(ROW_BATCH_SIZE)
     except Exception:
@@ -370,7 +404,9 @@ def process_all_parquets(
     fail_fast: bool = False,
     tp_size: int = 1,
     dtype: str = "float32",
+    keep_parquet: Optional[str] = None,
 ):
+    keep_by_shard = load_keep_pmids(keep_parquet) if keep_parquet else None
     llm = load_vllm_engine(model_id, max_length, tp_size=tp_size, dtype=dtype)
 
     # Get tokenizer once and compute safe text token budget
@@ -388,8 +424,15 @@ def process_all_parquets(
 
     for path in files:
         print(f"[shard {shard}/{num_shards}] Processing: {path}")
+        keep_for_shard = None
+        if keep_by_shard is not None:
+            keep_for_shard = keep_by_shard.get(os.path.basename(path), set())
+            if not keep_for_shard:
+                print(f"[KEEP] No keep-listed PMIDs for {os.path.basename(path)}; skipping.")
+                continue
         try:
-            ok = process_one_parquet_with_tokenizer(path, processed_dir, llm, tokenizer, text_token_limit)
+            ok = process_one_parquet_with_tokenizer(path, processed_dir, llm, tokenizer,
+                                                    text_token_limit, keep_for_shard)
             if not ok:
                 if fail_fast:
                     raise RuntimeError(f"Stopping due to error on file: {path}")
@@ -422,6 +465,11 @@ def parse_args():
                          "checkpoint was trained, locked and evaluated in. bfloat16 is "
                          "~1.3x faster and differs on 1/2779 test rows (0.036pp positive "
                          "rate); see load_vllm_engine() for the measurement.")
+    ap.add_argument("--keep_parquet", type=str, default=None,
+                    help="pmid_keep.parquet from dedupe_pmids.py. Restricts the screen to the "
+                         "de-duplicated, retraction-removed corpus (31.57M records). Without "
+                         "it the screen runs over all 40.4M parsed records, including "
+                         "duplicate PMIDs and retracted papers.")
     ap.add_argument("--fail_fast", action="store_true", help="Stop on first error instead of skipping the parquet file")
     ap.add_argument(
         "--device",
@@ -464,4 +512,5 @@ if __name__ == "__main__":
         fail_fast=args.fail_fast,
         tp_size=tp_size,  # pass through
         dtype=args.dtype,
+        keep_parquet=args.keep_parquet,
     )
