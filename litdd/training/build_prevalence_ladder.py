@@ -9,7 +9,11 @@ measured rather than guessed.
 Each arm keeps the positives and the original in-domain negatives untouched and only ADDS
 corpus negatives, so the arms differ in exactly one thing.
 """
-import argparse, csv, os, sys
+import argparse
+import csv
+import os
+import sys
+
 csv.field_size_limit(10**9)
 
 
@@ -22,8 +26,9 @@ def main():
     ap.add_argument("--seed", type=int, default=42)
     a = ap.parse_args()
 
-    from datasets import load_from_disk, Dataset, concatenate_datasets
     import random
+
+    from datasets import Dataset, concatenate_datasets, load_from_disk
 
     base = load_from_disk(a.train_ds_dir)
     pos = sum(1 for x in base["label"] if x == 1)
