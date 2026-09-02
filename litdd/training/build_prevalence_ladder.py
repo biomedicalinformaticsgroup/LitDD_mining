@@ -35,13 +35,15 @@ def main():
     print(f"base: {len(base):,} rows, {pos:,} positive ({100*pos/len(base):.1f}%)")
 
     negs = list(csv.DictReader(open(a.negatives_csv, newline="", encoding="utf-8")))
-    random.seed(a.seed); random.shuffle(negs)
+    random.seed(a.seed)
+    random.shuffle(negs)
     print(f"corpus negatives available: {len(negs):,}")
 
     cols = base.column_names
     for n in a.add:
         if n > len(negs):
-            print(f"[warn] arm +{n} exceeds pool ({len(negs):,}); skipping"); continue
+            print(f"[warn] arm +{n} exceeds pool ({len(negs):,}); skipping")
+            continue
         if n == 0:
             ds = base
         else:
