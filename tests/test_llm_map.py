@@ -158,6 +158,25 @@ def test_extract_and_parse_json_answer():
     assert llm_map.parse_json_answer(None)["llm_dis_map"] is None
 
 
+def test_hpo_decorate_appends_terms_and_guards_leakage():
+    hpo = {"G2P00001": [
+        {"id": "HP:1", "name": "Seizure", "freq": ["very frequent (80-99%)"], "pmids": ["111", "222"]},
+        {"id": "HP:2", "name": "Hypotonia", "freq": [], "pmids": ["333"]},
+        {"id": "HP:3", "name": "Ataxia", "freq": ["2/7"], "pmids": []},
+    ]}
+    labs = ["G2P00001 - A - x", "G2P00002 - B - y"]
+    out = llm_map.hpo_decorate(labs, hpo, pmid="pmid999")
+    assert out[0] == ("G2P00001 - A - x\n    Phenotypes (HPO): "
+                      "Seizure (very frequent (80-99%)); Hypotonia; Ataxia (2/7)")
+    assert out[1] == "G2P00002 - B - y"   # no terms -> untouched
+    # a term curated solely from the abstract's own PMID is dropped for that abstract only
+    leak = llm_map.hpo_decorate(labs, hpo, pmid="333")
+    assert "Hypotonia" not in leak[0] and "Seizure" in leak[0] and "Ataxia" in leak[0]
+    # multi-source terms survive even when one source is this abstract
+    part = llm_map.hpo_decorate(labs, hpo, pmid="111")
+    assert "Seizure" in part[0]
+
+
 def test_render_candidates_by_gene_groups_but_keeps_numbering():
     cands = ["G2P1 - FGFR3 - a", "G2P2 - CHD7 - b", "G2P3 - FGFR3 - c",
              "G2P ID: G2P4\nGene Symbol: FGFR3\nDisease Name: d"]

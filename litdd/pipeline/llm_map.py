@@ -362,6 +362,38 @@ def load_context_threads(path: str) -> dict[str, str]:
     return out
 
 
+def load_hpo_terms(path: str) -> dict[str, list[dict]]:
+    """``{g2p_id: [{id, name, freq: [...], pmids: [...]}, ...]}`` from build_hpo_terms.py."""
+    with open(path, encoding="utf-8") as f:
+        raw = json.load(f)
+    return {k: v for k, v in raw.items() if not k.startswith("__")}
+
+
+def hpo_decorate(labels, hpo: dict[str, list[dict]], pmid=None):
+    """Append each candidate's amalgamated HPO phenotype list (name + frequency).
+
+    ``pmid`` is the abstract being adjudicated: terms whose ONLY provenance is that very
+    PMID are dropped (the phenotype.hpoa row was curated FROM this paper — showing it back
+    to the model would leak the answer into the prompt).
+    """
+    pmid = str(pmid or "").removeprefix("pmid")
+    out = []
+    for lab in labels:
+        m = G2P_ID_RE.search(str(lab))
+        terms = hpo.get(m.group(0)) if m else None
+        if not terms:
+            out.append(lab)
+            continue
+        parts = []
+        for t in terms:
+            if pmid and t.get("pmids") and all(p == pmid for p in t["pmids"]):
+                continue
+            freq = "; ".join(t["freq"]) if t.get("freq") else None
+            parts.append(f"{t['name']} ({freq})" if freq else t["name"])
+        out.append(f"{lab}\n    Phenotypes (HPO): {'; '.join(parts)}" if parts else lab)
+    return out
+
+
 def contextualise(labels, context: dict[str, str], missing_counter: dict | None = None):
     """Swap each flat thread for its contextualised block, falling back to the flat text.
 
@@ -467,6 +499,7 @@ def run_llm_over_cross_shards(
     prompt_file=DEFAULT_PROMPT_FILE,
     threads="vanilla",
     show_scores=False,
+    hpo_json=None,
     context_json=None,
     limit=None,
     candidate_layout="flat",
@@ -491,6 +524,9 @@ def run_llm_over_cross_shards(
 
     context = None
     context_missing = {}
+    hpo_terms = load_hpo_terms(hpo_json) if hpo_json else None
+    if hpo_terms is not None:
+        print(f"Loaded HPO terms for {len(hpo_terms)} G2P entries from {hpo_json}")
     if threads == "context":
         if not context_json:
             raise ValueError("--threads context requires --context_json")
@@ -533,6 +569,7 @@ def run_llm_over_cross_shards(
         "candidate_layout": candidate_layout,
         "output_format": output_format,
         "show_scores": show_scores,
+        "hpo_json": os.path.abspath(hpo_json) if hpo_json else None,
         "context_json": os.path.abspath(context_json) if context_json else None,
         "temperature": temperature, "top_p": top_p, "max_tokens": max_tokens, "seed": seed,
         "max_model_len": max_model_len, "max_num_seqs": max_num_seqs,
@@ -585,6 +622,11 @@ def run_llm_over_cross_shards(
             print(f"[WARN] {int(skipped.sum())} rows have no candidates at all (-> NO MATCH)")
         df["topk_cross_lgmde"] = flat.apply(
             lambda labs: contextualise(labs, context, context_missing) if context else labs)
+        if hpo_terms is not None:
+            df["topk_cross_lgmde"] = [
+                hpo_decorate(labs, hpo_terms, pmid=pm)
+                for labs, pm in zip(df["topk_cross_lgmde"], df.get("pmid", [None] * len(df)))
+            ]
         # Legacy alias: existing analyses (cascade_funnel, sample_audit) read this name.
         df["top_5_cross_lgmde"] = df["topk_cross_lgmde"]
         df["llm_prompt"] = [
@@ -766,6 +808,10 @@ def parse_args():
                         "cross-encoder scored, or the contextualised multi-line block "
                         "(needs --context_json built from the SAME G2P export).")
     p.add_argument("--context_json", type=str, default=None)
+    p.add_argument("--hpo_json", type=str, default=None,
+                   help="build_hpo_terms.py output: append each candidate's amalgamated HPO "
+                        "phenotypes (name + frequency) to its line; terms curated solely from "
+                        "the abstract's own PMID are dropped (leakage guard).")
     p.add_argument("--show_scores", action="store_true",
                    help="Append each candidate's cross-encoder score to its line "
                         "('[retrieval score 0.97]') so the LLM can use retrieval strength "
@@ -830,4 +876,5 @@ if __name__ == "__main__":
         candidate_layout=args.candidate_layout,
         output_format=args.output_format,
         show_scores=args.show_scores,
+        hpo_json=args.hpo_json,
     )
