@@ -1,0 +1,5 @@
+comparison,fabian_delta_f1,our_delta_end_to_end_f1,our_delta_pair_level_f1,direction_agrees
+"GPT-OSS-20B vs DeepSeek-R1-14B (same prompt, same candidates)",0.0172,-0.0076,0.1883,False
+contextualised vs vanilla threads (GPT-OSS),0.0003,0.0018,-0.0047,True
+low vs medium reasoning effort / temperature (GPT-OSS),0.0005,-0.0003,-0.0473,True
+high vs medium reasoning effort (GPT-OSS),,-0.0015,-0.0052,

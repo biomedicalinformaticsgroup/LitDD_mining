@@ -2,5 +2,5 @@ stage,unit,TP,FP,FN,TN,precision,recall,f1,note
 1 screen (LitDD-BERT),abstract,606,74,39,2012,0.8912,0.9395,0.9147,positive = fires; truth = abstract carries >=1 curated entry
 2 gene gate (TIAB mention),abstract,606,73,0,1,0.8925,1.0,0.9432,on screen-positive abstracts; positive = >=1 G2P gene detected
 3 retrieval (candidates contain the curated entries),curated abstract,606,0,0,0,1.0,1.0,1.0,TP = every curated entry offered to the LLM
-4 LLM adjudication (exact set),abstract,547,104,59,15,0.8402,0.9026,0.8703,on abstracts reaching the LLM; a wrong set counts as both FP and FN
-END-TO-END (all stages),abstract,547,104,98,2028,0.8402,0.8481,0.8441,exact set match over every test abstract
+4 LLM adjudication (exact set),abstract,546,98,60,18,0.8478,0.901,0.8736,on abstracts reaching the LLM; a wrong set counts as both FP and FN
+END-TO-END (all stages),abstract,546,98,99,2031,0.8478,0.8465,0.8472,exact set match over every test abstract

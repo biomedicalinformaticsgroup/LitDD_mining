@@ -4,7 +4,8 @@ row,pipeline,precision,recall,f1,TP,FP,FN,TN,scoring basis
 3,"Original pipeline, verified deployed screen checkpoint",0.844,0.833,0.839,545,101,109,,"same criterion; screen predictions re-scored from the deployed checkpoint"
 4,"Original pipeline, + its own PubTator gene check (as deployed)",0.845,0.817,0.831,534,98,120,,"screen ^ CE>=0.9 ^ gene check ^ exact set"
 5,"Original pipeline, + completed and corrected labels",0.814,0.804,0.809,,,,,"restored 410 sibling negatives; PURA relabel; co-reported pairs reviewed"
-6,"NEW pipeline (screen -> TIAB gene gate -> all candidates -> GPT-OSS-20B, no threshold)",0.848,0.847,0.847,546,98,99,2031,"identical criterion and labels as row 5"
+6,"NEW pipeline as deployed (screen -> TIAB gene gate -> all candidates -> GPT-OSS-20B; cross-encoder removed, no threshold)",0.840,0.848,0.844,547,104,98,2028,"identical criterion and labels as row 5"
+6b,"NEW pipeline retaining the cross-encoder as a ranker (same candidates shown)",0.851,0.850,0.850,548,96,97,2031,"identical criterion and labels; difference from row 6 is within noise (McNemar p=0.86)"
 7,"NEW pipeline, direct variant (TIAB gene gate -> LLM; no screen, no cross-encoder)",0.625,0.902,0.738,582,350,63,1781,"identical criterion and labels; recall ceiling of the design"
 # Test set: the LitDD-BERT test split (2,731 abstracts after dropping 8 with retired curated entries; 646 curated).
 # Criterion for every row from 3 down: an abstract counts as correct only when the set of returned G2P entries EQUALS the curated set.
