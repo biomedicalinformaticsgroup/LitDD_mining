@@ -90,7 +90,7 @@ def test_prompt_file_is_the_rendered_prompt():
 
 
 def test_prompt_matches_upstream_rubric_when_available():
-    """Byte-compare the rubric against Fabian's original_paper.txt if the checkout exists.
+    """Byte-compare the rubric against the development checkout's prompt, if present.
 
     The only intended differences: the candidate-count sentences ({n}, numbered) and the
     candidate insertion. The decision rubric itself must be identical, otherwise benchmark
@@ -98,7 +98,7 @@ def test_prompt_matches_upstream_rubric_when_available():
     """
     upstream = ROOT / "upgraded-octo-happiness" / "prompt" / "baseline" / "original_paper.txt"
     if not upstream.exists():
-        pytest.skip("upstream harness not checked out")
+        pytest.skip("development checkout not present")
     ours = llm_map.load_prompt_template()
     theirs = upstream.read_text(encoding="utf-8")
     def rubric(text):

@@ -118,8 +118,8 @@ def build_llm_prompt(tiab, candidate_lines, template_path: str = DEFAULT_PROMPT_
 
 
 def build_per_candidate_prompt(tiab, candidate, template_path):
-    """One prompt per (abstract, candidate): the binary-adjudication format used by the
-    upstream MSc sweep (`{lgmde_thread}`), kept so those configurations can be re-run here."""
+    """One prompt per (abstract, candidate): binary adjudication of a single candidate
+    (`{lgmde_thread}`), the alternative to showing the whole candidate set in one call."""
     tmpl = load_prompt_template(template_path)
     fields = {"tiab": tiab, "lgmde_thread": candidate, "candidate_lines": candidate,
               "n": 1, "plural": "thread"}
@@ -981,8 +981,8 @@ def parse_args():
                         "as evidence, especially between siblings of one gene.")
     p.add_argument("--candidate_mode", type=str, default="set", choices=["set", "per_candidate"],
                    help="set: one call per abstract listing every candidate (deployed). "
-                        "per_candidate: one binary call per (abstract, candidate) -- the format "
-                        "of the upstream MSc prompt sweep, re-runnable here for comparison.")
+                        "per_candidate: one binary call per (abstract, candidate), "
+                        "the alternative candidate-presentation design.")
     p.add_argument("--self_consistency", type=int, default=1,
                    help="Sample the prompt N times (temperature 0.7 when --temperature 0) and "
                         "take the majority answer set.")

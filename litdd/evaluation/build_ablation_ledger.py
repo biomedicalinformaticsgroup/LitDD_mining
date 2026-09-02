@@ -33,7 +33,7 @@ RUNS = {
     "deepseek_deployed": (F_T25D, "test", 0.9, "ORIGINAL: old screen(verified), old CE top-5, DeepSeek-R1-14B, 0.9 gate after"),
     "gptoss_vanilla": (F_T25D, "test", 0.9, "original candidates + GPT-OSS (ablation: LLM swap only)"),
     "deepseek_chat": (F_T25, "test", 0.9, "DeepSeek re-run through the chat template (control)"),
-    "gptoss_context": (F_T25, "test", 0.9, "contextualised threads (F1-neutral; Fabian replication)"),
+    "gptoss_context": (F_T25, "test", 0.9, "contextualised threads"),
     "gptoss_vanilla_low": (F_T25, "test", 0.9, "reasoning effort low"),
     "gptoss_vanilla_high": (F_T25, "test", 0.9, "reasoning effort high (worse: truncation)"),
     # old-gate revised arms (superseded by the TIAB gate; kept for the ledger)

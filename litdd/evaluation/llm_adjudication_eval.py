@@ -22,7 +22,7 @@ Metric views (all reported side by side so each number is traceable to a prior f
   id_micro_screen_gated
                  additionally requires bert_predict == 1 (the LLM never sees screen
                  negatives in deployment).
-  pair_level     Fabian's harness definition (eval_basic_output / evaluate_v2): over labelled
+  pair_level     pair-level scoring over labelled
                  (TIAB, id) pairs that the retriever offered, pred=1 iff the id is in the
                  answer set. The positives the retriever did NOT offer are counted, not
                  silently dropped.
@@ -318,7 +318,7 @@ def view_pair_level(t: pd.DataFrame, pairs: pd.DataFrame) -> dict:
     out["labelled_pairs"] = int(len(pairs))
     out["pairs_offered_by_retriever"] = int(len(offered))
     out["positive_pairs_not_offered"] = int(((pairs["label"] == 1) & ~pairs["in_candidates"]).sum())
-    out["note"] = "Fabian harness definition (evaluate_v2) over offered pairs"
+    out["note"] = "pair-level scoring over the (abstract, entry) pairs the retriever offered"
     return out
 
 
