@@ -1,0 +1,41 @@
+# Packaging / tooling metadata for the LitDD pipeline.
+# The stages are CLI scripts, but they live in an importable `litdd` package so that
+# tests and cross-stage imports work without sys.path manipulation:
+#   pip install -e .
+# Runtime dependencies are pinned in requirements.txt / environment.yml.
+[project]
+name = "litdd"
+version = "1.0.0"
+description = "Domain-wide mapping of peer-reviewed literature for genetic developmental disorders (LitDD)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Michael Yates", email = "Michael.yates@ed.ac.uk" }]
+keywords = ["bioinformatics", "literature-mining", "Gene2Phenotype", "NLP", "developmental-disorders"]
+
+[project.urls]
+Repository = "https://github.com/biomedicalinformaticsgroup/LitDD_mining"
+
+[tool.setuptools.packages.find]
+include = ["litdd*"]
+
+[tool.setuptools.package-data]
+# The verbatim adjudication prompt (R3.8 appendix) ships with the package.
+litdd = ["pipeline/prompts/*.txt"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# pyflakes (F) + pycodestyle errors (E) + import sorting (I); pragmatic for a script repo.
+select = ["E", "F", "I"]
+ignore = ["E501"]  # line length handled by formatter; long literals/prompts are fine
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
