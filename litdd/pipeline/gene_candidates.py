@@ -40,7 +40,7 @@ import polars as pl
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
 
-from litdd.genes import GeneNameMatcher, load_gene_info, load_pubtator_genes  # noqa: E402
+from litdd.genes import GeneNameMatcher, load_gene_info, load_pubtator_genes, mention_in_text  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -68,6 +68,11 @@ def parse_args() -> argparse.Namespace:
                         "annotated the abstract, so it cannot add ambiguity there. Measured on "
                         "the annotated test split: recovers 9 of 9 curated abstracts PubTator "
                         "left unannotated (DMD, ITPR1, NEXMIF, SCN8A, CPLANE1).")
+    p.add_argument("--no_tiab_mention_check", action="store_true",
+                   help="Pre-2026-09-02 behaviour: accept every gene the bulk file links to "
+                        "the PMID, including database cross-references (BioGRID/gene2pubmed) "
+                        "and full-text annotations that never appear in the TIAB. Measured on "
+                        "the dev split this inflates 3%% of abstracts to 20-104 'genes'.")
     p.add_argument("--keep_unmatched", action="store_true",
                    help="Keep rows with no detected gene and give them the FULL panel as "
                         "candidates, instead of dropping them. Measured as unnecessary "
@@ -130,7 +135,9 @@ def main() -> int:
 
     gene_info = load_gene_info(args.gene_info)
     print(f"human genes in gene_info: {len(gene_info)}", flush=True)
-    pub_genes = load_pubtator_genes(args.gene2pubtator, pmids, gene_info)
+    pub_genes = load_pubtator_genes(args.gene2pubtator, pmids, gene_info,
+                                    text_annotations_only=not args.no_tiab_mention_check,
+                                    with_mentions=not args.no_tiab_mention_check)
     print(f"pmids with >=1 PubTator human gene: {len(pub_genes)}", flush=True)
 
     matcher = None
@@ -145,11 +152,18 @@ def main() -> int:
     n_symbol = n_name = n_fallback = n_none = 0
 
     for pmid, tiab in zip(df["pmid"].cast(pl.Utf8).to_list(), df["tiab"].to_list()):
-        by_symbol = pub_genes.get(pmid, set()) & panel_symbols
+        if args.no_tiab_mention_check:
+            by_symbol = pub_genes.get(pmid, set()) & panel_symbols
+        else:
+            # The bulk file's gene list covers full text and database cross-references; the
+            # gate classifies a TIAB, so a gene counts only if one of its PubTator mention
+            # strings actually occurs in the title+abstract.
+            by_symbol = {sym for sym, men in pub_genes.get(pmid, {}).items()
+                         if sym in panel_symbols and mention_in_text(tiab or "", men, sym)}
         by_name = (matcher.find(tiab or "") if matcher is not None else set()) - by_symbol
         # PubTator has no annotation for this PMID at all -> verbatim panel symbols in the text
         by_fallback: set[str] = set()
-        if args.symbol_fallback and pmid not in pub_genes:
+        if args.symbol_fallback and not by_symbol:
             by_fallback = find_symbols_verbatim(tiab or "", panel_symbols) - by_name
         if by_symbol:
             n_symbol += 1

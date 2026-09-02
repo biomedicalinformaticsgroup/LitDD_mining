@@ -33,7 +33,7 @@ def _setup(tmp_path):
         f.write("#tax_id\tGeneID\tSymbol\n9606\t383\tARG1\n9606\t2200\tFBN1\n")
     with gzip.open(tmp_path / "g2pub.gz", "wt") as f:
         f.write("100\tGene\t383\tARG1\tPubTator3\n")     # symbol match -> ARG1
-        f.write("300\tGene\t2200\tFBN1\tPubTator3\n")    # symbol match -> FBN1
+        f.write("300\tGene\t2200\tFBN1|fibrillin 1\tPubTator3\n")  # mention occurs in TIAB -> FBN1
     pl.DataFrame({
         "pmid": ["100", "200", "300", "400"],
         "tiab": [
@@ -57,6 +57,26 @@ def _run(tmp_path, *extra):
     r = subprocess.run(cmd, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     return pl.read_parquet(out)
+
+
+def test_pubtator_loader_separates_text_annotations_from_database_links(tmp_path):
+    import gzip
+    from litdd.genes import load_pubtator_genes, mention_in_text
+    g2p = tmp_path / "gene2pubtator3.gz"
+    with gzip.open(g2p, "wt") as f:
+        f.write("100\tGene\t1756\tDMD|dystrophin\tPubTator3|gene2pubmed\n")   # text annotation
+        f.write("100\tGene\t4204\t\tBioGRID|gene2pubmed\n")                    # database link only
+        f.write("100\tGene\t2261\tFGFR3\tPubTator3\n")                         # full-text mention
+    gene_info = {"1756": "DMD", "4204": "MECP2", "2261": "FGFR3"}
+    legacy = load_pubtator_genes(str(g2p), {"100"}, gene_info)
+    assert legacy["100"] == {"DMD", "MECP2", "FGFR3"}                          # old behaviour
+    text_only = load_pubtator_genes(str(g2p), {"100"}, gene_info,
+                                    text_annotations_only=True, with_mentions=True)
+    assert set(text_only["100"]) == {"DMD", "FGFR3"}                           # BioGRID row gone
+    tiab = "Dystrophin analysis in muscular dystrophy."
+    assert mention_in_text(tiab, text_only["100"]["DMD"], "DMD")               # via mention name
+    assert not mention_in_text(tiab, text_only["100"]["FGFR3"], "FGFR3")       # full-text-only gene
+    assert mention_in_text("The P-gp transporter", {"P-gp"}, "ABCB1")          # hyphen boundaries
 
 
 def test_gate_drops_rows_with_no_detected_gene(tmp_path):

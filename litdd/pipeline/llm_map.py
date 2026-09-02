@@ -370,7 +370,8 @@ def load_hpo_terms(path: str) -> dict[str, list[dict]]:
     return {k: v for k, v in raw.items() if not k.startswith("__")}
 
 
-def hpo_decorate(labels, hpo: dict[str, list[dict]], pmid=None, max_terms=None):
+def hpo_decorate(labels, hpo: dict[str, list[dict]], pmid=None, max_terms=None,
+                 multi_only=False):
     """Append each candidate's amalgamated HPO phenotype list (name + frequency).
 
     ``pmid`` is the abstract being adjudicated: terms whose ONLY provenance is that very
@@ -382,10 +383,17 @@ def hpo_decorate(labels, hpo: dict[str, list[dict]], pmid=None, max_terms=None):
     fit the model context.
     """
     pmid = str(pmid or "").removeprefix("pmid")
+    if multi_only:
+        counts = {}
+        for lab in labels:
+            g = gene_of(lab)
+            counts[g] = counts.get(g, 0) + 1
     out = []
     for lab in labels:
         m = G2P_ID_RE.search(str(lab))
         terms = hpo.get(m.group(0)) if m else None
+        if multi_only and counts.get(gene_of(lab), 0) < 2:
+            terms = None
         if not terms:
             out.append(lab)
             continue
@@ -509,6 +517,7 @@ def run_llm_over_cross_shards(
     threads="vanilla",
     show_scores=False,
     hpo_json=None,
+    hpo_multi_only=False,
     context_json=None,
     limit=None,
     candidate_layout="flat",
@@ -579,6 +588,7 @@ def run_llm_over_cross_shards(
         "output_format": output_format,
         "show_scores": show_scores,
         "hpo_json": os.path.abspath(hpo_json) if hpo_json else None,
+        "hpo_multi_only": hpo_multi_only,
         "context_json": os.path.abspath(context_json) if context_json else None,
         "temperature": temperature, "top_p": top_p, "max_tokens": max_tokens, "seed": seed,
         "max_model_len": max_model_len, "max_num_seqs": max_num_seqs,
@@ -634,7 +644,7 @@ def run_llm_over_cross_shards(
         base_labels = df["topk_cross_lgmde"].tolist()
         if hpo_terms is not None:
             df["topk_cross_lgmde"] = [
-                hpo_decorate(labs, hpo_terms, pmid=pm)
+                hpo_decorate(labs, hpo_terms, pmid=pm, multi_only=hpo_multi_only)
                 for labs, pm in zip(base_labels, df.get("pmid", [None] * len(df)))
             ]
         # Legacy alias: existing analyses (cascade_funnel, sample_audit) read this name.
@@ -666,7 +676,7 @@ def run_llm_over_cross_shards(
             candidates_attempts = []
             if hpo_terms is not None:
                 candidates_attempts.append(hpo_decorate(labs, hpo_terms, pmid=pmids_seq[i],
-                                                        max_terms=15))
+                                                        max_terms=15, multi_only=hpo_multi_only))
             candidates_attempts.append(labs)
             for attempt, cand in enumerate(candidates_attempts):
                 new_prompt = build_llm_prompt(df["tiab"].iloc[i], cand,
@@ -870,6 +880,10 @@ def parse_args():
                         "cross-encoder scored, or the contextualised multi-line block "
                         "(needs --context_json built from the SAME G2P export).")
     p.add_argument("--context_json", type=str, default=None)
+    p.add_argument("--hpo_multi_only", action="store_true",
+                   help="Decorate with HPO terms only the candidates whose gene has more than "
+                        "one entry among this abstract's candidates (the allelic-series "
+                        "disambiguation case), leaving single-entry candidates unchanged.")
     p.add_argument("--hpo_json", type=str, default=None,
                    help="build_hpo_terms.py output: append each candidate's amalgamated HPO "
                         "phenotypes (name + frequency) to its line; terms curated solely from "
@@ -939,4 +953,5 @@ if __name__ == "__main__":
         output_format=args.output_format,
         show_scores=args.show_scores,
         hpo_json=args.hpo_json,
+        hpo_multi_only=args.hpo_multi_only,
     )

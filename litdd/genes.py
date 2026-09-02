@@ -93,15 +93,25 @@ def load_gene_info(path: str) -> dict[str, str]:
 
 
 def load_pubtator_genes(
-    path: str, pmids: set[str] | None, gene_info: dict[str, str]
-) -> dict[str, set[str]]:
-    """pmid -> set of human gene symbols annotated by PubTator3.
+    path: str, pmids: set[str] | None, gene_info: dict[str, str],
+    text_annotations_only: bool = False, with_mentions: bool = False,
+) -> dict[str, set[str]] | dict[str, dict[str, set[str]]]:
+    """pmid -> human gene symbols annotated for that PMID in the gene2pubtator3 bulk file.
 
     ``pmids=None`` reads the whole file. Unlike the earlier implementation this keeps **every**
     GeneID in a multi-id cell rather than only the first -- a ``12345;67890`` annotation names
     two genes and dropping the second silently loses candidates.
+
+    The bulk file aggregates two very different things per row (the ``resource`` column):
+    PubTator3 TEXT annotations (with the mention strings), and DATABASE cross-references
+    (gene2pubmed, BioGRID, generifs, MeSH) with no mention at all -- a proteomics paper
+    inherits its entire BioGRID substrate table that way (measured: 104 "genes" for
+    PMID 25147182 whose abstract names two). ``text_annotations_only=True`` keeps only rows
+    whose resource includes PubTator3; ``with_mentions=True`` returns
+    ``{pmid: {symbol: set(mention strings)}}`` so the caller can verify a mention actually
+    occurs in the text it is classifying (title+abstract, not full text or databases).
     """
-    out: dict[str, set[str]] = defaultdict(set)
+    out: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     with _open_text(path) as f:
         for line in f:
             parts = line.rstrip("\n").split("\t")
@@ -110,11 +120,28 @@ def load_pubtator_genes(
             pmid = parts[0]
             if pmids is not None and pmid not in pmids:
                 continue
+            if text_annotations_only and "PubTator3" not in (parts[4] if len(parts) > 4 else ""):
+                continue
+            mentions = {m for m in (parts[3] if len(parts) > 3 else "").split("|") if m}
             for eid in (parts[2] or "").split(";"):
                 sym = gene_info.get(eid.strip())
                 if sym:
-                    out[pmid].add(sym)
-    return dict(out)
+                    out[pmid][sym] |= mentions
+    if with_mentions:
+        return {p: dict(d) for p, d in out.items()}
+    return {p: set(d) for p, d in out.items()}
+
+
+def mention_in_text(text: str, mentions: set[str], symbol: str) -> bool:
+    """True when any PubTator mention (or, lacking mentions, the symbol) occurs in ``text``
+    as a whole token (case-insensitive; boundaries are non-alphanumeric so 'P-gp' works)."""
+    if not text:
+        return False
+    for needle in (mentions or {symbol}):
+        if re.search(r"(?<![A-Za-z0-9])" + re.escape(needle) + r"(?![A-Za-z0-9])",
+                     text, flags=re.IGNORECASE):
+            return True
+    return False
 
 
 class GeneNameMatcher:

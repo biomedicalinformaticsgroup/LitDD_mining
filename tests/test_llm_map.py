@@ -177,6 +177,23 @@ def test_hpo_decorate_appends_terms_and_guards_leakage():
     assert "Seizure" in part[0]
 
 
+def test_hpo_decorate_multi_only_targets_allelic_series():
+    hpo = {"G2P1": [{"id": "HP:1", "name": "Seizure", "freq": [], "pmids": []}],
+           "G2P2": [{"id": "HP:2", "name": "Ataxia", "freq": [], "pmids": []}],
+           "G2P3": [{"id": "HP:3", "name": "Scoliosis", "freq": [], "pmids": []}]}
+    labs = ["G2P1 - FGFR3 - a", "G2P2 - FGFR3 - b", "G2P3 - CHD7 - c"]
+    out = llm_map.hpo_decorate(labs, hpo, multi_only=True)
+    assert "Seizure" in out[0] and "Ataxia" in out[1]      # FGFR3 has two entries -> decorated
+    assert out[2] == "G2P3 - CHD7 - c"                     # single-entry gene -> untouched
+
+
+def test_diseasename_prompt_variant_keeps_contract():
+    path = ROOT / "litdd/pipeline/prompts/original_paper_diseasename.txt"
+    prompt = llm_map.build_llm_prompt("TIAB", ["G2P1 - A - x"], template_path=str(path))
+    assert "FULL disease name" in prompt and "allelic series" in prompt
+    assert "ANSWER: NO MATCH" in prompt and "1) G2P1 - A - x" in prompt
+
+
 def test_render_candidates_by_gene_groups_but_keeps_numbering():
     cands = ["G2P1 - FGFR3 - a", "G2P2 - CHD7 - b", "G2P3 - FGFR3 - c",
              "G2P ID: G2P4\nGene Symbol: FGFR3\nDisease Name: d"]
