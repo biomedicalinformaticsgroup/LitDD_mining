@@ -48,8 +48,9 @@ Decision rubric (apply in this order):
     c) ≥2 hallmark phenotypic features match,
     return this candidate.
 - If multiple candidates share the same gene (an allelic series -- the hardest case, treat it with care):
-    - FIRST check each same-gene candidate's FULL disease name against the TIAB wording: if the TIAB states a candidate's disease name, or a clear synonym or eponym of it, that candidate is almost always the right one -- an explicit disease-name match overrides phenotype overlap and score order.
-    - Only when no same-gene candidate's disease name (or synonym/eponym) appears in the TIAB: use explicit allelic/zygosity statements to disambiguate; else use phenotype; else use inheritance words (AR/AD/X-linked); else prefer what the title emphasizes.
+    - FIRST check each same-gene candidate's FULL disease name against the TIAB wording, and judge the SEMANTICS of the mention, not its mere presence: the match counts only when that disease is what the paper reports data on -- new patient cases, variants, or findings attributed to that disease. A disease name that appears only as a comparison, a differential diagnosis, an overlapping phenotype ("X also occurs in Y disorder"), background, or an excluded diagnosis must NOT trigger this rule.
+    - When a same-gene candidate's disease name (or a clear synonym or eponym) is the reported subject of the paper in this sense, that candidate is almost always the right one -- it overrides phenotype overlap and candidate ordering.
+    - Only when no same-gene candidate's disease name is the reported subject: use explicit allelic/zygosity statements to disambiguate; else use phenotype; else use inheritance words (AR/AD/X-linked); else prefer what the title emphasizes.
 - If the TIAB clearly describes multiple matching diseases/genes among the candidates, return all matching IDs (semicolon-separated).
 - Only return NO MATCH if:
     - No gene overlap with any candidate, or
