@@ -59,7 +59,11 @@ def main() -> int:
         gold_ids = sorted(set(grp["g2p_id"]))
         bert = int(screen.get(pmid, 0)) if screen is not None else 1
         rows.append({"pmid": pmid, "row_id": row_id, "tiab": grp["tiab"].iloc[0],
-                     "bert_predict": bert})
+                     "bert_predict": bert,
+                     # bert_predict_vllm's corpus eligibility filter needs these columns;
+                     # the curated sets are English-language papers and the filter is a
+                     # pre-screen, not a model feature, so pass-through values are correct.
+                     "languages": "eng", "pubdate": 9999})
         gold_rows.append({"pmid": pmid, "row_id": row_id,
                           "true_g2p_ids": ";".join(gold_ids), "n_gold": len(gold_ids),
                           "n_labelled_pairs": len(grp), "genereviews": False,
