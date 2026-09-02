@@ -343,6 +343,7 @@ def to_labels(x, max_candidates=None, min_score=None, show_scores=False):
 
 
 SKIPPED_TEXT = "[skipped: no candidate passed the score gate]"
+SKIPPED_TOO_LONG_TEXT = "[skipped: prompt exceeds the model context even undecorated]"
 
 
 def load_context_threads(path: str) -> dict[str, str]:
@@ -369,12 +370,16 @@ def load_hpo_terms(path: str) -> dict[str, list[dict]]:
     return {k: v for k, v in raw.items() if not k.startswith("__")}
 
 
-def hpo_decorate(labels, hpo: dict[str, list[dict]], pmid=None):
+def hpo_decorate(labels, hpo: dict[str, list[dict]], pmid=None, max_terms=None):
     """Append each candidate's amalgamated HPO phenotype list (name + frequency).
 
     ``pmid`` is the abstract being adjudicated: terms whose ONLY provenance is that very
     PMID are dropped (the phenotype.hpoa row was curated FROM this paper — showing it back
     to the model would leak the answer into the prompt).
+
+    ``max_terms`` caps the list per candidate (terms with a curated frequency first) with an
+    explicit "(+n more)" marker — the fallback for abstracts whose full decoration would not
+    fit the model context.
     """
     pmid = str(pmid or "").removeprefix("pmid")
     out = []
@@ -384,12 +389,16 @@ def hpo_decorate(labels, hpo: dict[str, list[dict]], pmid=None):
         if not terms:
             out.append(lab)
             continue
-        parts = []
-        for t in terms:
-            if pmid and t.get("pmids") and all(p == pmid for p in t["pmids"]):
-                continue
-            freq = "; ".join(t["freq"]) if t.get("freq") else None
-            parts.append(f"{t['name']} ({freq})" if freq else t["name"])
+        kept = [t for t in terms
+                if not (pmid and t.get("pmids") and all(p == pmid for p in t["pmids"]))]
+        extra = 0
+        if max_terms is not None and len(kept) > max_terms:
+            kept = sorted(kept, key=lambda t: not t.get("freq"))[:max_terms]
+            extra = len(terms) - max_terms
+        parts = [f"{t['name']} ({'; '.join(t['freq'])})" if t.get("freq") else t["name"]
+                 for t in kept]
+        if extra:
+            parts.append(f"(+{extra} more)")
         out.append(f"{lab}\n    Phenotypes (HPO): {'; '.join(parts)}" if parts else lab)
     return out
 
@@ -622,10 +631,11 @@ def run_llm_over_cross_shards(
             print(f"[WARN] {int(skipped.sum())} rows have no candidates at all (-> NO MATCH)")
         df["topk_cross_lgmde"] = flat.apply(
             lambda labs: contextualise(labs, context, context_missing) if context else labs)
+        base_labels = df["topk_cross_lgmde"].tolist()
         if hpo_terms is not None:
             df["topk_cross_lgmde"] = [
                 hpo_decorate(labs, hpo_terms, pmid=pm)
-                for labs, pm in zip(df["topk_cross_lgmde"], df.get("pmid", [None] * len(df)))
+                for labs, pm in zip(base_labels, df.get("pmid", [None] * len(df)))
             ]
         # Legacy alias: existing analyses (cascade_funnel, sample_audit) read this name.
         df["top_5_cross_lgmde"] = df["topk_cross_lgmde"]
@@ -635,6 +645,48 @@ def run_llm_over_cross_shards(
             for t, labs in zip(df.get("tiab", pd.Series([""] * len(df))), df["topk_cross_lgmde"])
         ]
         allowed = flat.apply(candidate_ids)
+
+        # Context guard: a prompt longer than the model context makes vLLM abort the whole
+        # batch. Degrade per row: cap the HPO list, then drop the decoration, then skip the
+        # row explicitly (finish_reason="too_long") -- never crash a corpus run over one
+        # many-gene review abstract.
+        tokenizer = llm.get_tokenizer()
+        budget = max_model_len - max(1024, max_tokens // 4)
+        pmids_seq = df.get("pmid", pd.Series([None] * len(df))).tolist()
+        rows_trimmed = rows_undecorated = 0
+        too_long_rows = set()
+        new_prompts = df["llm_prompt"].tolist()
+        new_cands = df["topk_cross_lgmde"].tolist()
+        for i, prompt in enumerate(new_prompts):
+            if prompt is None or len(prompt) < budget * 2:   # cheap lower bound: >=2 chars/token
+                continue
+            if len(tokenizer.encode(prompt)) <= budget:
+                continue
+            labs = base_labels[i]
+            candidates_attempts = []
+            if hpo_terms is not None:
+                candidates_attempts.append(hpo_decorate(labs, hpo_terms, pmid=pmids_seq[i],
+                                                        max_terms=15))
+            candidates_attempts.append(labs)
+            for attempt, cand in enumerate(candidates_attempts):
+                new_prompt = build_llm_prompt(df["tiab"].iloc[i], cand,
+                                              template_path=prompt_file, layout=candidate_layout)
+                if len(tokenizer.encode(new_prompt)) <= budget:
+                    new_prompts[i] = new_prompt
+                    new_cands[i] = cand
+                    if hpo_terms is not None and attempt == 0:
+                        rows_trimmed += 1
+                    else:
+                        rows_undecorated += 1
+                    break
+            else:
+                too_long_rows.add(i)
+        df["llm_prompt"] = new_prompts
+        df["topk_cross_lgmde"] = new_cands
+        df["top_5_cross_lgmde"] = df["topk_cross_lgmde"]
+        if rows_trimmed or rows_undecorated or too_long_rows:
+            print(f"[CONTEXT] over-budget prompts: {rows_trimmed} HPO-capped, "
+                  f"{rows_undecorated} undecorated, {len(too_long_rows)} skipped as too long")
 
         first_prompt = next((p for p in df["llm_prompt"] if p), "")
         print("Prompt preview:\n", first_prompt[-600:])
@@ -673,6 +725,14 @@ def run_llm_over_cross_shards(
             df.to_parquet(out_parquet, index=False)
             print(f"[PROGRESS] Saved current progress to {out_parquet}", flush=True)
 
+        for i in too_long_rows:
+            if generated_texts[i]:
+                continue
+            generated_texts[i] = SKIPPED_TOO_LONG_TEXT
+            extras["llm_dis_map"][i] = None
+            extras["finish_reason"][i] = "too_long"
+            extras["prompt_tokens"][i] = 0
+            extras["gen_tokens"][i] = 0
         for i in np.flatnonzero(skipped.to_numpy()):
             generated_texts[i] = SKIPPED_TEXT
             extras["llm_answer_raw"][i] = None
@@ -761,6 +821,8 @@ def run_llm_over_cross_shards(
             "rows_capped_by_max_candidates": capped_rows,
             "candidates_removed_by_min_score": int((n_uncapped - n_gated).sum()),
             "rows_skipped_no_candidates": int(skipped.sum()),
+            "rows_hpo_capped": rows_trimmed, "rows_undecorated": rows_undecorated,
+            "rows_skipped_too_long": len(too_long_rows),
             # (no peak-memory field: vLLM v1 runs the engine in a child process, so the
             # driver's torch.cuda counters read 0; gpu_memory_utilization is the budget.)
             "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
