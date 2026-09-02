@@ -61,6 +61,7 @@ def _run(tmp_path, *extra):
 
 def test_pubtator_loader_separates_text_annotations_from_database_links(tmp_path):
     import gzip
+
     from litdd.genes import load_pubtator_genes, mention_in_text
     g2p = tmp_path / "gene2pubtator3.gz"
     with gzip.open(g2p, "wt") as f:
