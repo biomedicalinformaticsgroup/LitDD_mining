@@ -52,6 +52,21 @@ def load_prompt_template(path: str = DEFAULT_PROMPT_FILE) -> str:
     return template
 
 
+def fill_placeholders(template: str, fields: dict) -> str:
+    """Substitute only the known ``{name}`` placeholders.
+
+    ``str.format`` would also try to interpret any other brace in the template -- prompts that
+    show a JSON or schema example contain plenty -- so placeholders are replaced directly and
+    every other brace is left exactly as written.
+    """
+    out = template
+    for key, value in fields.items():
+        token = "{" + key + "}"
+        if token in out:
+            out = out.replace(token, str(value))
+    return out
+
+
 def gene_of(candidate: str) -> str:
     """Gene symbol of a candidate: 2nd ' - ' field of a flat thread, or the 'Gene Symbol:'
     line of a contextualised block; '' when neither is present."""
@@ -113,17 +128,16 @@ def build_llm_prompt(tiab, candidate_lines, template_path: str = DEFAULT_PROMPT_
     plural = "thread" if n == 1 else "threads"
     numbered = render_candidates(candidate_lines, layout)
     tmpl = load_prompt_template(template_path)
-    fields = {"n": n, "plural": plural, "tiab": tiab, "candidate_lines": numbered}
-    return tmpl.format(**{k: v for k, v in fields.items() if "{" + k + "}" in tmpl})
+    return fill_placeholders(tmpl, {"n": n, "plural": plural, "tiab": tiab,
+                                    "candidate_lines": numbered})
 
 
 def build_per_candidate_prompt(tiab, candidate, template_path):
     """One prompt per (abstract, candidate): binary adjudication of a single candidate
     (`{lgmde_thread}`), the alternative to showing the whole candidate set in one call."""
-    tmpl = load_prompt_template(template_path)
-    fields = {"tiab": tiab, "lgmde_thread": candidate, "candidate_lines": candidate,
-              "n": 1, "plural": "thread"}
-    return tmpl.format(**{k: v for k, v in fields.items() if "{" + k + "}" in tmpl})
+    return fill_placeholders(load_prompt_template(template_path),
+                             {"tiab": tiab, "lgmde_thread": candidate,
+                              "candidate_lines": candidate, "n": 1, "plural": "thread"})
 
 
 VERDICT_RE = re.compile(r"\b(match|no_match|uncertain)\b", re.IGNORECASE)
@@ -686,7 +700,7 @@ def run_llm_over_cross_shards(
         df["top_5_cross_lgmde"] = df["topk_cross_lgmde"]
         df["llm_prompt"] = [
             build_llm_prompt(t, labs, template_path=prompt_file, layout=candidate_layout)
-            if labs else None
+            if (labs and candidate_mode != "per_candidate") else None
             for t, labs in zip(df.get("tiab", pd.Series([""] * len(df))), df["topk_cross_lgmde"])
         ]
         allowed = flat.apply(candidate_ids)
