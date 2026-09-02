@@ -45,9 +45,10 @@ def load_prompt_template(path: str = DEFAULT_PROMPT_FILE) -> str:
     """Read a prompt template. Placeholders: {n}, {plural}, {tiab}, {candidate_lines}."""
     with open(path, encoding="utf-8") as f:
         template = f.read()
-    for key in ("{n}", "{tiab}", "{candidate_lines}"):
-        if key not in template:
-            raise ValueError(f"prompt template {path} lacks the {key} placeholder")
+    if "{tiab}" not in template:
+        raise ValueError(f"prompt template {path} lacks the {{tiab}} placeholder")
+    if "{candidate_lines}" not in template and "{lgmde_thread}" not in template:
+        raise ValueError(f"prompt template {path} lacks {{candidate_lines}} / {{lgmde_thread}}")
     return template
 
 
@@ -111,9 +112,40 @@ def build_llm_prompt(tiab, candidate_lines, template_path: str = DEFAULT_PROMPT_
         )
     plural = "thread" if n == 1 else "threads"
     numbered = render_candidates(candidate_lines, layout)
-    return load_prompt_template(template_path).format(
-        n=n, plural=plural, tiab=tiab, candidate_lines=numbered
-    )
+    tmpl = load_prompt_template(template_path)
+    fields = {"n": n, "plural": plural, "tiab": tiab, "candidate_lines": numbered}
+    return tmpl.format(**{k: v for k, v in fields.items() if "{" + k + "}" in tmpl})
+
+
+def build_per_candidate_prompt(tiab, candidate, template_path):
+    """One prompt per (abstract, candidate): the binary-adjudication format used by the
+    upstream MSc sweep (`{lgmde_thread}`), kept so those configurations can be re-run here."""
+    tmpl = load_prompt_template(template_path)
+    fields = {"tiab": tiab, "lgmde_thread": candidate, "candidate_lines": candidate,
+              "n": 1, "plural": "thread"}
+    return tmpl.format(**{k: v for k, v in fields.items() if "{" + k + "}" in tmpl})
+
+
+VERDICT_RE = re.compile(r"\b(match|no_match|uncertain)\b", re.IGNORECASE)
+
+
+def parse_per_candidate(text) -> bool | None:
+    """True/False/None from a per-candidate adjudication answer (last verdict wins)."""
+    if not text:
+        return None
+    v = VERDICT_RE.findall(str(text))
+    if v:
+        last = v[-1].lower()
+        return True if last == "match" else False
+    a = extract_last_answer(text)
+    if a is None:
+        return None
+    au = a.strip().upper()
+    if au.startswith("YES") or G2P_ID_RE.search(a):
+        return True
+    if au.startswith("NO"):
+        return False
+    return None
 
 
 # --------------------------------------------------------------------------------------
@@ -522,6 +554,8 @@ def run_llm_over_cross_shards(
     limit=None,
     candidate_layout="flat",
     output_format="answer",
+    candidate_mode="set",
+    self_consistency=1,
 ):
     """
     - Reads *.parquet from shards_dir
@@ -586,6 +620,7 @@ def run_llm_over_cross_shards(
         "threads": threads,
         "candidate_layout": candidate_layout,
         "output_format": output_format,
+        "candidate_mode": candidate_mode, "self_consistency": self_consistency,
         "show_scores": show_scores,
         "hpo_json": os.path.abspath(hpo_json) if hpo_json else None,
         "hpo_multi_only": hpo_multi_only,
@@ -754,6 +789,58 @@ def run_llm_over_cross_shards(
             extras["prompt_tokens"][i] = 0
             extras["gen_tokens"][i] = 0
 
+        # ---- ablation modes: one call per candidate, or self-consistency voting -------
+        if candidate_mode == "per_candidate" or self_consistency > 1:
+            from collections import Counter
+            owners, prompts = [], []
+            for i in range(N):
+                labs = df["topk_cross_lgmde"].iloc[i]
+                if candidate_mode == "per_candidate":
+                    for lab in labs:
+                        owners.append(i)
+                        prompts.append(build_per_candidate_prompt(df["tiab"].iloc[i], lab,
+                                                                  prompt_file))
+                else:
+                    for _ in range(self_consistency):
+                        owners.append(i)
+                        prompts.append(df["llm_prompt"].iloc[i])
+            sp = sampling_params
+            if self_consistency > 1 and temperature == 0.0:
+                sp = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=max_tokens, seed=seed)
+            print(f"[{candidate_mode}/sc{self_consistency}] {len(prompts)} prompts for {N} rows",
+                  flush=True)
+            convs = [[{"role": "user", "content": pr}] for pr in prompts]
+            outs = llm.chat(convs, sp, use_tqdm=True, chat_template_kwargs=chat_kwargs or None)
+            votes: dict[int, list] = {}
+            for owner, out in zip(owners, outs):
+                votes.setdefault(owner, []).append(out.outputs[0].text)
+            for i in range(N):
+                texts = votes.get(i, [])
+                generated_texts[i] = "\n---\n".join(texts) if texts else SKIPPED_TEXT
+                if candidate_mode == "per_candidate":
+                    labs = df["topk_cross_lgmde"].iloc[i]
+                    ids = [G2P_ID_RE.search(str(lab)).group(0)
+                           for lab, t in zip(labs, texts)
+                           if parse_per_candidate(t) and G2P_ID_RE.search(str(lab))]
+                    answer = ";".join(dict.fromkeys(ids)) if ids else NO_MATCH
+                else:
+                    answers = [extract_last_answer(t) or NO_MATCH for t in texts]
+                    norm = [";".join(sorted(set(G2P_ID_RE.findall(a)))) or NO_MATCH
+                            for a in answers]
+                    answer = Counter(norm).most_common(1)[0][0] if norm else NO_MATCH
+                parsed = parse_answer(answer, allowed.iloc[i])
+                extras["llm_answer_raw"][i] = answer
+                for k, v in parsed.items():
+                    extras[k][i] = v
+                extras["finish_reason"][i] = candidate_mode if candidate_mode == "per_candidate" \
+                    else f"self_consistency_{self_consistency}"
+                extras["prompt_tokens"][i] = 0
+                extras["gen_tokens"][i] = sum(len(o) for o in texts) // 4
+            save_progress()
+            rows_trimmed = rows_trimmed  # keep meta fields defined
+            print(f"[DONE] {os.path.basename(shard_path)} ({candidate_mode}, sc={self_consistency})")
+            continue
+
         todo = [i for i in range(N) if not generated_texts[i]]
         if not todo:
             print("[SKIP] shard already complete")
@@ -892,6 +979,13 @@ def parse_args():
                    help="Append each candidate's cross-encoder score to its line "
                         "('[retrieval score 0.97]') so the LLM can use retrieval strength "
                         "as evidence, especially between siblings of one gene.")
+    p.add_argument("--candidate_mode", type=str, default="set", choices=["set", "per_candidate"],
+                   help="set: one call per abstract listing every candidate (deployed). "
+                        "per_candidate: one binary call per (abstract, candidate) -- the format "
+                        "of the upstream MSc prompt sweep, re-runnable here for comparison.")
+    p.add_argument("--self_consistency", type=int, default=1,
+                   help="Sample the prompt N times (temperature 0.7 when --temperature 0) and "
+                        "take the majority answer set.")
     p.add_argument("--output_format", type=str, default="answer", choices=["answer", "json"],
                    help="answer: the 'ANSWER: ids' line (original rubric). json: the structured "
                         "per-gene object (role / entries / confidence) of prompts/"
@@ -951,6 +1045,8 @@ if __name__ == "__main__":
         limit=args.limit,
         candidate_layout=args.candidate_layout,
         output_format=args.output_format,
+        candidate_mode=args.candidate_mode,
+        self_consistency=args.self_consistency,
         show_scores=args.show_scores,
         hpo_json=args.hpo_json,
         hpo_multi_only=args.hpo_multi_only,
