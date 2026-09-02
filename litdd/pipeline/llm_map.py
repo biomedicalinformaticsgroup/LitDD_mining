@@ -267,7 +267,7 @@ def parse_answer(raw_answer, allowed_ids=None) -> dict:
 # --------------------------------------------------------------------------------------
 # Candidate rendering
 # --------------------------------------------------------------------------------------
-def to_labels(x, max_candidates=None, min_score=None):
+def to_labels(x, max_candidates=None, min_score=None, show_scores=False):
     """Normalise a top-k cell into a list of candidate label strings.
 
     max_candidates=None keeps every candidate, which is what the data-driven
@@ -311,6 +311,11 @@ def to_labels(x, max_candidates=None, min_score=None):
                 try:
                     if float(sc) < min_score:
                         continue
+                except (TypeError, ValueError):
+                    pass
+            if show_scores and sc is not None:
+                try:
+                    lab = f"{lab} [retrieval score {float(sc):.2f}]"
                 except (TypeError, ValueError):
                     pass
             labels.append(lab)
@@ -461,6 +466,7 @@ def run_llm_over_cross_shards(
     use_chat_template=True,
     prompt_file=DEFAULT_PROMPT_FILE,
     threads="vanilla",
+    show_scores=False,
     context_json=None,
     limit=None,
     candidate_layout="flat",
@@ -526,6 +532,7 @@ def run_llm_over_cross_shards(
         "threads": threads,
         "candidate_layout": candidate_layout,
         "output_format": output_format,
+        "show_scores": show_scores,
         "context_json": os.path.abspath(context_json) if context_json else None,
         "temperature": temperature, "top_p": top_p, "max_tokens": max_tokens, "seed": seed,
         "max_model_len": max_model_len, "max_num_seqs": max_num_seqs,
@@ -561,7 +568,8 @@ def run_llm_over_cross_shards(
 
         n_uncapped = df["top5_cross"].apply(lambda x: len(to_labels(x, None)))
         n_gated = df["top5_cross"].apply(lambda x: len(to_labels(x, None, min_score)))
-        flat = df["top5_cross"].apply(lambda x: to_labels(x, max_candidates, min_score))
+        flat = df["top5_cross"].apply(lambda x: to_labels(x, max_candidates, min_score,
+                                                          show_scores=show_scores))
         capped_rows = int((n_gated > max_candidates).sum()) if max_candidates else 0
         if capped_rows:
             print(f"[CAP] {capped_rows} rows had more than {max_candidates} candidates; "
@@ -758,6 +766,10 @@ def parse_args():
                         "cross-encoder scored, or the contextualised multi-line block "
                         "(needs --context_json built from the SAME G2P export).")
     p.add_argument("--context_json", type=str, default=None)
+    p.add_argument("--show_scores", action="store_true",
+                   help="Append each candidate's cross-encoder score to its line "
+                        "('[retrieval score 0.97]') so the LLM can use retrieval strength "
+                        "as evidence, especially between siblings of one gene.")
     p.add_argument("--output_format", type=str, default="answer", choices=["answer", "json"],
                    help="answer: the 'ANSWER: ids' line (original rubric). json: the structured "
                         "per-gene object (role / entries / confidence) of prompts/"
@@ -817,4 +829,5 @@ if __name__ == "__main__":
         limit=args.limit,
         candidate_layout=args.candidate_layout,
         output_format=args.output_format,
+        show_scores=args.show_scores,
     )
