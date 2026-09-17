@@ -77,21 +77,29 @@ DEFAULT_EXCLUDE_PUBTYPES = (
 #   ExpressionOfConcernFor      3,827        0
 #   RetractionIn               34,178        0    <- retractions agree almost exactly
 #   ErratumIn                 349,161  347,078    <- the papers that HAVE a correction
+#                                                     (NO LONGER EXCLUDED -- see below)
 #   ExpressionOfConcernIn       4,413    3,526
 #   RepublishedIn               1,450    1,400
 #   RetractedandRepublishedIn      74       48
 #
 # So for RETRACTIONS the two agree essentially perfectly (RetractionIn 34,178 vs D016441
 # 34,180, symmetric difference 2) -- publication type alone does NOT leak retracted papers.
-# The RefType pass earns its place on ErratumIn: 347,078 papers carrying a published
-# correction, which no publication type marks, because D016425 labels the erratum notice
-# rather than the article it corrects. Same pattern for ExpressionOfConcernIn and the
-# superseded-republication markers.
+# The RefType pass earns its place on ExpressionOfConcernIn and the superseded-republication
+# markers, which no publication type expresses. It does NOT earn it on ErratumIn: see the
+# note on the exclusion tuple below for why that one was removed.
+# NARROWED 2026-09-05: ErratumIn and ErratumFor were removed from this set. Excluding
+# ErratumIn dropped every paper that merely HAS a published correction -- 340,217 otherwise
+# eligible records, 1.08% of the corpus, including landmark in-scope gene-discovery reports
+# ("Mutations in MKKS cause Bardet-Biedl syndrome", "Mutations in PATCHED-1 ... are associated
+# with holoprosencephaly"). Measured cost: 294 of the 7,644 curated external-truth papers were
+# never screened, making the correction rule the SECOND-largest cause of recall miss (22.7% of
+# all misses) -- larger than the screen's own false negatives. A corrected typo is not a
+# retraction, so the rule now covers only WITHDRAWN or SUPERSEDED science. The erratum notices
+# themselves (D016425 Published Erratum) are still excluded by publication type, so restoring
+# these RefTypes readmits corrected papers without readmitting correction notices.
 DEFAULT_EXCLUDE_REFTYPES = (
     "RetractionIn",            # this paper WAS retracted
     "RetractionOf",            # this IS the retraction notice
-    "ErratumIn",               # this paper has a published correction
-    "ErratumFor",              # this IS the erratum notice
     "ExpressionOfConcernIn",   # concern raised about this paper
     "ExpressionOfConcernFor",  # this IS the concern notice
     "RepublishedIn",           # SUPERSEDED predecessor of a corrected republication;
