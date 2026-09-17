@@ -89,23 +89,39 @@ def test_prompt_file_is_the_rendered_prompt():
     assert "\nYou are an expert" in prompt
 
 
-def test_prompt_matches_upstream_rubric_when_available():
-    """Byte-compare the rubric against the development checkout's prompt, if present.
+def test_original_prompt_matches_upstream_rubric_when_available():
+    """Byte-compare the original rubric against the development checkout's prompt, if present.
 
     The only intended differences: the candidate-count sentences ({n}, numbered) and the
-    candidate insertion. The decision rubric itself must be identical, otherwise benchmark
-    numbers from the harness do not transfer to the pipeline.
+    candidate insertion. The original rubric must stay identical so the submitted pipeline's
+    benchmark numbers remain reproducible.
     """
     upstream = ROOT / "upgraded-octo-happiness" / "prompt" / "baseline" / "original_paper.txt"
     if not upstream.exists():
         pytest.skip("development checkout not present")
-    ours = llm_map.load_prompt_template()
+    ours = llm_map.load_prompt_template(llm_map.ORIGINAL_PROMPT_FILE)
     theirs = upstream.read_text(encoding="utf-8")
     def rubric(text):
         start = text.index("Decision rubric")
         end = text.index("Output schema")
         return "\n".join(ln.rstrip() for ln in text[start:end].splitlines())
     assert rubric(ours) == rubric(theirs)
+
+
+def test_default_prompt_is_the_revised_rubric():
+    """The default prompt is the revised decision rubric: no instruction to prefer a candidate
+    over NO MATCH or to return a candidate despite a phenotype mismatch, an explicit disorder
+    test, former gene symbols, and entries from other G2P panels as candidates."""
+    assert llm_map.DEFAULT_PROMPT_FILE.endswith("original_paper_phenotype_v22.txt")
+    text = llm_map.load_prompt_template()
+    assert "Prefer selecting at least one candidate over NO MATCH" not in text
+    assert "consider returning the matching candidate anyway" not in text
+    assert "It is a CLINICALLY DISTINCT disorder only when one of the following holds" in text
+    assert "previous gene symbols" in text
+    assert "including one from a different G2P panel" in text
+    prompt = llm_map.build_llm_prompt("TIAB", ["G2P1 - A - x", "G2P2 - B - y"])
+    assert "Only choose from the 2 candidate(s)" in prompt and "ANSWER: NO MATCH" in prompt
+    assert "{" not in prompt.replace("{}", "")
 
 
 def test_prompt_variants_load_and_keep_the_contract():

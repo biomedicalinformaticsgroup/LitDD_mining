@@ -6,9 +6,13 @@ answer in ``llm_dis_map`` (``G2Pxxxxx``, ``G2Pa;G2Pb`` or ``NO MATCH``). Downstr
 ``final_data_clean.py`` reads exactly ``pmid``, ``llm_dis_map`` and ``top5_cross``; the last
 is passed through untouched because it carries the scores for the 0.9 gate.
 
-The prompt lives in ``prompts/original_paper.txt`` (the verbatim text reported in the
-manuscript) and is rendered through the model's chat template, so instruct/reasoning models
-see a proper user turn rather than a bare completion string. Reasoning effort, decoding and
+The prompt lives in ``prompts/original_paper_phenotype_v22.txt`` (the revised decision rubric,
+reproduced verbatim in the supplementary appendix); ``prompts/original_paper.txt`` is the
+original rubric, kept to reproduce the submitted pipeline. The prompt is rendered through the
+model's chat template, so instruct/reasoning models see a proper user turn rather than a bare
+completion string. The released run also passes ``--threads context`` with the all-panel
+context JSON, ``--context_drop_fields``, ``--panel_siblings_csv`` and ``--final_panel_csv``
+(see ``supplementary/RUN_FINAL_PIPELINE.md``). Reasoning effort, decoding and
 engine limits are explicit CLI arguments and are recorded per shard in ``run_meta.json``.
 
 torch and vllm are imported lazily inside ``run_llm_over_cross_shards`` so the deterministic
@@ -31,7 +35,8 @@ import numpy as np
 import pandas as pd
 
 PROMPT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompts")
-DEFAULT_PROMPT_FILE = os.path.join(PROMPT_DIR, "original_paper.txt")
+DEFAULT_PROMPT_FILE = os.path.join(PROMPT_DIR, "original_paper_phenotype_v22.txt")
+ORIGINAL_PROMPT_FILE = os.path.join(PROMPT_DIR, "original_paper.txt")
 
 G2P_ID_RE = re.compile(r"G2P\d+")
 NO_MATCH = "NO MATCH"
@@ -457,6 +462,58 @@ def hpo_decorate(labels, hpo: dict[str, list[dict]], pmid=None, max_terms=None,
     return out
 
 
+def drop_context_fields(context: dict[str, str], fields: str) -> dict[str, str]:
+    """Remove labelled lines ("Previous Gene Symbols: ...") from contextualised threads.
+
+    Previous gene symbols are historical locus names -- CADASIL for NOTCH3, RTT for MECP2 --
+    that the model reads as the entry's disease names, so a paper about the disease matches
+    the entry even when the entry is a different disorder of that gene."""
+    prefixes = tuple(f.strip() + ":" for f in fields.split(",") if f.strip())
+    return {k: ("\n".join(line for line in v.splitlines() if not line.strip().startswith(prefixes))
+                if isinstance(v, str) else v)
+            for k, v in context.items()}
+
+
+def load_panel_siblings(path: str) -> dict:
+    """Index an all-panel G2P export: id -> gene, gene -> ids, id -> panel."""
+    g = pd.read_csv(path, dtype=str)
+    g.columns = [c.strip() for c in g.columns]
+    g = g.dropna(subset=["g2p id", "gene symbol"])
+    return {"gene": dict(zip(g["g2p id"], g["gene symbol"])),
+            "ids": g.groupby("gene symbol")["g2p id"].apply(list).to_dict(),
+            "panel": dict(zip(g["g2p id"], g["panel"].fillna("")))}
+
+
+def add_panel_siblings(labels, siblings: dict) -> list:
+    """Append, as bare ids, every entry of the candidates' genes that is not already offered.
+
+    Used with contextualised threads built from the same all-panel export, which render the
+    bare id into a full block. The point is to give a paper about, say, CADASIL somewhere
+    better to go than the only developmental-disorder entry of NOTCH3."""
+    labels = list(labels)
+    present = set(candidate_ids(labels))
+    for gene in dict.fromkeys(siblings["gene"].get(i) for i in candidate_ids(labels)):
+        for sid in siblings["ids"].get(gene, []):
+            if sid not in present:
+                labels.append(sid)
+                present.add(sid)
+    return labels
+
+
+def label_panel(label: str, siblings: dict) -> str:
+    m = G2P_ID_RE.search(str(label))
+    panel = siblings["panel"].get(m.group(0)) if m else None
+    return f"{label}\nG2P Panel: {panel}" if panel else label
+
+
+def restrict_to_panel(dis_map, final_ids):
+    """Keep only ids of the released panel; an answer left empty becomes NO MATCH."""
+    if final_ids is None or dis_map in (None, NO_MATCH):
+        return dis_map
+    kept = [i for i in str(dis_map).split(";") if i in final_ids]
+    return ";".join(kept) if kept else NO_MATCH
+
+
 def contextualise(labels, context: dict[str, str], missing_counter: dict | None = None):
     """Swap each flat thread for its contextualised block, falling back to the flat text.
 
@@ -570,6 +627,9 @@ def run_llm_over_cross_shards(
     output_format="answer",
     candidate_mode="set",
     self_consistency=1,
+    context_drop_fields=None,
+    panel_siblings_csv=None,
+    final_panel_csv=None,
 ):
     """
     - Reads *.parquet from shards_dir
@@ -598,6 +658,16 @@ def run_llm_over_cross_shards(
             raise ValueError("--threads context requires --context_json")
         context = load_context_threads(context_json)
         print(f"Loaded {len(context)} contextualised threads from {context_json}")
+        if context_drop_fields:
+            context = drop_context_fields(context, context_drop_fields)
+            print(f"Dropped fields from contextualised threads: {context_drop_fields}")
+    siblings = load_panel_siblings(panel_siblings_csv) if panel_siblings_csv else None
+    final_ids = (set(pd.read_csv(final_panel_csv, dtype=str)["g2p id"].str.strip())
+                 if final_panel_csv else None)
+    if siblings is not None:
+        print(f"Adding same-gene entries from every panel of {panel_siblings_csv}; answers "
+              f"restricted to {len(final_ids) if final_ids else 'all'} entries of "
+              f"{final_panel_csv}")
 
     sampling_params = SamplingParams(temperature=temperature, top_p=top_p,
                                      max_tokens=max_tokens, seed=seed)
@@ -639,6 +709,9 @@ def run_llm_over_cross_shards(
         "hpo_json": os.path.abspath(hpo_json) if hpo_json else None,
         "hpo_multi_only": hpo_multi_only,
         "context_json": os.path.abspath(context_json) if context_json else None,
+        "context_drop_fields": context_drop_fields,
+        "panel_siblings_csv": os.path.abspath(panel_siblings_csv) if panel_siblings_csv else None,
+        "final_panel_csv": os.path.abspath(final_panel_csv) if final_panel_csv else None,
         "temperature": temperature, "top_p": top_p, "max_tokens": max_tokens, "seed": seed,
         "max_model_len": max_model_len, "max_num_seqs": max_num_seqs,
         "gpu_memory_utilization": gpu_memory_utilization, "dtype": dtype,
@@ -653,7 +726,8 @@ def run_llm_over_cross_shards(
     shard_paths = sorted(glob.glob(os.path.join(shards_dir, "*.parquet")))
     print(f"Found {len(shard_paths)} parquet shard(s) for this worker.")
 
-    extra_cols = ["llm_answer_raw", "llm_dis_map", "answer_format_valid", "answer_uncertain",
+    extra_cols = ["llm_answer_raw", "llm_dis_map", "llm_dis_map_all_panels",
+                  "answer_format_valid", "answer_uncertain",
                   "llm_roles", "llm_confidence_min", "json_answer_consistent",
                   "answer_ids_in_candidates", "finish_reason", "prompt_tokens", "gen_tokens"]
 
@@ -675,6 +749,11 @@ def run_llm_over_cross_shards(
         n_gated = df["top5_cross"].apply(lambda x: len(to_labels(x, None, min_score)))
         flat = df["top5_cross"].apply(lambda x: to_labels(x, max_candidates, min_score,
                                                           show_scores=show_scores))
+        if siblings is not None:
+            n_before = int(flat.apply(len).sum())
+            flat = flat.apply(lambda labs: add_panel_siblings(labs, siblings))
+            print(f"[SIBLINGS] {int(flat.apply(len).sum()) - n_before} same-gene entries from "
+                  f"other panels added to {len(df)} rows")
         capped_rows = int((n_gated > max_candidates).sum()) if max_candidates else 0
         if capped_rows:
             print(f"[CAP] {capped_rows} rows had more than {max_candidates} candidates; "
@@ -690,6 +769,9 @@ def run_llm_over_cross_shards(
             print(f"[WARN] {int(skipped.sum())} rows have no candidates at all (-> NO MATCH)")
         df["topk_cross_lgmde"] = flat.apply(
             lambda labs: contextualise(labs, context, context_missing) if context else labs)
+        if siblings is not None:
+            df["topk_cross_lgmde"] = df["topk_cross_lgmde"].apply(
+                lambda labs: [label_panel(lab, siblings) for lab in labs])
         base_labels = df["topk_cross_lgmde"].tolist()
         if hpo_terms is not None:
             df["topk_cross_lgmde"] = [
@@ -846,6 +928,8 @@ def run_llm_over_cross_shards(
                 extras["llm_answer_raw"][i] = answer
                 for k, v in parsed.items():
                     extras[k][i] = v
+                extras["llm_dis_map_all_panels"][i] = extras["llm_dis_map"][i]
+                extras["llm_dis_map"][i] = restrict_to_panel(extras["llm_dis_map"][i], final_ids)
                 extras["finish_reason"][i] = candidate_mode if candidate_mode == "per_candidate" \
                     else f"self_consistency_{self_consistency}"
                 extras["prompt_tokens"][i] = 0
@@ -901,6 +985,8 @@ def run_llm_over_cross_shards(
                 extras["llm_answer_raw"][i] = raw
                 for k, v in parsed.items():
                     extras[k][i] = v
+                extras["llm_dis_map_all_panels"][i] = extras["llm_dis_map"][i]
+                extras["llm_dis_map"][i] = restrict_to_panel(extras["llm_dis_map"][i], final_ids)
                 extras["finish_reason"][i] = comp.finish_reason
                 extras["prompt_tokens"][i] = len(out.prompt_token_ids or [])
                 extras["gen_tokens"][i] = len(comp.token_ids or [])
@@ -981,6 +1067,18 @@ def parse_args():
                         "cross-encoder scored, or the contextualised multi-line block "
                         "(needs --context_json built from the SAME G2P export).")
     p.add_argument("--context_json", type=str, default=None)
+    p.add_argument("--context_drop_fields", type=str, default=None,
+                   help="Comma-separated field labels to remove from contextualised threads, "
+                        "e.g. 'Previous Gene Symbols' (historical locus names such as CADASIL "
+                        "that the model otherwise reads as disease names).")
+    p.add_argument("--panel_siblings_csv", type=str, default=None,
+                   help="All-panel G2P export: offer every entry of each candidate gene, from "
+                        "any panel, so a paper about a non-DD disorder can map there instead of "
+                        "to the gene's DD entry. Needs --threads context with a --context_json "
+                        "built from this export.")
+    p.add_argument("--final_panel_csv", type=str, default=None,
+                   help="Restrict llm_dis_map to this export's ids (the unrestricted answer is "
+                        "kept in llm_dis_map_all_panels).")
     p.add_argument("--hpo_multi_only", action="store_true",
                    help="Decorate with HPO terms only the candidates whose gene has more than "
                         "one entry among this abstract's candidates (the allelic-series "
@@ -1061,6 +1159,9 @@ if __name__ == "__main__":
         output_format=args.output_format,
         candidate_mode=args.candidate_mode,
         self_consistency=args.self_consistency,
+        context_drop_fields=args.context_drop_fields,
+        panel_siblings_csv=args.panel_siblings_csv,
+        final_panel_csv=args.final_panel_csv,
         show_scores=args.show_scores,
         hpo_json=args.hpo_json,
         hpo_multi_only=args.hpo_multi_only,

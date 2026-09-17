@@ -54,6 +54,21 @@ def parse_args() -> argparse.Namespace:
         help="NCBI gene_info.gz; if provided, gene2pubtator NCBI Gene IDs are mapped "
              "to canonical symbols (tax_id=9606). Strongly recommended.",
     )
+    p.add_argument(
+        "--candidates_parquet",
+        required=False,
+        default=None,
+        help="candidates.parquet from gene_candidates.py (pmid, candidate_g2p_ids). When "
+             "given, an accepted mapping must be one of the candidates that were actually "
+             "OFFERED to the LLM for that abstract, replacing the post-hoc gene-mention "
+             "re-test. This is the correct check: the gene gate already verified gene "
+             "presence, using PubTator3 TIAB mentions UNION HGNC descriptive names UNION "
+             "verbatim symbols, whereas the re-test used PubTator3 alone and therefore "
+             "silently overrode the gate. Measured on the 2026 corpus run: the re-test "
+             "dropped 9,006 mappings of which 8,989 (99.8%%) were candidates the gate had "
+             "admitted -- e.g. 'Medium chain acyl-CoA dehydrogenase deficiency' losing "
+             "ACADM, and a review of epigenetic syndromes losing MECP2, ATRX and NSD1.",
+    )
     p.add_argument("--score_cutoff", type=float, default=0.9,
                    help="Minimum top5_cross score to keep a row (default 0.9).")
     p.add_argument("--no_gene_check", action="store_true",
@@ -164,6 +179,16 @@ def load_pubtator_genes(
     return out
 
 
+def load_candidate_ids(path: str) -> Dict[str, Set[str]]:
+    """pmid -> the set of G2P ids the gene gate offered to the LLM for that abstract."""
+    out: Dict[str, Set[str]] = {}
+    pf = pq.ParquetFile(path)
+    for batch in pf.iter_batches(columns=["pmid", "candidate_g2p_ids"]):
+        for pmid, ids in zip(batch.column(0).to_pylist(), batch.column(1).to_pylist()):
+            out.setdefault(str(pmid), set()).update(str(i) for i in (ids or []))
+    return out
+
+
 def main() -> int:
     args = parse_args()
 
@@ -188,6 +213,12 @@ def main() -> int:
 
     pmid_to_llm, pmid_to_top5 = load_llm_parquet(args.llm_file)
     pubtator_genes = load_pubtator_genes(args.gene2pubtator, set(pmid_to_llm), gene_info)
+
+    candidate_ids = None
+    if args.candidates_parquet:
+        candidate_ids = load_candidate_ids(args.candidates_parquet)
+        print(f"[INFO] candidate sets:       {len(candidate_ids)} abstracts "
+              f"(membership check replaces the gene-mention re-test)")
 
     total = kept = 0
     dropped_hallucinated = dropped_score = dropped_gene = 0
@@ -228,9 +259,20 @@ def main() -> int:
                         s = "None" if score is None else f"{score:.2f}"
                         print(f"  {g2p}\tSCORE_BELOW_CUTOFF (score={s} < {args.score_cutoff})")
                     continue
-                # 3. gene match. By default a mapping needs a linked gene mentioned in the
-                #    abstract; --no_gene_check keeps it anyway (and we count the attrition).
-                if not any(g in mentioned for g in g2p_genes[g2p]):
+                # 3. provenance. With --candidates_parquet the mapping must be one of the
+                #    candidates the gene gate actually offered for this abstract. The gate
+                #    has already established that a linked gene is present, so re-testing
+                #    gene mention here only re-litigates that decision under a narrower
+                #    rule. Without the flag, fall back to the historical gene-mention test
+                #    so the published pipeline stays reproducible.
+                if candidate_ids is not None:
+                    if g2p not in candidate_ids.get(pmid, ()):
+                        dropped_gene += 1
+                        if args.debug:
+                            print(f"  {g2p}\tNOT_OFFERED_AS_CANDIDATE")
+                        if not args.no_gene_check:
+                            continue
+                elif not any(g in mentioned for g in g2p_genes[g2p]):
                     dropped_gene += 1
                     if args.debug:
                         print(f"  {g2p}\tGENE_NOT_MENTIONED (g2p_genes={g2p_genes[g2p]})")
@@ -248,7 +290,8 @@ def main() -> int:
     print(f"[INFO] Dropped below score:  {dropped_score}")
     gene_pct = (100 * dropped_gene / passed_score) if passed_score else 0.0
     tag = "would drop" if args.no_gene_check else "dropped"
-    print(f"[INFO] Gene-filter {tag}:   {dropped_gene} "
+    what = "Not-a-candidate" if candidate_ids is not None else "Gene-filter"
+    print(f"[INFO] {what} {tag}:   {dropped_gene} "
           f"({gene_pct:.1f}% of score-passing mappings)  [R2-C1/R3.4 attrition]")
     print(f"[INFO] Valid mappings:       {kept}"
           f"{'  (gene check OFF)' if args.no_gene_check else ''}")
