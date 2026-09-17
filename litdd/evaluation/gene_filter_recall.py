@@ -52,7 +52,17 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
 
-from litdd.genes import GeneNameMatcher, load_gene_info, load_pubtator_genes  # noqa: E402
+from litdd.genes import (  # noqa: E402
+    GeneNameMatcher,
+    load_gene_info,
+    load_pubtator_genes,
+    mention_in_text,
+    normalise,
+)
+from litdd.pipeline.gene_candidates import (  # noqa: E402
+    find_symbols_verbatim,
+    load_disease_alias_stoplist,
+)
 
 G2P_ID_RE = re.compile(r"^(G2P\d+)")
 
@@ -73,6 +83,19 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--gene_info", required=True, help="NCBI gene_info.gz")
     p.add_argument("--hgnc", default=None,
                    help="hgnc_complete_set.txt for descriptive-name matching (optional)")
+    p.add_argument("--disease_alias_stoplist", default=None,
+                   help="TSV from build_disease_alias_stoplist.py. Adds a 'released gate' "
+                        "configuration: PubTator3 text annotations verified in the TIAB with "
+                        "disease-name mentions discounted, HGNC names with the stop-listed names "
+                        "unindexed, and the verbatim symbol fallback -- the gate as deployed.")
+    p.add_argument("--symbol_fallback", action="store_true",
+                   help="in the released-gate configuration, match panel symbols verbatim when "
+                        "PubTator has no annotation for the PMID (as the deployed gate does)")
+    p.add_argument("--mondo_obo", default=None,
+                   help="MONDO OBO release. Adds the 'released gate (HGNC identifier)' configuration: "
+                        "gene_candidates.py --resolution hgnc with the released settings (disease "
+                        "names excluded as aliases, PubTator mentions and approved symbols judged by "
+                        "MONDO label context). Needs --hgnc and --symbol_fallback.")
     p.add_argument("--out_csv", default=None)
     return p.parse_args()
 
@@ -147,6 +170,20 @@ def main() -> int:
     pub_genes = load_pubtator_genes(args.gene2pubtator, pmids, gene_info)
     print(f"  pmids with >=1 human gene annotation: {len(pub_genes)}", flush=True)
 
+    stop_symbols: dict[str, set[str]] = {}
+    stop_names: dict[str, set[str]] = {}
+    pub_text: dict[str, dict[str, set[str]]] = {}
+    if args.disease_alias_stoplist:
+        stop_symbols, stop_names = load_disease_alias_stoplist(args.disease_alias_stoplist)
+        print(f"  stop list: {sum(map(len, stop_symbols.values()))} symbols, "
+              f"{sum(map(len, stop_names.values()))} names on "
+              f"{len(set(stop_symbols) | set(stop_names))} genes", flush=True)
+        # the deployed gate keeps PubTator3 TEXT annotations only and verifies the mention in
+        # the TIAB, so the released-gate configuration needs the mention strings
+        print("re-scanning for PubTator3 text annotations with mentions ...", flush=True)
+        pub_text = load_pubtator_genes(args.gene2pubtator, pmids, gene_info,
+                                       text_annotations_only=True, with_mentions=True)
+
     matcher = None
     if args.hgnc:
         print("building HGNC name dictionary (G2P genes only) ...", flush=True)
@@ -154,9 +191,75 @@ def main() -> int:
         print(f"  names indexed: {len(matcher.name_to_symbols)} "
               f"families: {len(matcher.family_to_symbols)}", flush=True)
 
+    # the released gate uses a name dictionary with the disease-named entries unindexed
+    # As in the deployed gate, stop-listed former symbols leave the panel symbol set used by the
+    # name dictionary and the verbatim fallback (an official symbol is never stop-listed).
+    stop_all = {a for aliases in stop_symbols.values() for a in aliases}
+    panel_symbols_stop = {x for x in panel_symbols if x not in stop_all}
+    matcher_stop = None
+    if args.hgnc and args.disease_alias_stoplist:
+        matcher_stop = GeneNameMatcher.from_hgnc(args.hgnc, panel_symbols_stop)
+        n_unindexed = 0
+        for gene, keys in stop_names.items():
+            for key in keys:
+                syms = matcher_stop.name_to_symbols.get(key)
+                if syms and gene in syms:
+                    syms.discard(gene)
+                    n_unindexed += 1
+                    if not syms:
+                        del matcher_stop.name_to_symbols[key]
+        print(f"  stop list: {n_unindexed} disease-named HGNC names unindexed", flush=True)
+
+    def _gene_mentions(sym: str, mentions: set[str], use_stop: bool = True) -> set[str]:
+        """PubTator mention strings minus those that are disease names for this gene; if every
+        mention was a disease alias the official symbol is the only needle left (as in the gate)."""
+        stop_s, stop_n = stop_symbols.get(sym), stop_names.get(sym)
+        if not use_stop or not mentions or (stop_s is None and stop_n is None):
+            return mentions
+        kept = {m for m in mentions
+                if m.upper() not in (stop_s or ())
+                and " ".join(normalise(m)) not in (stop_n or ())}
+        return kept or {sym}
+
+    def released_gate(pmid: str, tiab: str, use_stop: bool = True) -> set[str]:
+        """The gene gate as deployed: TIAB-verified PubTator3 text mentions, HGNC names, and the
+        verbatim symbol fallback; ``use_stop`` adds the disease-alias stop list."""
+        panel = panel_symbols_stop if use_stop else panel_symbols
+        by_symbol = {sym for sym, men in pub_text.get(pmid, {}).items()
+                     if sym in panel
+                     and mention_in_text(tiab or "", _gene_mentions(sym, men, use_stop), sym)}
+        names = matcher_stop if use_stop else matcher
+        by_name = (names.find(tiab or "") if names is not None else set()) - by_symbol
+        got = by_symbol | by_name
+        if args.symbol_fallback and not by_symbol:
+            got |= find_symbols_verbatim(tiab or "", panel) - by_name
+        return got
+
     name_cache: dict[str, set[str]] = {}
 
+    hgnc_ids: dict[tuple[str, str], set[str]] = {}
+    if args.mondo_obo:
+        # the released gate: every route resolves to an HGNC ID (litdd/gene_resolution.py)
+        import polars as pl
+
+        from litdd.pipeline.gene_candidates import run_hgnc_resolution
+        uniq = sorted({(p, t or "") for p, _, t, _, _ in rows})
+        ns = argparse.Namespace(
+            hgnc=args.hgnc, mondo_obo=args.mondo_obo, g2p_csv=args.g2p_csv,
+            gene2pubtator=args.gene2pubtator, mondo_diseases="all",
+            context_diseases="germline_lineage", context_names="label",
+            disease_alias_policy="hybrid", keep_approved_disease_names=False,
+            exclude_shared_aliases=False, no_disease_context=False,
+            symbol_fallback=args.symbol_fallback, verbatim_all_abstracts=False, audit_prefix=None)
+        cand_col, _, _ = run_hgnc_resolution(
+            ns, pl.DataFrame({"pmid": [p for p, _ in uniq], "tiab": [t for _, t in uniq]}))
+        hgnc_ids = {k: set(c) for k, c in zip(uniq, cand_col)}
+
     def detected(pmid: str, tiab: str, source: str) -> set[str]:
+        if source == "released gate (+stop list)":
+            return released_gate(pmid, tiab, use_stop=True)
+        if source == "released gate, no stop list":
+            return released_gate(pmid, tiab, use_stop=False)
         got: set[str] = set()
         if source in ("pubtator", "pubtator+name"):
             got |= pub_genes.get(pmid, set())
@@ -167,8 +270,13 @@ def main() -> int:
         return got
 
     configs = ["none", "pubtator"]
+    hgnc_cfg = "released gate (HGNC identifier)"
     if matcher is not None:
         configs += ["name", "pubtator+name"]
+    if args.disease_alias_stoplist:
+        configs += ["released gate, no stop list", "released gate (+stop list)"]
+    if args.mondo_obo:
+        configs.append(hgnc_cfg)
 
     by_source = sorted({src for *_, src in rows})
     breakdown = by_source if len(by_source) > 1 else []
@@ -178,9 +286,12 @@ def main() -> int:
         buckets: dict[str, list[int]] = {"all": [0, 0, 0]}  # tp, fp, fn
         for pmid, gid, tiab, label, src in rows:
             is_pos = label == "1"
-            kept = True if cfg == "none" else bool(
-                set(g2p_symbols.get(gid, [])) & detected(pmid, tiab, cfg)
-            )
+            if cfg == "none":
+                kept = True
+            elif cfg == hgnc_cfg:
+                kept = gid in hgnc_ids.get((pmid, tiab or ""), set())
+            else:
+                kept = bool(set(g2p_symbols.get(gid, [])) & detected(pmid, tiab, cfg))
             for key in ("all", src) if breakdown else ("all",):
                 b = buckets.setdefault(key, [0, 0, 0])
                 if kept and is_pos:

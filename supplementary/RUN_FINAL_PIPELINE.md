@@ -3,20 +3,30 @@
 **Repo**: `/home/eidf128/eidf128/shared/export/michael/litdd_clean`, branch `cleanup/reviewer-fixes`
 (remote `github.com/biomedicalinformaticsgroup/LitDD_mining`).
 
-## The pipeline (as settled 2026-09-02)
+## The pipeline (as settled 2026-09-17)
 
     PubMed TIABs
       → 1. screen        litdd/pipeline/bert_predict_vllm.py     HF tmy100000001/LitDD_BERT (main = add20k seed 44)
-      → 2. gene gate     litdd/pipeline/gene_candidates.py       PubTator3 TIAB-verified mentions + HGNC names + --symbol_fallback
-      → 3. adjudication  litdd/pipeline/llm_map.py               openai/gpt-oss-20b, prompts/original_paper.txt, all candidates, NO score threshold
+      → 2. gene gate     litdd/pipeline/gene_candidates.py       --resolution hgnc: every gene resolved by HGNC identifier
+                                                                 (PubTator3 GeneID -> HGNC ID -> G2P `hgnc id`), PubTator3
+                                                                 TIAB-verified mentions + HGNC names + --symbol_fallback;
+                                                                 disease names/abbreviations excluded as gene evidence
+                                                                 (derived from HGNC + MONDO; replaces the stop list)
+      → 3. adjudication  litdd/pipeline/llm_map.py               openai/gpt-oss-20b, prompts/original_paper_phenotype_v22.txt (default),
+                                                                 contextualised threads, same-gene entries from all G2P panels,
+                                                                 answers restricted to the DD panel, all candidates, NO score threshold
       → 4. clean         litdd/pipeline/final_data_clean.py      --score_cutoff 0
+
+`prompts/original_paper.txt` is the original decision rubric, kept only to reproduce the submitted
+pipeline.
 
 **The cross-encoder is no longer in the cascade** (the gene gate supplies the candidates;
 retrieval recall 1.000 on the test set). `tmy100000001/LitDD_crossencoder` is retained on HF for
 reproducing the published pipeline and as an optional ranker/audit signal only.
 
-**Measured on the held-out annotated test split** (2,731 abstracts, 646 curated, exact-set match
-end to end): **P 0.840 / R 0.848 / F1 0.844** (TP 547, FP 104, FN 98, TN 2,028).
+**Measured on the held-out annotated test split** (2,731 abstracts, 645 curated, exact-set match
+end to end): **P 0.865 / R 0.806 / F1 0.835** (TP 520, FP 81, FN 125, TN 2,048). Development split
+0.813 / 0.825 / 0.819; held-out curated sets end-to-end recall 0.903 raw, 0.911 in scope.
 Per-stage confusion matrices: `supplementary/stage_confusion_matrices.csv`.
 
 ## Run it on a new corpus (GPU, k8s)
@@ -39,18 +49,38 @@ python litdd/pipeline/gene_candidates.py \
   --gene2pubtator data/reference/gene2pubtator3.gz \
   --gene_info revision/human_gene_info.gz \
   --hgnc data/reference/hgnc_complete_set.txt \
-  --symbol_fallback --out_parquet candidates.parquet
+  --resolution hgnc --mondo_obo revision/context_build/mondo.obo \
+  --mondo_diseases all --context_diseases germline_lineage --context_names label \
+  --disease_alias_policy hybrid --symbol_fallback \
+  --audit_prefix gate_audit/corpus \
+  --out_parquet candidates.parquet
+# --audit_prefix writes every HGNC symbol/name considered, why it was kept or excluded, and
+# per-rule corpus counts (the Methods numbers). The released 2026 run's audit is
+# revision/stoplist_review/hgnc_gate/audit/corpus_hgnc_hybrid_*.
 
 # 3. LLM adjudication  (candidates.parquet needs a top5_cross column: either run
 #    crossencode.py --candidates_parquet for scored/ordered candidates, or build the
 #    placeholder column as in the direct arm — see litdd/evaluation/build_llm_eval_shards.py)
 python litdd/pipeline/llm_map.py --shards_dir shards/ --out_dir out/ \
   --llm_model openai/gpt-oss-20b --temperature 0.0 --top_p 1.0 --seed 0 \
-  --reasoning_effort medium --max_model_len 32768 --save_every 100000
+  --reasoning_effort medium --max_model_len 32768 --save_every 5000 \
+  --threads context --context_json revision/llm_eval/context_threads_G2P_all_2026-09-10_v21.json \
+  --context_drop_fields "Disease Definition,Phenotypes" \
+  --panel_siblings_csv revision/G2P_all_2026-09-10.csv \
+  --final_panel_csv revision/G2P_DD_2026-06-24.csv
 
-# 4. clean / gate
-python litdd/pipeline/final_data_clean.py --llm_parquet "out/*__llm.parquet" --score_cutoff 0
+# 4. clean / gate  (--llm_file takes ONE parquet: concatenate the LLM shards first)
+python litdd/pipeline/final_data_clean.py --llm_file llm_all.parquet \
+  --g2p_file revision/G2P_DD_2026-06-24.csv --gene2pubtator data/reference/gene2pubtator3.gz \
+  --gene_info revision/human_gene_info.gz --candidates_parquet candidates.parquet \
+  --score_cutoff 0 --output_csv final.csv --no_match_csv nomatch.csv
 ```
+
+The released 2026 corpus map (`litdd_pubmed2026_final_v6.csv`: 86,513 mappings, 72,939 papers,
+2,826 entries) was produced this way. The gate was re-run with `--resolution hgnc`; adjudications
+from the previous run were reused only for abstracts whose candidate set was identical, and every
+changed or new abstract (3,827) was re-adjudicated: `revision/fullrun_2026/build_v6_shards.py`,
+manifests `08_llm_v6_job.yaml` and `09_clean_v6_job.yaml`, driver `run_v6.sh`.
 
 ## Evaluate a run
 
@@ -65,7 +95,7 @@ python litdd/evaluation/stage_confusion_matrices.py --run myrun \
 ```
 
 Fixtures: `revision/llm_eval/annotated_2026` (test), `dev_train_2026` (development — use this for
-any tuning), `external_2026` (held-out curated sets: end-to-end recall 0.937).
+any tuning), `external_2026` (held-out curated sets: end-to-end recall 0.903 raw, 0.911 in scope).
 
 ## Things a new session must know
 

@@ -27,6 +27,23 @@ import re
 import pandas as pd
 
 G2P_ID_RE = re.compile(r"G2P\d+")
+CANON: dict[str, str] = {}
+
+
+def x_equivalence_map(g2p_csv: str) -> dict[str, str]:
+    """The scoring rule the evaluator applies (reviewer rule 2026-09-02): two entries of one gene
+    with the identical disease name differing only in monoallelic_X_heterozygous vs
+    monoallelic_X_hemizygous are interchangeable, because the abstract's patient sex decides which
+    the curators filed under. Without it these matrices disagree with llm_adjudication_eval.py."""
+    d = pd.read_csv(g2p_csv)
+    x = d[d["allelic requirement"].astype(str).str.startswith("monoallelic_X")]
+    canon: dict[str, str] = {}
+    for _, grp in x.groupby(["gene symbol", "disease name"]):
+        ids = sorted(grp["g2p id"].astype(str))
+        if len(ids) > 1:
+            for i in ids:
+                canon[i] = ids[0]
+    return canon
 
 
 def sets(v) -> set[str]:
@@ -36,7 +53,8 @@ def sets(v) -> set[str]:
     txt = str(v).strip()
     if not txt or txt.upper() == "NO MATCH" or txt == "nan":
         return set()
-    return set(G2P_ID_RE.findall(txt)) or {s for s in txt.split(";") if s and s != "nan"}
+    ids = set(G2P_ID_RE.findall(txt)) or {s for s in txt.split(";") if s and s != "nan"}
+    return {CANON.get(i, i) for i in ids}
 
 
 def cm(tp, fp, fn, tn, stage, unit, note=""):
@@ -54,7 +72,10 @@ def main() -> int:
     ap.add_argument("--run", required=True)
     ap.add_argument("--fixture", required=True)
     ap.add_argument("--out_csv", required=True)
+    ap.add_argument("--g2p_csv", default="revision/G2P_DD_2026-06-24.csv",
+                    help="panel used for the X-linked equivalence rule (as in the evaluator)")
     args = ap.parse_args()
+    CANON.update(x_equivalence_map(args.g2p_csv))
 
     gold = pd.read_csv(f"{args.fixture}/gold.csv")
     gold["row_id"] = gold["row_id"].astype(str)

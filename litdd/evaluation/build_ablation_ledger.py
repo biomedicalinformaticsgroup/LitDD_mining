@@ -54,7 +54,7 @@ RUNS = {
     "gptoss_2026_gated_bygene_singlebest": (F_T26, "test", 0.0, "by-gene layout + single-best prompt"),
     "gptoss_2026_gatedfb_tnone": (F_T26, "test", 0.0, "OLD gate + symbol fallback -> all entries"),
     # corrected TIAB gate arms
-    "gptoss_test_gatedtb_tnone": (F_T26, "test", 0.0, "FINAL: screen -> TIAB gene gate -> [CE scores unused] -> all entries -> LLM"),
+    "gptoss_test_gatedtb_tnone": (F_T26, "test", 0.0, "original decision rubric (phenotype mismatch tolerated): screen -> TIAB gene gate -> [CE scores unused] -> all entries -> LLM; superseded"),
     "gptoss_test_gatedtb_dname": (F_T26, "test", 0.0, "disease-name-priority prompt (dev-selected, test-neutral)"),
     "gptoss_test_direct_llm": (F_T26, "test", 0.0, "DIRECT: TIAB gene gate -> all entries -> LLM (no screen, no CE) [score without screen via gold_noscreen]"),
     # dev split (model-selection sandbox)
@@ -63,13 +63,29 @@ RUNS = {
     "gptoss_dev_gatedfb_json2": (F_DEV, "dev", 0.0, "structured JSON v2 (multi-disorder fixed)"),
     "gptoss_dev_gatedfb_scores": (F_DEV, "dev", 0.0, "cross-encoder score shown per candidate"),
     "gptoss_dev_gatedfb_hpo": (F_DEV, "dev", 0.0, "HPO phenotype terms per candidate (all)"),
-    "gptoss_dev_gatedtb_tnone": (F_DEV, "dev", 0.0, "dev baseline, TIAB gene gate"),
+    "gptoss_dev_gatedtb_tnone": (F_DEV, "dev", 0.0, "dev baseline, TIAB gene gate, original decision rubric (phenotype mismatch tolerated)"),
     "gptoss_dev_gatedtb_hpomulti": (F_DEV, "dev", 0.0, "HPO terms only for multi-entry genes"),
     "gptoss_dev_gatedtb_dname": (F_DEV, "dev", 0.0, "disease-name-priority prompt"),
     "gptoss_dev_gatedtb_zyg": (F_DEV, "dev", 0.0, "zygosity inference from pedigree cues (v1)"),
     "gptoss_dev_gatedtb_zyg2": (F_DEV, "dev", 0.0, "zygosity v2: +variant patterns, deletion rule, AR overrules name"),
-    "deployed_no_ce": (F_T26, "test", 0.0, "DEPLOYED: screen -> TIAB gene gate -> all candidates -> GPT-OSS-20B (no cross-encoder, no threshold)"),
-    # candidate-presentation, decoding, model and prompt-family ablations (deployed cascade)
+    "original_rubric_no_ce": (F_T26, "test", 0.0, "original decision rubric: screen -> TIAB gene gate -> all candidates -> GPT-OSS-20B (no cross-encoder, no threshold); superseded"),
+    # disorder-screening prompt family (a paper about a different disorder of the gene is not evidence
+    # for that gene's entry); run names are the job directories, see RUN_DIR
+    "gptoss_dev_gatedtb_strictdisorder": (F_DEV, "dev", 0.0, "prompt: strict disorder screening (distinct named, adult-onset or isolated single-organ disorder rejected), former gene symbols listed, developmental-disorder candidates only"),
+    "gptoss_external_gatedtb_strictdisorder": (F_EXT, "external", 0.0, "prompt: strict disorder screening, former gene symbols listed, developmental-disorder candidates only"),
+    "gptoss_dev_gatedtb_strictdisorder_allpanels": (F_DEV, "dev", 0.0, "prompt: strict disorder screening + same-gene entries from all G2P panels shown (answers restricted to developmental disorders)"),
+    "gptoss_test_gatedtb_strictdisorder_allpanels": (F_T26, "test", 0.0, "prompt: strict disorder screening + same-gene entries from all G2P panels shown (answers restricted to developmental disorders)"),
+    "gptoss_external_gatedtb_strictdisorder_allpanels": (F_EXT, "external", 0.0, "prompt: strict disorder screening + same-gene entries from all G2P panels shown (answers restricted to developmental disorders)"),
+    "gptoss_dev_gatedtb_allelicspectrum_allpanels": (F_DEV, "dev", 0.0, "prompt: allelic-spectrum disorder screening (rejects only a better-fitting candidate, explicit allelic/mechanism conflict, cancer/somatic/complex trait, or a different organ system) + all-panel same-gene entries"),
+    "gptoss_test_gatedtb_allelicspectrum_allpanels": (F_T26, "test", 0.0, "prompt: allelic-spectrum disorder screening + all-panel same-gene entries"),
+    "gptoss_external_gatedtb_allelicspectrum_allpanels": (F_EXT, "external", 0.0, "prompt: allelic-spectrum disorder screening + all-panel same-gene entries"),
+    "gptoss_dev_gatedtb_allelicspectrum_allpanels_stoplist": (F_DEV, "dev", 0.0, "prompt: allelic-spectrum disorder screening + all-panel same-gene entries + disease-alias stop list at the gene gate"),
+    "gptoss_test_gatedtb_allelicspectrum_allpanels_stoplist": (F_T26, "test", 0.0, "prompt: allelic-spectrum disorder screening + all-panel same-gene entries + disease-alias stop list at the gene gate"),
+    "gptoss_external_gatedtb_allelicspectrum_allpanels_stoplist": (F_EXT, "external", 0.0, "prompt: allelic-spectrum disorder screening + all-panel same-gene entries + disease-alias stop list at the gene gate"),
+    "gptoss_dev_gatedtb_allelicspectrum_allpanels_hgncgate": (F_DEV, "dev", 0.0, "prompt: allelic-spectrum disorder screening + all-panel same-gene entries + HGNC-identifier gene gate (disease names and abbreviations excluded as gene evidence; replaces the stop list)"),
+    "gptoss_test_gatedtb_allelicspectrum_allpanels_hgncgate": (F_T26, "test", 0.0, "prompt: allelic-spectrum disorder screening + all-panel same-gene entries + HGNC-identifier gene gate (released configuration)"),
+    "gptoss_external_gatedtb_allelicspectrum_allpanels_hgncgate": (F_EXT, "external", 0.0, "prompt: allelic-spectrum disorder screening + all-panel same-gene entries + HGNC-identifier gene gate (released configuration)"),
+    # candidate-presentation, decoding, model and prompt-family ablations (original-rubric cascade)
     "repl_context": (F_T26, "test", 0.0, "contextualised candidate threads"),
     "repl_temp07": (F_T26, "test", 0.0, "temperature 0.7 / top_p 0.95"),
     "repl_effort_low": (F_T26, "test", 0.0, "reasoning effort low"),
@@ -84,7 +100,26 @@ RUNS = {
     "repl_deepseek": (F_T26, "test", 0.0, "model: DeepSeek-R1-Distill-Qwen-14B"),
     "repl_qwen3": (F_T26, "test", 0.0, "model: Qwen3-30B-A3B-Instruct-2507"),
     # external held-out
-    "gptoss_external_gatedtb_tnone": (F_EXT, "external", 0.0, "full pipeline on held-out curated sets"),
+    "gptoss_external_gatedtb_tnone": (F_EXT, "external", 0.0, "full pipeline on held-out curated sets, original decision rubric"),
+}
+
+# ledger name -> job directory under revision/llm_eval/runs, where they differ
+RUN_DIR = {
+    "original_rubric_no_ce": "gptoss_test_direct_llm",
+    "gptoss_dev_gatedtb_strictdisorder": "gptoss_dev_v21A",
+    "gptoss_external_gatedtb_strictdisorder": "gptoss_external_v21A",
+    "gptoss_dev_gatedtb_strictdisorder_allpanels": "gptoss_dev_v21B",
+    "gptoss_test_gatedtb_strictdisorder_allpanels": "gptoss_test_v21B",
+    "gptoss_external_gatedtb_strictdisorder_allpanels": "gptoss_external_v21B",
+    "gptoss_dev_gatedtb_allelicspectrum_allpanels": "gptoss_dev_v22B",
+    "gptoss_test_gatedtb_allelicspectrum_allpanels": "gptoss_test_v22B",
+    "gptoss_external_gatedtb_allelicspectrum_allpanels": "gptoss_external_v22B",
+    "gptoss_dev_gatedtb_allelicspectrum_allpanels_stoplist": "gptoss_dev_v22B_stop",
+    "gptoss_test_gatedtb_allelicspectrum_allpanels_stoplist": "gptoss_test_v22B_stop",
+    "gptoss_external_gatedtb_allelicspectrum_allpanels_stoplist": "gptoss_external_v22B_stop",
+    "gptoss_dev_gatedtb_allelicspectrum_allpanels_hgncgate": "gptoss_dev_v22B_hybrid",
+    "gptoss_test_gatedtb_allelicspectrum_allpanels_hgncgate": "gptoss_test_v22B_hybrid",
+    "gptoss_external_gatedtb_allelicspectrum_allpanels_hgncgate": "gptoss_external_v22B_hybrid",
 }
 
 
@@ -95,7 +130,7 @@ def main() -> int:
     args = ap.parse_args()
     rows = []
     for run, (fix, split, cutoff, desc) in RUNS.items():
-        src = "gptoss_test_direct_llm" if run == "deployed_no_ce" else run
+        src = RUN_DIR.get(run, run)
         pq = glob.glob(f"revision/llm_eval/runs/{src}/*__llm.parquet")
         if not pq:
             print(f"[skip] {run}: no parquet")

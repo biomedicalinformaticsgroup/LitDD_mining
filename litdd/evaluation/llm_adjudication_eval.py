@@ -121,7 +121,9 @@ def candidate_scores(top5) -> dict[str, float]:
             lab, sc = item[0], item[1]
         m = G2P_ID_RE.search(str(lab) or "")
         if m:
-            out[m.group(0)] = float(sc)
+            # a candidate can carry no score (added downstream of the cross-encoder); it then
+            # passes any score cutoff rather than crashing the evaluation
+            out[m.group(0)] = float("inf") if sc is None else float(sc)
     return out
 
 
