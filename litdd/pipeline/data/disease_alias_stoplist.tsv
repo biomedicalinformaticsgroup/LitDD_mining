@@ -1,0 +1,1269 @@
+kind	gene	alias	source	mondo_example
+name	ACTA1	nemaline myopathy type 3	hgnc_alias_name	congenital myopathy 2a, typical, autosomal dominant
+name	AGL	glycogen storage disease type III	hgnc_alias_name	glycogen storage disease III
+name	AGXT	primary hyperoxaluria type 1	hgnc_alias_name	primary hyperoxaluria type 1
+name	ALX3	frontonasal dysplasia	hgnc_previous_name	frontonasal dysplasia
+name	ALX4	parietal foramina 2	hgnc_previous_name	parietal foramina 2
+name	AMT	nonketotic hyperglycinemia	hgnc_alias_name	glycine encephalopathy
+name	ANO3	dystonia 23	hgnc_alias_name	dystonia 23
+name	AP4B1	spastic paraplegia 47	hgnc_previous_name	hereditary spastic paraplegia 47
+name	AR	Kennedy disease	hgnc_alias_name	Kennedy disease
+name	ASPA	Canavan disease	hgnc_alias_name	Canavan disease
+name	ATP1A3	dystonia 12	hgnc_previous_name	dystonia 12
+name	ATP7A	Menkes syndrome	hgnc_previous_name	Menkes disease
+name	ATRX	alpha thalassemia/mental retardation syndrome X-linked	hgnc_previous_name	alpha thalassemia-X-linked intellectual disability syndrome
+name	BCKDHA	maple syrup urine disease	hgnc_alias_name	maple syrup urine disease
+name	BCKDHB	maple syrup urine disease	hgnc_alias_name	maple syrup urine disease
+name	BCS1L	Bjornstad syndrome	hgnc_alias_name	Bjornstad syndrome
+name	BCS1L	GRACILE syndrome	hgnc_alias_name	GRACILE syndrome
+name	BLM	Bloom syndrome	hgnc_previous_name	Bloom syndrome
+name	BRCA1	Fanconi anemia, complementation group S	hgnc_alias_name	Fanconi anemia, complementation group S
+name	CC2D2A	Meckel syndrome, type 6	hgnc_alias_name	Meckel syndrome, type 6
+name	CDKN1C	Beckwith-Wiedemann syndrome	hgnc_previous_name	Beckwith-Wiedemann syndrome
+name	CEP290	Bardet-Biedl syndrome 14	hgnc_alias_name	Bardet-Biedl syndrome 14
+name	CEP290	Joubert syndrome 5	hgnc_alias_name	Joubert syndrome 5
+name	CEP290	Meckel syndrome, type 4	hgnc_alias_name	Meckel syndrome, type 4
+name	CFAP418	Bardet-Biedl syndrome 21	hgnc_alias_name	bardet-biedl syndrome 21
+name	CFAP418	cone-rod dystrophy 16	hgnc_alias_name	cone-rod dystrophy 16
+name	CFL2	nemaline myopathy type 7	hgnc_alias_name	nemaline myopathy 7
+name	CHD7	CHARGE association	hgnc_previous_name	CHARGE syndrome
+name	CISD2	Wolfram syndrome 2	hgnc_previous_name	Wolfram syndrome 2
+name	CLN3	juvenile neuronal ceroid lipofuscinosis	hgnc_alias_name	juvenile neuronal ceroid lipofuscinosis
+name	COL10A1	Schmid metaphyseal chondrodysplasia	hgnc_alias_name	Schmid metaphyseal chondrodysplasia
+name	COL18A1	Knobloch syndrome, type 1	hgnc_previous_name	Knobloch syndrome 1
+name	COMP	multiple epiphyseal dysplasia	hgnc_alias_name	multiple epiphyseal dysplasia
+name	CPAP	Seckel syndrome 4	hgnc_alias_name	Seckel syndrome 4
+name	CREBBP	Rubinstein-Taybi syndrome	hgnc_previous_name	Rubinstein-Taybi syndrome
+name	CTNS	cystinosis, nephropathic	hgnc_previous_name	nephropathic cystinosis
+name	CYP27A1	cerebrotendinous xanthomatosis	hgnc_alias_name	cerebrotendinous xanthomatosis
+name	DCAF17	Woodhouse-Sakati syndrome	hgnc_alias_name	Woodhouse-Sakati syndrome
+name	DCDC2	nephronophthisis 19	hgnc_alias_name	nephronophthisis 19
+name	DDX11	Warsaw Breakage Syndrome	hgnc_alias_name	Warsaw breakage syndrome
+name	DHCR7	Smith-Lemli-Opitz syndrome	hgnc_previous_name	Smith-Lemli-Opitz syndrome
+name	ELN	Williams-Beuren syndrome	hgnc_alias_name	Williams syndrome
+name	ELN	supravalvular aortic stenosis	hgnc_alias_name	supravalvular aortic stenosis
+name	EPHB4	EphB4	hgnc_previous_name	EPHB4
+name	ERBB3	lethal congenital contracture syndrome 2	hgnc_previous_name	lethal congenital contracture syndrome 2
+name	ERCC5	Cockayne syndrome	hgnc_alias_name	Cockayne syndrome
+name	ESCO2	Roberts syndrome	hgnc_previous_name	Roberts-SC phocomelia syndrome
+name	ETFA	multiple acyl-CoA dehydrogenase deficiency	hgnc_alias_name	multiple acyl-CoA dehydrogenase deficiency
+name	EVC	Ellis van Creveld syndrome	hgnc_previous_name	Ellis-van Creveld syndrome
+name	FANCA	Fanconi anemia complementation group A	hgnc_previous_name	Fanconi anemia complementation group A
+name	FANCB	Fanconi anemia complementation group B	hgnc_previous_name	Fanconi anemia complementation group B
+name	FANCC	Fanconi anemia complementation group C	hgnc_previous_name	Fanconi anemia complementation group C
+name	FANCD2	Fanconi anemia complementation group D2	hgnc_previous_name	Fanconi anemia complementation group D2
+name	FANCE	Fanconi anemia complementation group E	hgnc_previous_name	Fanconi anemia complementation group E
+name	FANCF	Fanconi anemia complementation group F	hgnc_previous_name	Fanconi anemia complementation group F
+name	FANCG	Fanconi anemia complementation group G	hgnc_previous_name	Fanconi anemia complementation group G
+name	FANCI	Fanconi anemia complementation group I	hgnc_previous_name	Fanconi anemia complementation group I
+name	FANCL	Fanconi anemia complementation group L	hgnc_previous_name	Fanconi anemia complementation group L
+name	FBN1	Marfan syndrome	hgnc_alias_name	Marfan syndrome
+name	FBN2	congenital contractural arachnodactyly	hgnc_previous_name	congenital contractural arachnodactyly
+name	FGFR1	Pfeiffer syndrome	hgnc_alias_name	Pfeiffer syndrome
+name	FGFR2	Crouzon syndrome	hgnc_alias_name	Crouzon syndrome
+name	FGFR2	Jackson-Weiss syndrome	hgnc_previous_name	Jackson-Weiss syndrome
+name	FGFR2	Pfeiffer syndrome	hgnc_alias_name	Pfeiffer syndrome
+name	FLT4	primary congenital lymphedema	hgnc_alias_name	lymphatic malformation 1
+name	FMR1	premature ovarian failure 1	hgnc_previous_name	premature ovarian failure 1
+name	FRAS1	Fraser syndrome 1	hgnc_previous_name	Fraser syndrome 1
+name	FXN	Friedreich ataxia	hgnc_previous_name	Friedreich ataxia
+name	GAA	Pompe disease	hgnc_alias_name	glycogen storage disease II
+name	GAA	glycogen storage disease type II	hgnc_alias_name	glycogen storage disease II
+name	GALC	Krabbe disease	hgnc_alias_name	Krabbe disease
+name	GALNS	Morquio syndrome	hgnc_alias_name	mucopolysaccharidosis type 4
+name	GALNS	mucopolysaccharidosis type IVA	hgnc_alias_name	mucopolysaccharidosis type 4A
+name	GBE1	Andersen disease	hgnc_alias_name	glycogen storage disease due to glycogen branching enzyme deficiency
+name	GBE1	glycogen storage disease type IV	hgnc_alias_name	glycogen storage disease due to glycogen branching enzyme deficiency
+name	GCH1	dopa-responsive dystonia	hgnc_alias_name	dopa-responsive dystonia
+name	GJB3	erythrokeratodermia variabilis	hgnc_previous_name	erythrokeratodermia variabilis
+name	GLDC	nonketotic hyperglycinemia	hgnc_alias_name	glycine encephalopathy
+name	GLE1	lethal congenital contracture syndrome 1	hgnc_previous_name	lethal congenital contracture syndrome 1
+name	GLI3	Greig cephalopolysyndactyly syndrome	hgnc_previous_name	Greig cephalopolysyndactyly syndrome
+name	GLRA1	stiff person syndrome	hgnc_alias_name	stiff-person syndrome
+name	GTF2H5	trichothiodystrophy	hgnc_previous_name	trichothiodystrophy
+name	HEXA	GM2 gangliosidosis	hgnc_alias_name	GM2 gangliosidosis
+name	HEXA	Tay Sachs disease	hgnc_alias_name	Tay-Sachs disease
+name	HOXD13	synpolydactyly	hgnc_alias_name	synpolydactyly
+name	HPRT1	Lesch-Nyhan syndrome	hgnc_alias_name	Lesch-Nyhan syndrome
+name	HPS1	Hermansky-Pudlak syndrome	hgnc_previous_name	Hermansky-Pudlak syndrome
+name	HPS1	Hermansky-Pudlak syndrome 1	hgnc_previous_name	Hermansky-Pudlak syndrome 1
+name	HPSE2	urofacial syndrome	hgnc_previous_name	Ochoa syndrome
+name	HSD17B10	mental retardation, X-linked, syndromic 10	hgnc_previous_name	HSD10 mitochondrial disease
+name	HYLS1	hydrolethalus syndrome 1	hgnc_previous_name	hydrolethalus syndrome 1
+name	IDS	Hunter syndrome	hgnc_alias_name	mucopolysaccharidosis type 2
+name	IDUA	mucopolysaccharidosis type I	hgnc_alias_name	mucopolysaccharidosis type 1
+name	IKBKG	incontinentia pigmenti	hgnc_previous_name	incontinentia pigmenti
+name	INPP5E	Joubert syndrome 1	hgnc_previous_name	Joubert syndrome 1
+name	IQSEC2	mental retardation, X-linked 18	hgnc_previous_name	intellectual disability, X-linked 1
+name	IQSEC2	mental retardation, X-linked 78	hgnc_previous_name	intellectual disability, X-linked 1
+name	IRF6	Van der Woude syndrome	hgnc_previous_name	van der Woude syndrome
+name	JAG1	Alagille syndrome	hgnc_previous_name	Alagille syndrome
+name	KBTBD13	nemaline myopathy type 6	hgnc_alias_name	nemaline myopathy 6
+name	KCNE1	Jervell and Lange-Nielsen syndrome 2	hgnc_alias_name	Jervell and Lange-Nielsen syndrome 2
+name	KCNE1	Long QT syndrome 5	hgnc_alias_name	long QT syndrome 5
+name	KCNQ1	Jervell and Lange-Nielsen syndrome 1	hgnc_alias_name	Jervell and Lange-Nielsen syndrome 1
+name	KIT	piebald trait	hgnc_previous_name	piebaldism
+name	KLHL40	nemaline myopathy type 8	hgnc_alias_name	nemaline myopathy 8
+name	KLHL7	retinitis pigmentosa 42	hgnc_alias_name	retinitis pigmentosa 42
+name	LAMA2	congenital muscular dystrophy	hgnc_alias_name	congenital muscular dystrophy
+name	LRP5	exudative vitreoretinopathy 1	hgnc_previous_name	exudative vitreoretinopathy 1
+name	MCOLN1	mucolipidosis type IV	hgnc_alias_name	mucolipidosis type IV
+name	MECP2	Rett syndrome	hgnc_previous_name	Rett syndrome
+name	MED12	FG syndrome 1	hgnc_previous_name	FG syndrome 1
+name	MKKS	McKusick-Kaufman syndrome	hgnc_previous_name	McKusick-Kaufman syndrome
+name	MKS1	Meckel syndrome, type 1	hgnc_previous_name	Meckel syndrome, type 1
+name	MLC1	megalencephalic leukoencephalopathy with subcortical cysts 1	hgnc_previous_name	megalencephalic leukoencephalopathy with subcortical cysts 1
+name	MPV17	glomerulosclerosis	hgnc_alias_name	glomerulosclerosis
+name	MSX2	parietal foramina 1	hgnc_previous_name	parietal foramina 1
+name	NEB	nemaline myopathy type 2	hgnc_alias_name	nemaline myopathy 2
+name	NF1	neurofibromatosis	hgnc_alias_name	neurofibromatosis
+name	NMNAT1	Leber congenital amaurosis 9	hgnc_previous_name	Leber congenital amaurosis 9
+name	NPC1	Niemann-Pick disease, type C1	hgnc_previous_name	Niemann-Pick disease, type C1
+name	NPC2	Niemann-Pick disease, type C2	hgnc_previous_name	Niemann-Pick disease, type C2
+name	NPHP4	nephronophthisis 4	hgnc_previous_name	nephronophthisis 4
+name	NPR2	acromesomelic dysplasia, Maroteaux type	hgnc_previous_name	acromesomelic dysplasia 1, Maroteaux type
+name	NSD1	Sotos syndrome	hgnc_previous_name	Sotos syndrome
+name	OCRL	oculocerebrorenal syndrome of Lowe	hgnc_previous_name	oculocerebrorenal syndrome
+name	OFD1	Joubert syndrome type 10	hgnc_alias_name	Joubert syndrome 10
+name	OFD1	oral-facial-digital syndrome 1	hgnc_previous_name	orofaciodigital syndrome I
+name	OTC	ornithine transcarbamylase deficiency	hgnc_alias_name	ornithine carbamoyltransferase deficiency
+name	PAX6	Aniridia 1	hgnc_alias_name	aniridia 1
+name	PAX6	Aniridia 2	hgnc_alias_name	aniridia 2
+name	PCNT	Seckel syndrome 4	hgnc_alias_name	Seckel syndrome 4
+name	PDCD10	cerebral cavernous malformations 3	hgnc_previous_name	cerebral cavernous malformation 3
+name	PEX1	Zellweger syndrome	hgnc_previous_name	Zellweger spectrum disorders
+name	PEX2	Zellweger syndrome	hgnc_alias_name	Zellweger spectrum disorders
+name	PEX7	Refsum disease	hgnc_alias_name	adult Refsum disease
+name	PHF6	Borjeson-Forssman-Lehmann syndrome	hgnc_previous_name	Borjeson-Forssman-Lehmann syndrome
+name	PIGA	paroxysmal nocturnal hemoglobinuria	hgnc_alias_name	paroxysmal nocturnal hemoglobinuria
+name	PITX3	anterior segment mesenchymal dysgenesis	hgnc_previous_name	anterior segment dysgenesis
+name	PLP1	Pelizaeus-Merzbacher disease	hgnc_alias_name	Pelizaeus-Merzbacher spectrum disorder
+name	POMGNT1	muscle-eye-brain disease	hgnc_previous_name	muscle-eye-brain disease
+name	PQBP1	Sutherland-Haan X-linked mental retardation syndrome	hgnc_previous_name	Renpenning syndrome
+name	PRRT2	Episodic kinesigenic dyskinesia 1	hgnc_alias_name	episodic kinesigenic dyskinesia 1
+name	PTPN11	Noonan syndrome 1	hgnc_previous_name	Noonan syndrome 1
+name	PYGL	Hers disease	hgnc_alias_name	glycogen storage disease VI
+name	PYGL	glycogen storage disease type VI	hgnc_alias_name	glycogen storage disease VI
+name	RAB39B	Waisman syndrome	hgnc_previous_name	early-onset parkinsonism-intellectual disability syndrome
+name	RBBP8	Seckel syndrome 2	hgnc_previous_name	Seckel syndrome 2
+name	RMRP	cartilage-hair hypoplasia	hgnc_previous_name	cartilage-hair hypoplasia
+name	RNASEH2A	Aicardi-Goutieres syndrome 4	hgnc_previous_name	Aicardi-Goutieres syndrome 4
+name	RNASEH2B	Aicardi-Goutieres syndrome 2	hgnc_previous_name	Aicardi-Goutieres syndrome 2
+name	RNASEH2C	Aicardi-Goutieres syndrome 3	hgnc_alias_name	Aicardi-Goutieres syndrome 3
+name	RNF213	Moyamoya disease 2	hgnc_previous_name	Moyamoya disease 2
+name	ROBO3	horizontal gaze palsy with progressive scoliosis	hgnc_previous_name	horizontal gaze palsy with progressive scoliosis
+name	RPGRIP1L	Meckel syndrome, type 5	hgnc_alias_name	Meckel syndrome, type 5
+name	RPS19	Diamond-Blackfan anemia	hgnc_alias_name	Diamond-Blackfan anemia
+name	RYR2	arrhythmogenic right ventricular dysplasia 2	hgnc_previous_name	catecholaminergic polymorphic ventricular tachycardia 1
+name	SAMHD1	Aicardi-Goutieres syndrome 5	hgnc_alias_name	Aicardi-Goutieres syndrome 5
+name	SBDS	Shwachman-Bodian-Diamond syndrome	hgnc_previous_name	Shwachman-Diamond syndrome
+name	SCO2	myopia 6	hgnc_previous_name	myopia 6
+name	SDCCAG8	Bardet-Biedl syndrome 16	hgnc_alias_name	Bardet-Biedl syndrome 16
+name	SDCCAG8	Senior-Loken syndrome 7	hgnc_alias_name	Senior-Loken syndrome 7
+name	SELENON	rigid spine muscular dystrophy 1	hgnc_previous_name	rigid spine muscular dystrophy 1
+name	SGSH	mucopolysaccharidosis type IIIA	hgnc_alias_name	mucopolysaccharidosis type 3A
+name	SH3BP2	Cherubism	hgnc_previous_name	cherubism
+name	SIL1	Marinesco-Sjogren syndrome	hgnc_previous_name	Marinesco-Sjogren syndrome
+name	SLC16A2	Allan-Herndon-Dudley syndrome	hgnc_previous_name	Allan-Herndon-Dudley syndrome
+name	SLC17A5	Salla disease	hgnc_alias_name	Salla disease
+name	SLC17A5	sialic acid storage disease	hgnc_previous_name	Salla disease
+name	SLC25A13	citrullinemia type II	hgnc_alias_name	citrullinemia type II
+name	SLC26A2	diastrophic dysplasia	hgnc_previous_name	diastrophic dysplasia
+name	SOX3	panhypopituitarism	hgnc_previous_name	panhypopituitarism
+name	TAFAZZIN	Barth syndrome	hgnc_alias_name	Barth syndrome
+name	TAFAZZIN	tafazzin	hgnc_previous_name	TAFAZZIN
+name	TBCE	Kenny-Caffey syndrome	hgnc_previous_name	Kenny-Caffey syndrome
+name	TBX1	velocardiofacial syndrome	hgnc_previous_name	velocardiofacial syndrome
+name	TCN2	macrocytic anemia	hgnc_alias_name	macrocytic anemia
+name	TCTN2	Meckel syndrome, type 8	hgnc_alias_name	Meckel syndrome, type 8
+name	TGFB1	Camurati-Engelmann disease	hgnc_alias_name	Camurati-Engelmann disease
+name	TGFB3	arrhythmogenic right ventricular dysplasia 1	hgnc_previous_name	arrhythmogenic right ventricular dysplasia 1
+name	TGFBR1	multiple self-healing squamous epithelioma	hgnc_previous_name	multiple self-healing squamous epithelioma
+name	TKT	Wernicke-Korsakoff syndrome	hgnc_alias_name	Wernicke-Korsakoff syndrome
+name	TMEM216	Meckel syndrome, type 2	hgnc_previous_name	Meckel syndrome, type 2
+name	TMEM67	Meckel syndrome, type 3	hgnc_previous_name	Meckel syndrome, type 3
+name	TPM2	nemaline myopathy type 4	hgnc_alias_name	congenital myopathy 23
+name	TREX1	Aicardi-Goutieres syndrome 1	hgnc_previous_name	Aicardi-Goutieres syndrome 1
+name	TRIM37	Mulibrey nanism	hgnc_previous_name	mulibrey nanism
+name	TSC1	tuberous sclerosis 1	hgnc_previous_name	tuberous sclerosis 1
+name	TSC2	tuberous sclerosis 2	hgnc_previous_name	tuberous sclerosis 2
+name	TUBB	tubulin, beta	hgnc_previous_name	tubulin, beta
+name	TWIST1	Saethre-Chotzen syndrome	hgnc_alias_name	Saethre-Chotzen syndrome
+name	TWIST1	craniosynostosis	hgnc_previous_name	craniosynostosis
+name	UBE3A	Angelman syndrome	hgnc_alias_name	Angelman syndrome
+name	UROS	congenital erythropoietic porphyria	hgnc_alias_name	cutaneous porphyria
+name	USB1	poikiloderma with neutropenia	hgnc_alias_name	poikiloderma with neutropenia
+name	WDR45	neurodegeneration with brain iron accumulation 5	hgnc_alias_name	neurodegeneration with brain iron accumulation 5
+name	WT1	Wilms tumor 1	hgnc_previous_name	Wilms tumor 1
+name	ZC4H2	Miles-Carpenter X-linked mental retardation syndrome	hgnc_previous_name	Wieacker-Wolff syndrome
+name	ZC4H2	Wieacker-Wolff syndrome	hgnc_previous_name	Wieacker-Wolff syndrome
+name	ZEB1	posterior polymorphous corneal dystrophy 3	hgnc_previous_name	posterior polymorphous corneal dystrophy 3
+name	ZMPSTE24	Hutchinson-Gilford progeria syndrome	hgnc_alias_name	Hutchinson-Gilford progeria syndrome
+symbol	AARS1	CMT2N	g2p_previous_symbol	Charcot-Marie-Tooth disease axonal type 2N
+symbol	AARS1	CMT2N	hgnc_alias_symbol	Charcot-Marie-Tooth disease axonal type 2N
+symbol	ABCB11	PFIC2	g2p_previous_symbol	progressive familial intrahepatic cholestasis type 2
+symbol	ABCB11	PFIC2	hgnc_previous_symbol	progressive familial intrahepatic cholestasis type 2
+symbol	ABCB7	ASAT	g2p_previous_symbol	X-linked sideroblastic anemia with ataxia
+symbol	ABCB7	ASAT	hgnc_alias_symbol	X-linked sideroblastic anemia with ataxia
+symbol	ABCC6	PXE	g2p_previous_symbol	pseudoxanthoma elasticum (inherited or acquired)
+symbol	ABCC6	PXE	hgnc_previous_symbol	pseudoxanthoma elasticum (inherited or acquired)
+symbol	ABCC9	CMD1O	g2p_previous_symbol	dilated cardiomyopathy 1O
+symbol	ABCC9	CMD1O	hgnc_alias_symbol	dilated cardiomyopathy 1O
+symbol	ABCD1	ALD	g2p_previous_symbol	adrenoleukodystrophy
+symbol	ABCD1	ALD	hgnc_previous_symbol	adrenoleukodystrophy
+symbol	ABCD1	AMN	g2p_previous_symbol	adrenomyeloneuropathy
+symbol	ABCD1	AMN	hgnc_alias_symbol	adrenomyeloneuropathy
+symbol	ABCD1	adrenoleukodystrophy	hgnc_alias_symbol	adrenoleukodystrophy
+symbol	ACADM	MCAD	g2p_previous_symbol	medium chain acyl-CoA dehydrogenase deficiency
+symbol	ACADM	MCAD	hgnc_alias_symbol	medium chain acyl-CoA dehydrogenase deficiency
+symbol	ACADS	SCAD	g2p_previous_symbol	short chain acyl-CoA dehydrogenase deficiency
+symbol	ACADS	SCAD	hgnc_alias_symbol	short chain acyl-CoA dehydrogenase deficiency
+symbol	ACADVL	VLCAD	g2p_previous_symbol	very long chain acyl-CoA dehydrogenase deficiency
+symbol	ACADVL	VLCAD	hgnc_alias_symbol	very long chain acyl-CoA dehydrogenase deficiency
+symbol	ACTC1	CMD1R	g2p_previous_symbol	dilated cardiomyopathy 1R
+symbol	ACTC1	CMD1R	hgnc_alias_symbol	dilated cardiomyopathy 1R
+symbol	AFG3L2	SCA28	g2p_previous_symbol	spinocerebellar ataxia type 28
+symbol	AFG3L2	SCA28	hgnc_previous_symbol	spinocerebellar ataxia type 28
+symbol	AFG3L2	SPAX5	g2p_previous_symbol	spastic ataxia 5
+symbol	AFG3L2	SPAX5	hgnc_alias_symbol	spastic ataxia 5
+symbol	AGXT	AGT	g2p_previous_symbol	AGT
+symbol	AGXT	AGT	hgnc_alias_symbol	AGT
+symbol	AGXT	PH1	g2p_previous_symbol	primary hyperoxaluria type 1
+symbol	AGXT	PH1	hgnc_alias_symbol	primary hyperoxaluria type 1
+symbol	AHI1	JBTS3	g2p_previous_symbol	Joubert syndrome 3
+symbol	AHI1	JBTS3	hgnc_alias_symbol	Joubert syndrome 3
+symbol	AIFM1	CMTX4	g2p_previous_symbol	Charcot-Marie-Tooth disease X-linked recessive 4
+symbol	AIFM1	CMTX4	hgnc_alias_symbol	Charcot-Marie-Tooth disease X-linked recessive 4
+symbol	AIFM1	NAMSD	g2p_previous_symbol	Charcot-Marie-Tooth disease X-linked recessive 4
+symbol	AIFM1	NAMSD	hgnc_previous_symbol	Charcot-Marie-Tooth disease X-linked recessive 4
+symbol	AIPL1	LCA4	g2p_previous_symbol	Leber congenital amaurosis 4
+symbol	AIPL1	LCA4	hgnc_previous_symbol	Leber congenital amaurosis 4
+symbol	AIRE	APS1	g2p_previous_symbol	autoimmune polyendocrine syndrome type 1
+symbol	AIRE	APS1	hgnc_alias_symbol	autoimmune polyendocrine syndrome type 1
+symbol	ALDH18A1	SPG9	g2p_previous_symbol	autosomal dominant spastic paraplegia type 9
+symbol	ALDH18A1	SPG9	hgnc_previous_symbol	autosomal dominant spastic paraplegia type 9
+symbol	ALDH3A2	SLS	g2p_previous_symbol	Sjogren-Larsson syndrome
+symbol	ALDH3A2	SLS	hgnc_previous_symbol	Sjogren-Larsson syndrome
+symbol	ALG1	CDG1K	g2p_previous_symbol	ALG1-congenital disorder of glycosylation
+symbol	ALG1	CDG1K	hgnc_alias_symbol	ALG1-congenital disorder of glycosylation
+symbol	ALG11	CDG1P	g2p_previous_symbol	ALG11-congenital disorder of glycosylation
+symbol	ALG11	CDG1P	hgnc_alias_symbol	ALG11-congenital disorder of glycosylation
+symbol	ALG12	CDG1G	g2p_previous_symbol	ALG12-congenital disorder of glycosylation
+symbol	ALG12	CDG1G	hgnc_alias_symbol	ALG12-congenital disorder of glycosylation
+symbol	ALG13	CDG1S	g2p_previous_symbol	developmental and epileptic encephalopathy, 36
+symbol	ALG13	CDG1S	hgnc_alias_symbol	developmental and epileptic encephalopathy, 36
+symbol	ALG2	CDG1I	g2p_previous_symbol	ALG2-congenital disorder of glycosylation
+symbol	ALG2	CDG1I	hgnc_alias_symbol	ALG2-congenital disorder of glycosylation
+symbol	AMPD2	SPG63	g2p_previous_symbol	hereditary spastic paraplegia 63
+symbol	AMPD2	SPG63	hgnc_alias_symbol	hereditary spastic paraplegia 63
+symbol	ANK2	LQT4	g2p_previous_symbol	long QT syndrome 4
+symbol	ANK2	LQT4	hgnc_previous_symbol	long QT syndrome 4
+symbol	ANKRD26	THC2	g2p_previous_symbol	thrombocytopenia 2
+symbol	ANKRD26	THC2	hgnc_previous_symbol	thrombocytopenia 2
+symbol	ANO3	DYT23	g2p_previous_symbol	dystonia 23
+symbol	ANO3	DYT23	hgnc_alias_symbol	dystonia 23
+symbol	ANO5	LGMD2L	g2p_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2L
+symbol	ANO5	LGMD2L	hgnc_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2L
+symbol	AP1S2	MRX59	g2p_previous_symbol	syndromic X-linked intellectual disability 5
+symbol	AP1S2	MRX59	hgnc_previous_symbol	syndromic X-linked intellectual disability 5
+symbol	AP2S1	HHC3	g2p_previous_symbol	familial hypocalciuric hypercalcemia 3
+symbol	AP2S1	HHC3	hgnc_previous_symbol	familial hypocalciuric hypercalcemia 3
+symbol	AP4B1	SPG47	g2p_previous_symbol	hereditary spastic paraplegia 47
+symbol	AP4B1	SPG47	hgnc_previous_symbol	hereditary spastic paraplegia 47
+symbol	AP4E1	SPG51	g2p_previous_symbol	hereditary spastic paraplegia 51
+symbol	AP4E1	SPG51	hgnc_alias_symbol	hereditary spastic paraplegia 51
+symbol	AP4M1	SPG50	g2p_previous_symbol	hereditary spastic paraplegia 50
+symbol	AP4M1	SPG50	hgnc_alias_symbol	hereditary spastic paraplegia 50
+symbol	AP4S1	SPG52	g2p_previous_symbol	hereditary spastic paraplegia 52
+symbol	AP4S1	SPG52	hgnc_alias_symbol	hereditary spastic paraplegia 52
+symbol	APTX	AOA1	g2p_previous_symbol	ataxia, early-onset, with oculomotor apraxia and hypoalbuminemia
+symbol	APTX	AOA1	hgnc_alias_symbol	ataxia, early-onset, with oculomotor apraxia and hypoalbuminemia
+symbol	AR	AIS	g2p_previous_symbol	androgen insensitivity syndrome, non-human animal
+symbol	AR	AIS	hgnc_alias_symbol	androgen insensitivity syndrome, non-human animal
+symbol	AR	SBMA	g2p_previous_symbol	Kennedy disease
+symbol	AR	SBMA	hgnc_previous_symbol	Kennedy disease
+symbol	AR	SMAX1	g2p_previous_symbol	Kennedy disease
+symbol	AR	SMAX1	hgnc_alias_symbol	Kennedy disease
+symbol	ARCN1	COPD	g2p_previous_symbol	chronic obstructive pulmonary disease
+symbol	ARCN1	COPD	hgnc_previous_symbol	chronic obstructive pulmonary disease
+symbol	ARL6	BBS3	g2p_previous_symbol	Bardet-Biedl syndrome 3
+symbol	ARL6	BBS3	hgnc_previous_symbol	Bardet-Biedl syndrome 3
+symbol	ARL6	RP55	g2p_previous_symbol	retinitis pigmentosa 55
+symbol	ARL6	RP55	hgnc_alias_symbol	retinitis pigmentosa 55
+symbol	ARX	EIEE1	g2p_previous_symbol	developmental and epileptic encephalopathy, 1
+symbol	ARX	EIEE1	hgnc_alias_symbol	developmental and epileptic encephalopathy, 1
+symbol	ASS1	CTLN1	g2p_previous_symbol	citrullinemia type I
+symbol	ASS1	CTLN1	hgnc_alias_symbol	citrullinemia type I
+symbol	ATL1	FSP1	g2p_previous_symbol	hereditary spastic paraplegia 3A
+symbol	ATL1	FSP1	hgnc_alias_symbol	hereditary spastic paraplegia 3A
+symbol	ATL1	SPG3A	g2p_previous_symbol	hereditary spastic paraplegia 3A
+symbol	ATL1	SPG3A	hgnc_previous_symbol	hereditary spastic paraplegia 3A
+symbol	ATN1	DRPLA	g2p_previous_symbol	dentatorubral-pallidoluysian atrophy
+symbol	ATN1	DRPLA	hgnc_previous_symbol	dentatorubral-pallidoluysian atrophy
+symbol	ATP13A2	PARK9	g2p_previous_symbol	Kufor-Rakeb syndrome
+symbol	ATP13A2	PARK9	hgnc_previous_symbol	Kufor-Rakeb syndrome
+symbol	ATP1A3	DYT12	g2p_previous_symbol	dystonia 12
+symbol	ATP1A3	DYT12	hgnc_previous_symbol	dystonia 12
+symbol	ATP7A	MNK	g2p_previous_symbol	Menkes disease
+symbol	ATP7A	MNK	hgnc_previous_symbol	Menkes disease
+symbol	ATP8B1	BRIC	g2p_previous_symbol	benign recurrent intrahepatic cholestasis
+symbol	ATP8B1	BRIC	hgnc_previous_symbol	benign recurrent intrahepatic cholestasis
+symbol	ATP8B1	PFIC	g2p_previous_symbol	progressive familial intrahepatic cholestasis
+symbol	ATP8B1	PFIC	hgnc_alias_symbol	progressive familial intrahepatic cholestasis
+symbol	ATP8B1	PFIC1	g2p_previous_symbol	progressive familial intrahepatic cholestasis type 1
+symbol	ATP8B1	PFIC1	hgnc_previous_symbol	progressive familial intrahepatic cholestasis type 1
+symbol	ATR	SCKL	g2p_previous_symbol	Seckel syndrome
+symbol	ATR	SCKL	hgnc_alias_symbol	Seckel syndrome
+symbol	ATR	SCKL1	g2p_previous_symbol	Seckel syndrome 1
+symbol	ATR	SCKL1	hgnc_alias_symbol	Seckel syndrome 1
+symbol	BBS2	BBS	g2p_previous_symbol	Bardet-Biedl syndrome
+symbol	BBS2	BBS	hgnc_previous_symbol	Bardet-Biedl syndrome
+symbol	BLOC1S6	HPS9	g2p_previous_symbol	Hermansky-Pudlak syndrome 9
+symbol	BLOC1S6	HPS9	hgnc_alias_symbol	Hermansky-Pudlak syndrome 9
+symbol	BRCA2	FAD	g2p_previous_symbol	familial Alzheimer disease
+symbol	BRCA2	FAD	hgnc_alias_symbol	familial Alzheimer disease
+symbol	BRCA2	FAD1	g2p_previous_symbol	Fanconi anemia complementation group D1
+symbol	BRCA2	FAD1	hgnc_alias_symbol	Fanconi anemia complementation group D1
+symbol	BRCA2	FANCD1	g2p_previous_symbol	Fanconi anemia complementation group D1
+symbol	BRCA2	FANCD1	hgnc_previous_symbol	Fanconi anemia complementation group D1
+symbol	BRD4	MCAP	g2p_previous_symbol	megalencephaly-capillary malformation-polymicrogyria syndrome
+symbol	BRD4	MCAP	hgnc_alias_symbol	megalencephaly-capillary malformation-polymicrogyria syndrome
+symbol	BRIP1	FANCJ	g2p_previous_symbol	Fanconi anemia complementation group J
+symbol	BRIP1	FANCJ	hgnc_alias_symbol	Fanconi anemia complementation group J
+symbol	CACNA1A	FHM	g2p_previous_symbol	familial hemiplegic migraine
+symbol	CACNA1A	FHM	hgnc_alias_symbol	familial hemiplegic migraine
+symbol	CACNA1A	HPCA	g2p_previous_symbol	HPCA
+symbol	CACNA1A	HPCA	hgnc_alias_symbol	HPCA
+symbol	CACNA1A	MHP1	g2p_previous_symbol	migraine, familial hemiplegic, 1
+symbol	CACNA1A	MHP1	hgnc_previous_symbol	migraine, familial hemiplegic, 1
+symbol	CACNA1A	SCA6	g2p_previous_symbol	spinocerebellar ataxia type 6
+symbol	CACNA1A	SCA6	hgnc_previous_symbol	spinocerebellar ataxia type 6
+symbol	CACNB4	EJM4	g2p_previous_symbol	myoclonic epilepsy, juvenile, susceptibility to, 4
+symbol	CACNB4	EJM4	hgnc_alias_symbol	myoclonic epilepsy, juvenile, susceptibility to, 4
+symbol	CASK	FGS4	g2p_previous_symbol	FG syndrome 4
+symbol	CASK	FGS4	hgnc_alias_symbol	FG syndrome 4
+symbol	CC2D1A	MRT3	g2p_previous_symbol	intellectual disability, autosomal recessive 3
+symbol	CC2D1A	MRT3	hgnc_alias_symbol	intellectual disability, autosomal recessive 3
+symbol	CC2D2A	JBTS9	g2p_previous_symbol	Joubert syndrome 9
+symbol	CC2D2A	JBTS9	hgnc_alias_symbol	Joubert syndrome 9
+symbol	CC2D2A	MKS6	g2p_previous_symbol	Meckel syndrome, type 6
+symbol	CC2D2A	MKS6	hgnc_alias_symbol	Meckel syndrome, type 6
+symbol	CCDC39	CILD14	g2p_previous_symbol	primary ciliary dyskinesia 14
+symbol	CCDC39	CILD14	hgnc_alias_symbol	primary ciliary dyskinesia 14
+symbol	CCDC40	CILD15	g2p_previous_symbol	primary ciliary dyskinesia 15
+symbol	CCDC40	CILD15	hgnc_alias_symbol	primary ciliary dyskinesia 15
+symbol	CCDC88A	APE	g2p_previous_symbol	apparent mineralocorticoid excess
+symbol	CCDC88A	APE	hgnc_alias_symbol	apparent mineralocorticoid excess
+symbol	CCDC88C	SCA40	g2p_previous_symbol	spinocerebellar ataxia type 40
+symbol	CCDC88C	SCA40	hgnc_alias_symbol	spinocerebellar ataxia type 40
+symbol	CDH23	USH1D	g2p_previous_symbol	Usher syndrome type 1D
+symbol	CDH23	USH1D	hgnc_previous_symbol	Usher syndrome type 1D
+symbol	CDK13	CHED	g2p_previous_symbol	congenital hereditary endothelial dystrophy of cornea
+symbol	CDK13	CHED	hgnc_alias_symbol	congenital hereditary endothelial dystrophy of cornea
+symbol	CDKL5	EIEE2	g2p_previous_symbol	developmental and epileptic encephalopathy, 2
+symbol	CDKL5	EIEE2	hgnc_alias_symbol	developmental and epileptic encephalopathy, 2
+symbol	CDKN1C	BWS	g2p_previous_symbol	Beckwith-Wiedemann syndrome
+symbol	CDKN1C	BWS	hgnc_previous_symbol	Beckwith-Wiedemann syndrome
+symbol	CEP104	JBTS25	g2p_previous_symbol	Joubert syndrome 25
+symbol	CEP104	JBTS25	hgnc_alias_symbol	Joubert syndrome 25
+symbol	CEP152	SCKL5	g2p_previous_symbol	Seckel syndrome 5
+symbol	CEP152	SCKL5	hgnc_alias_symbol	Seckel syndrome 5
+symbol	CEP290	BBS14	g2p_previous_symbol	Bardet-Biedl syndrome 14
+symbol	CEP290	BBS14	hgnc_alias_symbol	Bardet-Biedl syndrome 14
+symbol	CEP290	JBTS5	g2p_previous_symbol	Joubert syndrome 5
+symbol	CEP290	JBTS5	hgnc_alias_symbol	Joubert syndrome 5
+symbol	CEP290	LCA10	g2p_previous_symbol	Leber congenital amaurosis 10
+symbol	CEP290	LCA10	hgnc_alias_symbol	Leber congenital amaurosis 10
+symbol	CEP290	MKS4	g2p_previous_symbol	Meckel syndrome, type 4
+symbol	CEP290	MKS4	hgnc_alias_symbol	Meckel syndrome, type 4
+symbol	CEP41	JBTS15	g2p_previous_symbol	Joubert syndrome 15
+symbol	CEP41	JBTS15	hgnc_alias_symbol	Joubert syndrome 15
+symbol	CEP83	NPHP18	hgnc_alias_symbol	nephronophthisis 18
+symbol	CFAP298	CILD26	g2p_previous_symbol	primary ciliary dyskinesia 26
+symbol	CFAP298	CILD26	hgnc_alias_symbol	primary ciliary dyskinesia 26
+symbol	CFAP418	CORD16	hgnc_alias_symbol	cone-rod dystrophy 16
+symbol	CFAP418	RP64	hgnc_alias_symbol	retinitis pigmentosa 64
+symbol	CFL2	NEM7	g2p_previous_symbol	nemaline myopathy 7
+symbol	CFL2	NEM7	hgnc_alias_symbol	nemaline myopathy 7
+symbol	CHSY1	CSS1	g2p_previous_symbol	Coffin-Siris syndrome 1
+symbol	CHSY1	CSS1	hgnc_alias_symbol	Coffin-Siris syndrome 1
+symbol	CIB2	USH1J	g2p_previous_symbol	autosomal recessive nonsyndromic hearing loss 48
+symbol	CIB2	USH1J	hgnc_previous_symbol	autosomal recessive nonsyndromic hearing loss 48
+symbol	CISD2	WFS2	g2p_previous_symbol	Wolfram syndrome 2
+symbol	CISD2	WFS2	hgnc_previous_symbol	Wolfram syndrome 2
+symbol	CLCN7	OPTA2	g2p_previous_symbol	autosomal dominant osteopetrosis 2
+symbol	CLCN7	OPTA2	hgnc_alias_symbol	autosomal dominant osteopetrosis 2
+symbol	CLN3	JNCL	g2p_previous_symbol	juvenile neuronal ceroid lipofuscinosis
+symbol	CLN3	JNCL	hgnc_alias_symbol	juvenile neuronal ceroid lipofuscinosis
+symbol	CLN8	EPMR	g2p_previous_symbol	neuronal ceroid lipofuscinosis 8 northern epilepsy variant
+symbol	CLN8	EPMR	hgnc_previous_symbol	neuronal ceroid lipofuscinosis 8 northern epilepsy variant
+symbol	COG4	COD1	g2p_previous_symbol	cone dystrophy 1, X-linked
+symbol	COG4	COD1	hgnc_alias_symbol	cone dystrophy 1, X-linked
+symbol	COL18A1	GLCC	g2p_previous_symbol	hereditary glaucoma, primary closed-angle
+symbol	COL18A1	KNO1	g2p_previous_symbol	Knobloch syndrome 1
+symbol	COL18A1	KNO1	hgnc_alias_symbol	Knobloch syndrome 1
+symbol	COL1A1	OI4	g2p_previous_symbol	osteogenesis imperfecta type 4
+symbol	COL1A1	OI4	hgnc_alias_symbol	osteogenesis imperfecta type 4
+symbol	COL2A1	AOM	g2p_previous_symbol	infectious otitis media
+symbol	COL2A1	AOM	hgnc_previous_symbol	infectious otitis media
+symbol	COL2A1	SEDC	g2p_previous_symbol	spondyloepiphyseal dysplasia congenita
+symbol	COL2A1	SEDC	hgnc_previous_symbol	spondyloepiphyseal dysplasia congenita
+symbol	COL9A2	MED	g2p_previous_symbol	multiple epiphyseal dysplasia
+symbol	COL9A2	MED	hgnc_alias_symbol	multiple epiphyseal dysplasia
+symbol	COL9A3	IDD	g2p_previous_symbol	intervertebral disk degenerative disorder
+symbol	COL9A3	IDD	hgnc_alias_symbol	intervertebral disk degenerative disorder
+symbol	COL9A3	MED	g2p_previous_symbol	multiple epiphyseal dysplasia
+symbol	COL9A3	MED	hgnc_alias_symbol	multiple epiphyseal dysplasia
+symbol	COMP	EDM1	g2p_previous_symbol	multiple epiphyseal dysplasia type 1
+symbol	COMP	EDM1	hgnc_previous_symbol	multiple epiphyseal dysplasia type 1
+symbol	COMP	MED	g2p_previous_symbol	multiple epiphyseal dysplasia
+symbol	COMP	MED	hgnc_alias_symbol	multiple epiphyseal dysplasia
+symbol	COQ8A	SCAR9	hgnc_alias_symbol	autosomal recessive ataxia due to ubiquinone deficiency
+symbol	CPAP	LAP	g2p_previous_symbol	laryngeal adductor paralysis
+symbol	CPAP	LAP	hgnc_alias_symbol	laryngeal adductor paralysis
+symbol	CPAP	SCKL4	g2p_previous_symbol	Seckel syndrome 4
+symbol	CPAP	SCKL4	hgnc_alias_symbol	Seckel syndrome 4
+symbol	CPLANE1	JBTS17	g2p_previous_symbol	Joubert syndrome 17
+symbol	CPLANE1	JBTS17	hgnc_alias_symbol	Joubert syndrome 17
+symbol	CRB1	LCA8	g2p_previous_symbol	Leber congenital amaurosis 8
+symbol	CRB1	LCA8	hgnc_alias_symbol	Leber congenital amaurosis 8
+symbol	CRB1	RP12	g2p_previous_symbol	retinitis pigmentosa 12
+symbol	CRB1	RP12	hgnc_previous_symbol	retinitis pigmentosa 12
+symbol	CREBBP	RTS	g2p_previous_symbol	Rothmund-Thomson syndrome
+symbol	CREBBP	RTS	hgnc_alias_symbol	Rothmund-Thomson syndrome
+symbol	CRX	CORD2	g2p_previous_symbol	cone-rod dystrophy 2
+symbol	CRX	CORD2	hgnc_previous_symbol	cone-rod dystrophy 2
+symbol	CRX	CRD	g2p_previous_symbol	chylomicron retention disease
+symbol	CRX	CRD	hgnc_alias_symbol	chylomicron retention disease
+symbol	CRX	LCA7	g2p_previous_symbol	Leber congenital amaurosis 7
+symbol	CRX	LCA7	hgnc_alias_symbol	Leber congenital amaurosis 7
+symbol	CSPP1	JBTS21	g2p_previous_symbol	Joubert syndrome 21
+symbol	CSPP1	JBTS21	hgnc_alias_symbol	Joubert syndrome 21
+symbol	CSTB	PME	g2p_previous_symbol	progressive myoclonus epilepsy
+symbol	CSTB	PME	hgnc_alias_symbol	progressive myoclonus epilepsy
+symbol	CTSD	CLN10	g2p_previous_symbol	neuronal ceroid lipofuscinosis 10
+symbol	CTSD	CLN10	hgnc_alias_symbol	neuronal ceroid lipofuscinosis 10
+symbol	CUX1	CDP	g2p_previous_symbol	chondrodysplasia punctata
+symbol	CUX1	CDP	hgnc_alias_symbol	chondrodysplasia punctata
+symbol	CYP27A1	CTX	g2p_previous_symbol	cerebrotendinous xanthomatosis
+symbol	CYP27A1	CTX	hgnc_alias_symbol	cerebrotendinous xanthomatosis
+symbol	CYP2U1	SPG49	g2p_previous_symbol	hereditary spastic paraplegia 49
+symbol	CYP2U1	SPG49	hgnc_alias_symbol	hereditary spastic paraplegia 49
+symbol	CYP2U1	SPG56	g2p_previous_symbol	hereditary spastic paraplegia 56
+symbol	CYP2U1	SPG56	hgnc_previous_symbol	hereditary spastic paraplegia 56
+symbol	DCDC2	NPHP19	g2p_previous_symbol	nephronophthisis 19
+symbol	DCDC2	NPHP19	hgnc_alias_symbol	nephronophthisis 19
+symbol	DDB2	XPE	g2p_previous_symbol	xeroderma pigmentosum group E
+symbol	DDB2	XPE	hgnc_alias_symbol	xeroderma pigmentosum group E
+symbol	DDHD1	SPG28	g2p_previous_symbol	hereditary spastic paraplegia 28
+symbol	DDHD1	SPG28	hgnc_previous_symbol	hereditary spastic paraplegia 28
+symbol	DDHD2	SPG54	g2p_previous_symbol	hereditary spastic paraplegia 54
+symbol	DDHD2	SPG54	hgnc_alias_symbol	hereditary spastic paraplegia 54
+symbol	DDX11	WABS	g2p_previous_symbol	Warsaw breakage syndrome
+symbol	DDX11	WABS	hgnc_alias_symbol	Warsaw breakage syndrome
+symbol	DEGS1	MLD	g2p_previous_symbol	metachromatic leukodystrophy
+symbol	DEGS1	MLD	hgnc_alias_symbol	metachromatic leukodystrophy
+symbol	DHCR7	SLOS	g2p_previous_symbol	Smith-Lemli-Opitz syndrome
+symbol	DHCR7	SLOS	hgnc_previous_symbol	Smith-Lemli-Opitz syndrome
+symbol	DHDDS	RP59	g2p_previous_symbol	retinitis pigmentosa 59
+symbol	DHDDS	RP59	hgnc_alias_symbol	retinitis pigmentosa 59
+symbol	DHTKD1	CMT2Q	g2p_previous_symbol	Charcot-Marie-Tooth disease axonal type 2Q
+symbol	DHTKD1	CMT2Q	hgnc_alias_symbol	Charcot-Marie-Tooth disease axonal type 2Q
+symbol	DKC1	DKC	g2p_previous_symbol	dyskeratosis congenita
+symbol	DKC1	DKC	hgnc_previous_symbol	dyskeratosis congenita
+symbol	DMD	BMD	g2p_previous_symbol	vitelliform macular dystrophy 2
+symbol	DMD	BMD	hgnc_alias_symbol	vitelliform macular dystrophy 2
+symbol	DMPK	DM1	g2p_previous_symbol	myotonic dystrophy type 1
+symbol	DMPK	DM1	hgnc_previous_symbol	myotonic dystrophy type 1
+symbol	DNAAF11	CILD19	hgnc_alias_symbol	primary ciliary dyskinesia 19
+symbol	DNAAF19	CILD17	g2p_previous_symbol	primary ciliary dyskinesia 17
+symbol	DNAAF19	CILD17	hgnc_alias_symbol	primary ciliary dyskinesia 17
+symbol	DNAAF3	CILD2	g2p_previous_symbol	primary ciliary dyskinesia 2
+symbol	DNAAF3	CILD2	hgnc_previous_symbol	primary ciliary dyskinesia 2
+symbol	DNAAF3	PCD	g2p_previous_symbol	premature centromere division
+symbol	DNAAF3	PCD	hgnc_alias_symbol	premature centromere division
+symbol	DNAAF4	CILD25	hgnc_alias_symbol	primary ciliary dyskinesia 25
+symbol	DNAAF5	CILD18	g2p_previous_symbol	primary ciliary dyskinesia 18
+symbol	DNAAF5	CILD18	hgnc_alias_symbol	primary ciliary dyskinesia 18
+symbol	DNAH5	CILD3	g2p_previous_symbol	primary ciliary dyskinesia 3
+symbol	DNAH5	CILD3	hgnc_alias_symbol	primary ciliary dyskinesia 3
+symbol	DNAH5	PCD	g2p_previous_symbol	premature centromere division
+symbol	DNAH5	PCD	hgnc_alias_symbol	premature centromere division
+symbol	DNAH9	DNAL1	g2p_previous_symbol	DNAL1
+symbol	DNAH9	DNAL1	hgnc_alias_symbol	DNAL1
+symbol	DPAGT1	CDG-Ij	hgnc_alias_symbol	DPAGT1-congenital disorder of glycosylation
+symbol	DRC1	CILD21	g2p_previous_symbol	primary ciliary dyskinesia 21
+symbol	DRC1	CILD21	hgnc_alias_symbol	primary ciliary dyskinesia 21
+symbol	DRC2	CCDC65	g2p_previous_symbol	CCDC65
+symbol	DRC2	CCDC65	hgnc_previous_symbol	CCDC65
+symbol	DRC2	CILD27	g2p_previous_symbol	primary ciliary dyskinesia 27
+symbol	DRC2	CILD27	hgnc_alias_symbol	primary ciliary dyskinesia 27
+symbol	DSTYK	SPG23	g2p_previous_symbol	hereditary spastic paraplegia 23
+symbol	DSTYK	SPG23	hgnc_previous_symbol	hereditary spastic paraplegia 23
+symbol	DYNC1H1	CMT2O	g2p_previous_symbol	Charcot-Marie-Tooth disease axonal type 2O
+symbol	DYNC1H1	CMT2O	hgnc_alias_symbol	Charcot-Marie-Tooth disease axonal type 2O
+symbol	EBP	CDPX2	g2p_previous_symbol	X-linked chondrodysplasia punctata 2
+symbol	EBP	CDPX2	hgnc_previous_symbol	X-linked chondrodysplasia punctata 2
+symbol	EBP	CPXD	g2p_previous_symbol	X-linked chondrodysplasia punctata
+symbol	EBP	CPXD	hgnc_alias_symbol	X-linked chondrodysplasia punctata
+symbol	EDA	HED	g2p_previous_symbol	hypohidrotic ectodermal dysplasia
+symbol	EDA	HED	hgnc_alias_symbol	hypohidrotic ectodermal dysplasia
+symbol	EDA	XHED	g2p_previous_symbol	X-linked hypohidrotic ectodermal dysplasia
+symbol	EDA	XHED	hgnc_alias_symbol	X-linked hypohidrotic ectodermal dysplasia
+symbol	EDNRB	HSCR	g2p_previous_symbol	Hirschsprung disease
+symbol	EDNRB	HSCR	hgnc_previous_symbol	Hirschsprung disease
+symbol	EEF1A2	HS1	g2p_previous_symbol	hereditary spherocytosis type 1
+symbol	EEF1A2	HS1	hgnc_alias_symbol	hereditary spherocytosis type 1
+symbol	EFNB1	CFNS	g2p_previous_symbol	craniofrontonasal syndrome
+symbol	EFNB1	CFNS	hgnc_previous_symbol	craniofrontonasal syndrome
+symbol	ELN	SVAS	g2p_previous_symbol	supravalvular aortic stenosis
+symbol	ELN	SVAS	hgnc_alias_symbol	supravalvular aortic stenosis
+symbol	ELOVL4	SCA34	g2p_previous_symbol	spinocerebellar ataxia type 34
+symbol	ELOVL4	SCA34	hgnc_previous_symbol	spinocerebellar ataxia type 34
+symbol	ENTPD1	SPG64	g2p_previous_symbol	hereditary spastic paraplegia 64
+symbol	ENTPD1	SPG64	hgnc_alias_symbol	hereditary spastic paraplegia 64
+symbol	ERBB3	LCCS2	g2p_previous_symbol	lethal congenital contracture syndrome 2
+symbol	ERBB3	LCCS2	hgnc_previous_symbol	lethal congenital contracture syndrome 2
+symbol	ERCC2	MAG	g2p_previous_symbol	MAG
+symbol	ERCC2	MAG	hgnc_alias_symbol	MAG
+symbol	ERCC2	XPD	g2p_previous_symbol	xeroderma pigmentosum group D
+symbol	ERCC2	XPD	hgnc_previous_symbol	xeroderma pigmentosum group D
+symbol	ERCC3	XPB	g2p_previous_symbol	xeroderma pigmentosum group B
+symbol	ERCC3	XPB	hgnc_alias_symbol	xeroderma pigmentosum group B
+symbol	ERCC4	FANCQ	g2p_previous_symbol	Fanconi anemia complementation group Q
+symbol	ERCC4	FANCQ	hgnc_alias_symbol	Fanconi anemia complementation group Q
+symbol	ERCC4	XPF	g2p_previous_symbol	xeroderma pigmentosum group F
+symbol	ERCC4	XPF	hgnc_previous_symbol	xeroderma pigmentosum group F
+symbol	ERCC6	ARMD5	g2p_previous_symbol	age related macular degeneration 5
+symbol	ERCC6	ARMD5	hgnc_alias_symbol	age related macular degeneration 5
+symbol	ERLIN2	SPG18	g2p_previous_symbol	hereditary spastic paraplegia 18
+symbol	ERLIN2	SPG18	hgnc_previous_symbol	hereditary spastic paraplegia 18
+symbol	ESCO2	RBS	g2p_previous_symbol	Roberts-SC phocomelia syndrome
+symbol	ESCO2	RBS	hgnc_previous_symbol	Roberts-SC phocomelia syndrome
+symbol	ETFA	EMA	g2p_previous_symbol	epilepsy with eyelid myoclonia
+symbol	ETFA	EMA	hgnc_alias_symbol	epilepsy with eyelid myoclonia
+symbol	EXT1	LGS	g2p_previous_symbol	Lennox-Gastaut syndrome
+symbol	EXT1	LGS	hgnc_previous_symbol	Lennox-Gastaut syndrome
+symbol	FAM161A	RP28	g2p_previous_symbol	retinitis pigmentosa 28
+symbol	FAM161A	RP28	hgnc_previous_symbol	retinitis pigmentosa 28
+symbol	FANCC	FA3	g2p_previous_symbol	Fanconi anemia complementation group C
+symbol	FANCC	FA3	hgnc_alias_symbol	Fanconi anemia complementation group C
+symbol	FANCC	FACC	g2p_previous_symbol	Fanconi anemia complementation group C
+symbol	FANCC	FACC	hgnc_previous_symbol	Fanconi anemia complementation group C
+symbol	FANCD2	FAD	g2p_previous_symbol	familial Alzheimer disease
+symbol	FANCD2	FAD	hgnc_alias_symbol	familial Alzheimer disease
+symbol	FANCE	FACE	g2p_previous_symbol	Fanconi anemia complementation group E
+symbol	FANCE	FACE	hgnc_previous_symbol	Fanconi anemia complementation group E
+symbol	FBN1	MFS1	g2p_previous_symbol	Marfan syndrome
+symbol	FBN1	MFS1	hgnc_previous_symbol	Marfan syndrome
+symbol	FBN1	SGS	g2p_previous_symbol	Shprintzen-Goldberg syndrome
+symbol	FBN1	SGS	hgnc_alias_symbol	Shprintzen-Goldberg syndrome
+symbol	FBN2	CCA	g2p_previous_symbol	congenital contractural arachnodactyly
+symbol	FBN2	CCA	hgnc_previous_symbol	congenital contractural arachnodactyly
+symbol	FBXW11	HOS	g2p_previous_symbol	Holt-Oram syndrome
+symbol	FBXW4	SHFM3	g2p_previous_symbol	split hand-foot malformation 3
+symbol	FBXW4	SHFM3	hgnc_previous_symbol	split hand-foot malformation 3
+symbol	FGF14	SCA27	g2p_previous_symbol	spinocerebellar ataxia type 27
+symbol	FGF14	SCA27	hgnc_alias_symbol	spinocerebellar ataxia type 27
+symbol	FGFR2	JWS	g2p_previous_symbol	Jackson-Weiss syndrome
+symbol	FGFR2	JWS	hgnc_previous_symbol	Jackson-Weiss syndrome
+symbol	FGFR3	ACH	g2p_previous_symbol	achondroplasia
+symbol	FGFR3	ACH	hgnc_previous_symbol	achondroplasia
+symbol	FHL1	XMPMA	g2p_previous_symbol	X-linked myopathy with postural muscle atrophy
+symbol	FHL1	XMPMA	hgnc_alias_symbol	X-linked myopathy with postural muscle atrophy
+symbol	FIG4	ALS11	g2p_previous_symbol	amyotrophic lateral sclerosis type 11
+symbol	FIG4	ALS11	hgnc_alias_symbol	amyotrophic lateral sclerosis type 11
+symbol	FIG4	CMT4J	g2p_previous_symbol	Charcot-Marie-Tooth disease type 4J
+symbol	FIG4	CMT4J	hgnc_alias_symbol	Charcot-Marie-Tooth disease type 4J
+symbol	FKBP10	FKBP6	g2p_previous_symbol	FKBP6
+symbol	FKBP10	FKBP6	hgnc_alias_symbol	FKBP6
+symbol	FKRP	LGMD2I	g2p_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2I
+symbol	FKRP	LGMD2I	hgnc_alias_symbol	autosomal recessive limb-girdle muscular dystrophy type 2I
+symbol	FKRP	MDC1C	g2p_previous_symbol	muscular dystrophy-dystroglycanopathy type B5
+symbol	FKRP	MDC1C	hgnc_alias_symbol	muscular dystrophy-dystroglycanopathy type B5
+symbol	FKTN	FCMD	g2p_previous_symbol	muscular dystrophy-dystroglycanopathy (congenital with brain and eye anomalies), type A, 4
+symbol	FKTN	FCMD	hgnc_previous_symbol	muscular dystrophy-dystroglycanopathy (congenital with brain and eye anomalies), type A, 4
+symbol	FKTN	LGMD2M	g2p_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2M
+symbol	FKTN	LGMD2M	hgnc_alias_symbol	autosomal recessive limb-girdle muscular dystrophy type 2M
+symbol	FLAD1	FAD1	g2p_previous_symbol	Fanconi anemia complementation group D1
+symbol	FLAD1	FAD1	hgnc_alias_symbol	Fanconi anemia complementation group D1
+symbol	FLNA	OPD1	g2p_previous_symbol	otopalatodigital syndrome type 1
+symbol	FLNA	OPD1	hgnc_previous_symbol	otopalatodigital syndrome type 1
+symbol	FLNB	FH1	g2p_previous_symbol	glucocorticoid-remediable aldosteronism
+symbol	FLNB	FH1	hgnc_alias_symbol	glucocorticoid-remediable aldosteronism
+symbol	FLT4	PCL	g2p_previous_symbol	heart lymphoma
+symbol	FLT4	PCL	hgnc_alias_symbol	heart lymphoma
+symbol	FLVCR1	PCA	g2p_previous_symbol	posterior cortical atrophy
+symbol	FLVCR1	PCA	hgnc_alias_symbol	posterior cortical atrophy
+symbol	FMR1	FRAXA	g2p_previous_symbol	FRAXA
+symbol	FMR1	FRAXA	hgnc_alias_symbol	FRAXA
+symbol	FMR1	POF	g2p_previous_symbol	premature menopause
+symbol	FMR1	POF	hgnc_previous_symbol	premature menopause
+symbol	FOLR1	FRA	g2p_previous_symbol	pyogenic arthritis-pyoderma gangrenosum-acne syndrome
+symbol	FOXC1	IGDA	g2p_previous_symbol	interstitial granulomatous dermatitis with arthritis
+symbol	FOXC1	IGDA	hgnc_alias_symbol	interstitial granulomatous dermatitis with arthritis
+symbol	FOXC1	IRID1	g2p_previous_symbol	anterior segment dysgenesis 3
+symbol	FOXC1	IRID1	hgnc_previous_symbol	anterior segment dysgenesis 3
+symbol	FOXL2	BPES	g2p_previous_symbol	blepharophimosis, ptosis, and epicanthus inversus syndrome
+symbol	FOXL2	BPES	hgnc_previous_symbol	blepharophimosis, ptosis, and epicanthus inversus syndrome
+symbol	FOXP3	IPEX	g2p_previous_symbol	immune dysregulation-polyendocrinopathy-enteropathy-X-linked syndrome
+symbol	FOXP3	IPEX	hgnc_previous_symbol	immune dysregulation-polyendocrinopathy-enteropathy-X-linked syndrome
+symbol	FOXP3	XPID	g2p_previous_symbol	immune dysregulation-polyendocrinopathy-enteropathy-X-linked syndrome
+symbol	FOXP3	XPID	hgnc_alias_symbol	immune dysregulation-polyendocrinopathy-enteropathy-X-linked syndrome
+symbol	FTL	NBIA3	g2p_previous_symbol	neuroferritinopathy
+symbol	FTL	NBIA3	hgnc_alias_symbol	neuroferritinopathy
+symbol	FXN	FARR	g2p_previous_symbol	Friedreich ataxia with retained reflexes
+symbol	FXN	FARR	hgnc_alias_symbol	Friedreich ataxia with retained reflexes
+symbol	FXN	FRDA	g2p_previous_symbol	Friedreich ataxia
+symbol	FXN	FRDA	hgnc_previous_symbol	Friedreich ataxia
+symbol	GAD1	GAD	g2p_previous_symbol	generalized anxiety disorder
+symbol	GAD1	GAD	hgnc_previous_symbol	generalized anxiety disorder
+symbol	GBA2	SPG46	g2p_previous_symbol	hereditary spastic paraplegia 46
+symbol	GBA2	SPG46	hgnc_previous_symbol	hereditary spastic paraplegia 46
+symbol	GJB3	EKV	g2p_previous_symbol	erythrokeratodermia variabilis
+symbol	GJB3	EKV	hgnc_previous_symbol	erythrokeratodermia variabilis
+symbol	GJC2	SPG44	g2p_previous_symbol	hereditary spastic paraplegia 44
+symbol	GJC2	SPG44	hgnc_alias_symbol	hereditary spastic paraplegia 44
+symbol	GLE1	LCCS1	g2p_previous_symbol	lethal congenital contracture syndrome 1
+symbol	GLE1	LCCS1	hgnc_previous_symbol	lethal congenital contracture syndrome 1
+symbol	GLI2	HPE9	g2p_previous_symbol	holoprosencephaly 9
+symbol	GLI2	HPE9	hgnc_alias_symbol	holoprosencephaly 9
+symbol	GLI3	ACLS	g2p_previous_symbol	acrocallosal syndrome
+symbol	GLI3	ACLS	hgnc_alias_symbol	acrocallosal syndrome
+symbol	GLI3	GCPS	g2p_previous_symbol	Greig cephalopolysyndactyly syndrome
+symbol	GLI3	GCPS	hgnc_previous_symbol	Greig cephalopolysyndactyly syndrome
+symbol	GLI3	PAPA	g2p_previous_symbol	pyogenic arthritis-pyoderma gangrenosum-acne syndrome
+symbol	GLI3	PAPA	hgnc_alias_symbol	pyogenic arthritis-pyoderma gangrenosum-acne syndrome
+symbol	GLI3	PAPB	g2p_previous_symbol	postaxial polydactyly type B
+symbol	GLI3	PAPB	hgnc_alias_symbol	postaxial polydactyly type B
+symbol	GLI3	PHS	g2p_previous_symbol	Pallister-Hall syndrome
+symbol	GLI3	PHS	hgnc_previous_symbol	Pallister-Hall syndrome
+symbol	GLIS2	NPHP7	g2p_previous_symbol	nephronophthisis 7
+symbol	GLIS2	NPHP7	hgnc_alias_symbol	nephronophthisis 7
+symbol	GLMN	VMGLOM	g2p_previous_symbol	glomuvenous malformation
+symbol	GLMN	VMGLOM	hgnc_previous_symbol	glomuvenous malformation
+symbol	GNA11	HHC2	g2p_previous_symbol	familial hypocalciuric hypercalcemia 2
+symbol	GNA11	HHC2	hgnc_previous_symbol	familial hypocalciuric hypercalcemia 2
+symbol	GNE	IBM2	g2p_previous_symbol	GNE myopathy
+symbol	GNE	IBM2	hgnc_previous_symbol	GNE myopathy
+symbol	GPC3	DGSX	g2p_previous_symbol	Simpson-Golabi-Behmel syndrome
+symbol	GPC3	DGSX	hgnc_alias_symbol	Simpson-Golabi-Behmel syndrome
+symbol	GPC3	SDYS	g2p_previous_symbol	Simpson-Golabi-Behmel syndrome
+symbol	GPC3	SDYS	hgnc_previous_symbol	Simpson-Golabi-Behmel syndrome
+symbol	GPC3	SGBS	g2p_previous_symbol	Simpson-Golabi-Behmel syndrome
+symbol	GPC3	SGBS	hgnc_alias_symbol	Simpson-Golabi-Behmel syndrome
+symbol	GPC3	SGBS1	g2p_previous_symbol	Simpson-Golabi-Behmel syndrome type 1
+symbol	GPC3	SGBS1	hgnc_alias_symbol	Simpson-Golabi-Behmel syndrome type 1
+symbol	GRHL3	SOM	g2p_previous_symbol	serous otitis media
+symbol	GRHL3	SOM	hgnc_alias_symbol	serous otitis media
+symbol	GRIA3	MRX94	g2p_previous_symbol	syndromic X-linked intellectual disability 94
+symbol	GRIA3	MRX94	hgnc_alias_symbol	syndromic X-linked intellectual disability 94
+symbol	GRID2	GLUD2	g2p_previous_symbol	GLUD2
+symbol	GRM6	CSNB1B	g2p_previous_symbol	congenital stationary night blindness 1B
+symbol	GRM6	CSNB1B	hgnc_alias_symbol	congenital stationary night blindness 1B
+symbol	GUCY2C	GCC	g2p_previous_symbol	goblet cell carcinoma
+symbol	GUCY2C	GCC	hgnc_alias_symbol	goblet cell carcinoma
+symbol	HARS1	USH3B	g2p_previous_symbol	Usher syndrome type 3B
+symbol	HARS1	USH3B	hgnc_previous_symbol	Usher syndrome type 3B
+symbol	HCCS	MLS	g2p_previous_symbol	XK-related neurodegenerative disease
+symbol	HCCS	MLS	hgnc_previous_symbol	XK-related neurodegenerative disease
+symbol	HDAC4	BDMR	g2p_previous_symbol	2q37 microdeletion syndrome
+symbol	HDAC4	BDMR	hgnc_previous_symbol	2q37 microdeletion syndrome
+symbol	HDAC8	MRXS6	g2p_previous_symbol	Wilson-Turner syndrome
+symbol	HDAC8	MRXS6	hgnc_previous_symbol	Wilson-Turner syndrome
+symbol	HDAC8	WTS	g2p_previous_symbol	Wilson-Turner syndrome
+symbol	HDAC8	WTS	hgnc_previous_symbol	Wilson-Turner syndrome
+symbol	HLCS	HCS	g2p_previous_symbol	hypotonia-cystinuria syndrome
+symbol	HLCS	HCS	hgnc_alias_symbol	hypotonia-cystinuria syndrome
+symbol	HNF1B	MODY5	g2p_previous_symbol	renal cysts and diabetes syndrome
+symbol	HNF1B	MODY5	hgnc_alias_symbol	renal cysts and diabetes syndrome
+symbol	HNF4A	MODY	g2p_previous_symbol	maturity-onset diabetes of the young
+symbol	HNF4A	MODY	hgnc_previous_symbol	maturity-onset diabetes of the young
+symbol	HNF4A	MODY1	g2p_previous_symbol	maturity-onset diabetes of the young type 1
+symbol	HNF4A	MODY1	hgnc_previous_symbol	maturity-onset diabetes of the young type 1
+symbol	HPD	HPPD	g2p_previous_symbol	hypertelorism-preauricular sinus-punctual pits-deafness syndrome
+symbol	HPD	HPPD	hgnc_alias_symbol	hypertelorism-preauricular sinus-punctual pits-deafness syndrome
+symbol	HPS1	HPS	g2p_previous_symbol	Hermansky-Pudlak syndrome
+symbol	HPS1	HPS	hgnc_previous_symbol	Hermansky-Pudlak syndrome
+symbol	HSD17B10	MRXS10	g2p_previous_symbol	HSD10 mitochondrial disease
+symbol	HSD17B10	MRXS10	hgnc_previous_symbol	HSD10 mitochondrial disease
+symbol	HSPD1	SPG13	g2p_previous_symbol	hereditary spastic paraplegia 13
+symbol	HSPD1	SPG13	hgnc_previous_symbol	hereditary spastic paraplegia 13
+symbol	HSPG2	SJS1	g2p_previous_symbol	Schwartz-Jampel syndrome type 1
+symbol	HSPG2	SJS1	hgnc_previous_symbol	Schwartz-Jampel syndrome type 1
+symbol	HTRA2	PARK13	g2p_previous_symbol	Parkinson disease 13, autosomal dominant, susceptibility to
+symbol	HTRA2	PARK13	hgnc_alias_symbol	Parkinson disease 13, autosomal dominant, susceptibility to
+symbol	HYCC1	HCC	hgnc_alias_symbol	hepatocellular carcinoma
+symbol	HYDIN	CILD5	g2p_previous_symbol	primary ciliary dyskinesia 5
+symbol	HYDIN	CILD5	hgnc_alias_symbol	primary ciliary dyskinesia 5
+symbol	IDUA	MPS1	g2p_previous_symbol	mucopolysaccharidosis type 1
+symbol	IDUA	MPS1	hgnc_alias_symbol	mucopolysaccharidosis type 1
+symbol	IDUA	MPSI	g2p_previous_symbol	mucopolysaccharidosis type 1
+symbol	IDUA	MPSI	hgnc_alias_symbol	mucopolysaccharidosis type 1
+symbol	IFIH1	IDDM19	g2p_previous_symbol	type 1 diabetes mellitus 19
+symbol	IFIH1	IDDM19	hgnc_alias_symbol	type 1 diabetes mellitus 19
+symbol	IFT122	SPG	g2p_previous_symbol	hereditary spastic paraplegia
+symbol	IFT122	SPG	hgnc_alias_symbol	hereditary spastic paraplegia
+symbol	IFT172	BBS20	g2p_previous_symbol	Bardet-Biedl syndrome 20
+symbol	IFT172	BBS20	hgnc_alias_symbol	Bardet-Biedl syndrome 20
+symbol	IGHMBP2	CMT2S	g2p_previous_symbol	Charcot-Marie-Tooth disease axonal type 2S
+symbol	IGHMBP2	CMT2S	hgnc_alias_symbol	Charcot-Marie-Tooth disease axonal type 2S
+symbol	IGHMBP2	SMARD1	g2p_previous_symbol	autosomal recessive distal spinal muscular atrophy 1
+symbol	IGHMBP2	SMARD1	hgnc_alias_symbol	autosomal recessive distal spinal muscular atrophy 1
+symbol	IHH	BDA1	g2p_previous_symbol	brachydactyly type A1
+symbol	IHH	BDA1	hgnc_alias_symbol	brachydactyly type A1
+symbol	INPP5E	CORS1	g2p_previous_symbol	Joubert syndrome 1
+symbol	INPP5E	CORS1	hgnc_alias_symbol	Joubert syndrome 1
+symbol	INPP5E	JBTS1	g2p_previous_symbol	Joubert syndrome 1
+symbol	INPP5E	JBTS1	hgnc_previous_symbol	Joubert syndrome 1
+symbol	IQSEC2	MRX1	g2p_previous_symbol	intellectual disability, X-linked 1
+symbol	IQSEC2	MRX1	hgnc_previous_symbol	intellectual disability, X-linked 1
+symbol	IQSEC2	MRX78	g2p_previous_symbol	intellectual disability, X-linked 1
+symbol	IQSEC2	MRX78	hgnc_previous_symbol	intellectual disability, X-linked 1
+symbol	IRF6	VWS	g2p_previous_symbol	van der Woude syndrome
+symbol	IRF6	VWS	hgnc_previous_symbol	van der Woude syndrome
+symbol	ITPR1	SCA29	g2p_previous_symbol	spinocerebellar ataxia type 29
+symbol	ITPR1	SCA29	hgnc_previous_symbol	spinocerebellar ataxia type 29
+symbol	JAG1	AGS	g2p_previous_symbol	alpha-gal syndrome
+symbol	JAG1	AGS	hgnc_previous_symbol	alpha-gal syndrome
+symbol	JAG1	AHD	g2p_previous_symbol	mitochondrial DNA depletion syndrome 4a
+symbol	JAG1	AHD	hgnc_alias_symbol	mitochondrial DNA depletion syndrome 4a
+symbol	KCNC3	SCA13	g2p_previous_symbol	spinocerebellar ataxia type 13
+symbol	KCNC3	SCA13	hgnc_previous_symbol	spinocerebellar ataxia type 13
+symbol	KCNE1	LQT5	g2p_previous_symbol	long QT syndrome 5
+symbol	KCNE1	LQT5	hgnc_alias_symbol	long QT syndrome 5
+symbol	KCNQ1	LQT1	g2p_previous_symbol	long QT syndrome 1
+symbol	KCNQ1	LQT1	hgnc_alias_symbol	long QT syndrome 1
+symbol	KCTD7	EPM3	g2p_previous_symbol	progressive myoclonic epilepsy type 3
+symbol	KCTD7	EPM3	hgnc_alias_symbol	progressive myoclonic epilepsy type 3
+symbol	KIAA0586	JBTS23	g2p_previous_symbol	Joubert syndrome 23
+symbol	KIAA0586	JBTS23	hgnc_alias_symbol	Joubert syndrome 23
+symbol	KIDINS220	ARMS	g2p_previous_symbol	alveolar rhabdomyosarcoma
+symbol	KIDINS220	ARMS	hgnc_alias_symbol	alveolar rhabdomyosarcoma
+symbol	KIF1A	SPG30	g2p_previous_symbol	hereditary spastic paraplegia 30
+symbol	KIF1A	SPG30	hgnc_previous_symbol	hereditary spastic paraplegia 30
+symbol	KIF5A	SPG10	g2p_previous_symbol	hereditary spastic paraplegia 10
+symbol	KIF5A	SPG10	hgnc_previous_symbol	hereditary spastic paraplegia 10
+symbol	KLHL40	NEM8	g2p_previous_symbol	nemaline myopathy 8
+symbol	KLHL40	NEM8	hgnc_alias_symbol	nemaline myopathy 8
+symbol	KLHL7	RP42	g2p_previous_symbol	retinitis pigmentosa 42
+symbol	KLHL7	RP42	hgnc_alias_symbol	retinitis pigmentosa 42
+symbol	L1CAM	HSAS	g2p_previous_symbol	X-linked hydrocephalus with stenosis of the aqueduct of Sylvius
+symbol	L1CAM	HSAS	hgnc_previous_symbol	X-linked hydrocephalus with stenosis of the aqueduct of Sylvius
+symbol	L1CAM	SPG1	g2p_previous_symbol	X-linked complicated spastic paraplegia type 1
+symbol	L1CAM	SPG1	hgnc_previous_symbol	X-linked complicated spastic paraplegia type 1
+symbol	LMNA	CMD1A	g2p_previous_symbol	congenital merosin-deficient muscular dystrophy 1A
+symbol	LMNA	CMD1A	hgnc_previous_symbol	congenital merosin-deficient muscular dystrophy 1A
+symbol	LMNA	HGPS	g2p_previous_symbol	Hutchinson-Gilford progeria syndrome
+symbol	LMNA	HGPS	hgnc_alias_symbol	Hutchinson-Gilford progeria syndrome
+symbol	LMNA	LGMD1B	g2p_previous_symbol	Emery-Dreifuss muscular dystrophy 2, autosomal dominant
+symbol	LMNA	LGMD1B	hgnc_previous_symbol	Emery-Dreifuss muscular dystrophy 2, autosomal dominant
+symbol	LMX1B	NPS1	g2p_previous_symbol	nail-patella syndrome
+symbol	LMX1B	NPS1	hgnc_previous_symbol	nail-patella syndrome
+symbol	LRAT	LCA14	g2p_previous_symbol	Leber congenital amaurosis 14
+symbol	LRAT	LCA14	hgnc_alias_symbol	Leber congenital amaurosis 14
+symbol	LRIT3	CSNB1F	g2p_previous_symbol	congenital stationary night blindness 1F
+symbol	LRIT3	CSNB1F	hgnc_alias_symbol	congenital stationary night blindness 1F
+symbol	LRP4	SOST2	g2p_previous_symbol	sclerosteosis 2
+symbol	LRP4	SOST2	hgnc_alias_symbol	sclerosteosis 2
+symbol	LRP5	OPPG	g2p_previous_symbol	osteoporosis-pseudoglioma syndrome
+symbol	LRP5	OPPG	hgnc_previous_symbol	osteoporosis-pseudoglioma syndrome
+symbol	LRP5	OPTA1	g2p_previous_symbol	autosomal dominant osteopetrosis 1
+symbol	LRP5	OPTA1	hgnc_alias_symbol	autosomal dominant osteopetrosis 1
+symbol	LYST	CHS	g2p_previous_symbol	Chediak-Higashi syndrome
+symbol	LYST	CHS	hgnc_alias_symbol	Chediak-Higashi syndrome
+symbol	MAGT1	MRX95	g2p_previous_symbol	intellectual disability, X-linked 95
+symbol	MAGT1	MRX95	hgnc_alias_symbol	intellectual disability, X-linked 95
+symbol	MAT1A	MAT	g2p_previous_symbol	multifocal atrial tachycardia
+symbol	MAT1A	MAT	hgnc_alias_symbol	multifocal atrial tachycardia
+symbol	MAT1A	SAMS	g2p_previous_symbol	spinocerebellar ataxia, KCNJ10-related, dog
+symbol	MAT1A	SAMS	hgnc_alias_symbol	spinocerebellar ataxia, KCNJ10-related, dog
+symbol	MATN3	EDM5	g2p_previous_symbol	multiple epiphyseal dysplasia type 5
+symbol	MATN3	EDM5	hgnc_alias_symbol	multiple epiphyseal dysplasia type 5
+symbol	MCOLN1	ML4	g2p_previous_symbol	mucolipidosis type IV
+symbol	MCOLN1	ML4	hgnc_alias_symbol	mucolipidosis type IV
+symbol	MCOLN1	MLIV	g2p_previous_symbol	mucolipidosis type IV
+symbol	MCOLN1	MLIV	hgnc_alias_symbol	mucolipidosis type IV
+symbol	MECP2	RTT	g2p_previous_symbol	Rett syndrome
+symbol	MECP2	RTT	hgnc_previous_symbol	Rett syndrome
+symbol	MFN2	CMT2A2	g2p_previous_symbol	Charcot-Marie-Tooth disease type 2A2
+symbol	MFN2	CMT2A2	hgnc_alias_symbol	Charcot-Marie-Tooth disease type 2A2
+symbol	MFSD8	CLN7	g2p_previous_symbol	neuronal ceroid lipofuscinosis 7
+symbol	MFSD8	CLN7	hgnc_previous_symbol	neuronal ceroid lipofuscinosis 7
+symbol	MITF	WS2	g2p_previous_symbol	Waardenburg syndrome type 2
+symbol	MITF	WS2	hgnc_previous_symbol	Waardenburg syndrome type 2
+symbol	MITF	WS2A	g2p_previous_symbol	Waardenburg syndrome type 2A
+symbol	MITF	WS2A	hgnc_previous_symbol	Waardenburg syndrome type 2A
+symbol	MKKS	BBS6	g2p_previous_symbol	Bardet-Biedl syndrome 6
+symbol	MKKS	BBS6	hgnc_previous_symbol	Bardet-Biedl syndrome 6
+symbol	MKS1	BBS13	g2p_previous_symbol	Bardet-Biedl syndrome 13
+symbol	MKS1	BBS13	hgnc_alias_symbol	Bardet-Biedl syndrome 13
+symbol	MLC1	MLC	g2p_previous_symbol	megalencephalic leukoencephalopathy with subcortical cysts
+symbol	MLC1	MLC	hgnc_alias_symbol	megalencephalic leukoencephalopathy with subcortical cysts
+symbol	MLYCD	MCD	g2p_previous_symbol	macular corneal dystrophy
+symbol	MLYCD	MCD	hgnc_alias_symbol	macular corneal dystrophy
+symbol	MMAB	CBLB	g2p_previous_symbol	CBLB
+symbol	MMUT	MCM	hgnc_alias_symbol	megalencephaly-capillary malformation-polymicrogyria syndrome
+symbol	MOCS1	MOCOD	g2p_previous_symbol	sulfite oxidase deficiency due to molybdenum cofactor deficiency
+symbol	MOCS1	MOCOD	hgnc_alias_symbol	sulfite oxidase deficiency due to molybdenum cofactor deficiency
+symbol	MPDU1	CDGIf	hgnc_alias_symbol	MPDU1-congenital disorder of glycosylation
+symbol	MPZ	CMT1	g2p_previous_symbol	Charcot-Marie-Tooth disease type 1
+symbol	MPZ	CMT1	hgnc_previous_symbol	Charcot-Marie-Tooth disease type 1
+symbol	MPZ	CMT1B	g2p_previous_symbol	Charcot-Marie-Tooth disease type 1B
+symbol	MPZ	CMT1B	hgnc_previous_symbol	Charcot-Marie-Tooth disease type 1B
+symbol	MPZ	CMT2I	g2p_previous_symbol	Charcot-Marie-Tooth disease type 2I
+symbol	MPZ	CMT2I	hgnc_alias_symbol	Charcot-Marie-Tooth disease type 2I
+symbol	MPZ	CMT2J	g2p_previous_symbol	Charcot-Marie-Tooth disease type 2J
+symbol	MPZ	CMT2J	hgnc_alias_symbol	Charcot-Marie-Tooth disease type 2J
+symbol	MRE11	ATLD	hgnc_alias_symbol	ataxia-telangiectasia-like disorder
+symbol	MSX2	CRS2	g2p_previous_symbol	craniosynostosis 2
+symbol	MSX2	CRS2	hgnc_alias_symbol	craniosynostosis 2
+symbol	MTRFR	COXPD7	hgnc_alias_symbol	combined oxidative phosphorylation defect type 7
+symbol	MTRFR	SPG55	hgnc_alias_symbol	hereditary spastic paraplegia 55
+symbol	MYCBP2	PAM	g2p_previous_symbol	potassium-aggravated myotonia
+symbol	MYCBP2	PAM	hgnc_alias_symbol	potassium-aggravated myotonia
+symbol	MYH9	FTNS	g2p_previous_symbol	macrothrombocytopenia and granulocyte inclusions with or without nephritis or sensorineural hearing loss
+symbol	MYH9	FTNS	hgnc_alias_symbol	macrothrombocytopenia and granulocyte inclusions with or without nephritis or sensorineural hearing loss
+symbol	MYH9	MHA	g2p_previous_symbol	macrothrombocytopenia and granulocyte inclusions with or without nephritis or sensorineural hearing loss
+symbol	MYH9	MHA	hgnc_alias_symbol	macrothrombocytopenia and granulocyte inclusions with or without nephritis or sensorineural hearing loss
+symbol	MYO5A	GS1	g2p_previous_symbol	Griscelli syndrome type 1
+symbol	MYO5A	GS1	hgnc_alias_symbol	Griscelli syndrome type 1
+symbol	NANS	SAS	g2p_previous_symbol	SATB2 associated disorder
+symbol	NANS	SAS	hgnc_alias_symbol	SATB2 associated disorder
+symbol	NBN	NBS	g2p_previous_symbol	Nijmegen breakage syndrome
+symbol	NBN	NBS	hgnc_previous_symbol	Nijmegen breakage syndrome
+symbol	NDUFS7	PSST	g2p_previous_symbol	placental site trophoblastic tumor
+symbol	NDUFS7	PSST	hgnc_alias_symbol	placental site trophoblastic tumor
+symbol	NEB	NEM2	g2p_previous_symbol	nemaline myopathy 2
+symbol	NEB	NEM2	hgnc_previous_symbol	nemaline myopathy 2
+symbol	NEK8	NPHP9	g2p_previous_symbol	nephronophthisis 9
+symbol	NEK8	NPHP9	hgnc_alias_symbol	nephronophthisis 9
+symbol	NEXMIF	MRX98	g2p_previous_symbol	X-linked intellectual disability, Cantagrel type
+symbol	NEXMIF	MRX98	hgnc_alias_symbol	X-linked intellectual disability, Cantagrel type
+symbol	NMNAT1	LCA9	g2p_previous_symbol	Leber congenital amaurosis 9
+symbol	NMNAT1	LCA9	hgnc_previous_symbol	Leber congenital amaurosis 9
+symbol	NOTCH3	CADASIL	g2p_previous_symbol	cerebral arteriopathy, autosomal dominant, with subcortical infarcts and leukoencephalopathy, type 1
+symbol	NOTCH3	CADASIL	hgnc_previous_symbol	cerebral arteriopathy, autosomal dominant, with subcortical infarcts and leukoencephalopathy, type 1
+symbol	NOTCH3	CASIL	g2p_previous_symbol	cerebral arteriopathy, autosomal dominant, with subcortical infarcts and leukoencephalopathy, type 1
+symbol	NOTCH3	CASIL	hgnc_alias_symbol	cerebral arteriopathy, autosomal dominant, with subcortical infarcts and leukoencephalopathy, type 1
+symbol	NPHP1	JBTS4	g2p_previous_symbol	Joubert syndrome with renal defect
+symbol	NPHP1	JBTS4	hgnc_alias_symbol	Joubert syndrome with renal defect
+symbol	NPHP1	NPH1	g2p_previous_symbol	nephronophthisis 1
+symbol	NPHP1	NPH1	hgnc_previous_symbol	nephronophthisis 1
+symbol	NPHP3	MKS7	g2p_previous_symbol	NPHP3-related Meckel-like syndrome
+symbol	NPHP3	MKS7	hgnc_alias_symbol	NPHP3-related Meckel-like syndrome
+symbol	NPHP3	NPH3	g2p_previous_symbol	nephronophthisis 3
+symbol	NPHP3	NPH3	hgnc_alias_symbol	nephronophthisis 3
+symbol	NPHP3	SLSN3	g2p_previous_symbol	senior-loken syndrome 3
+symbol	NPHP3	SLSN3	hgnc_alias_symbol	senior-loken syndrome 3
+symbol	NTRK1	MTC	g2p_previous_symbol	medullary thyroid gland carcinoma
+symbol	NTRK1	MTC	hgnc_alias_symbol	medullary thyroid gland carcinoma
+symbol	NUP214	CAIN	g2p_previous_symbol	CEBPE-associated autoinflammation-immunodeficiency-neutrophil dysfunction syndrome
+symbol	NUP214	CAIN	hgnc_alias_symbol	CEBPE-associated autoinflammation-immunodeficiency-neutrophil dysfunction syndrome
+symbol	NUP214	CAN	g2p_previous_symbol	Crouzon syndrome-acanthosis nigricans syndrome
+symbol	NUP214	CAN	hgnc_alias_symbol	Crouzon syndrome-acanthosis nigricans syndrome
+symbol	NUP62	IBSN	g2p_previous_symbol	infantile bilateral striatal necrosis
+symbol	NUP62	IBSN	hgnc_alias_symbol	infantile bilateral striatal necrosis
+symbol	NYX	CSNB1A	g2p_previous_symbol	congenital stationary night blindness 1A
+symbol	NYX	CSNB1A	hgnc_alias_symbol	congenital stationary night blindness 1A
+symbol	ODAD1	CILD20	g2p_previous_symbol	primary ciliary dyskinesia 20
+symbol	ODAD1	CILD20	hgnc_alias_symbol	primary ciliary dyskinesia 20
+symbol	ODAD2	CILD23	hgnc_alias_symbol	primary ciliary dyskinesia 23
+symbol	ODAPH	AI2A4	hgnc_alias_symbol	amelogenesis imperfecta hypomaturation type 2A4
+symbol	OFD1	JBTS10	g2p_previous_symbol	Joubert syndrome 10
+symbol	OFD1	JBTS10	hgnc_alias_symbol	Joubert syndrome 10
+symbol	OFD1	RP23	g2p_previous_symbol	retinitis pigmentosa 23
+symbol	OFD1	RP23	hgnc_previous_symbol	retinitis pigmentosa 23
+symbol	OTC	OTCD	g2p_previous_symbol	ornithine carbamoyltransferase deficiency
+symbol	OTC	OTCD	hgnc_alias_symbol	ornithine carbamoyltransferase deficiency
+symbol	PAFAH1B1	MDS	g2p_previous_symbol	myelodysplastic syndrome
+symbol	PAFAH1B1	MDS	hgnc_previous_symbol	myelodysplastic syndrome
+symbol	PALB2	FANCN	g2p_previous_symbol	Fanconi anemia complementation group N
+symbol	PALB2	FANCN	hgnc_alias_symbol	Fanconi anemia complementation group N
+symbol	PAX3	WS1	g2p_previous_symbol	Waardenburg syndrome type 1
+symbol	PAX3	WS1	hgnc_previous_symbol	Waardenburg syndrome type 1
+symbol	PAX6	AN1	g2p_previous_symbol	aniridia 1
+symbol	PAX6	AN1	hgnc_previous_symbol	aniridia 1
+symbol	PAX6	AN2	g2p_previous_symbol	aniridia 2
+symbol	PAX6	AN2	hgnc_previous_symbol	aniridia 2
+symbol	PCARE	RP54	hgnc_alias_symbol	retinitis pigmentosa 54
+symbol	PCBD1	PCD	g2p_previous_symbol	premature centromere division
+symbol	PCBD1	PCD	hgnc_alias_symbol	premature centromere division
+symbol	PCDH19	EFMR	g2p_previous_symbol	developmental and epileptic encephalopathy, 9
+symbol	PCDH19	EFMR	hgnc_previous_symbol	developmental and epileptic encephalopathy, 9
+symbol	PCDH19	EIEE9	g2p_previous_symbol	developmental and epileptic encephalopathy, 9
+symbol	PCDH19	EIEE9	hgnc_alias_symbol	developmental and epileptic encephalopathy, 9
+symbol	PCNT	SCKL4	g2p_previous_symbol	Seckel syndrome 4
+symbol	PCNT	SCKL4	hgnc_alias_symbol	Seckel syndrome 4
+symbol	PDCD10	CCM3	g2p_previous_symbol	cerebral cavernous malformation 3
+symbol	PDCD10	CCM3	hgnc_previous_symbol	cerebral cavernous malformation 3
+symbol	PDE6G	RP57	g2p_previous_symbol	retinitis pigmentosa 57
+symbol	PDE6G	RP57	hgnc_alias_symbol	retinitis pigmentosa 57
+symbol	PDHX	PDX1	g2p_previous_symbol	PDX1
+symbol	PDHX	PDX1	hgnc_alias_symbol	PDX1
+symbol	PEX1	ZWS	g2p_previous_symbol	Zellweger spectrum disorders
+symbol	PEX1	ZWS	hgnc_previous_symbol	Zellweger spectrum disorders
+symbol	PGAP1	SPG67	g2p_previous_symbol	autosomal recessive spastic paraplegia type 67
+symbol	PGAP1	SPG67	hgnc_alias_symbol	autosomal recessive spastic paraplegia type 67
+symbol	PGM3	AGM1	g2p_previous_symbol	autosomal recessive agammaglobulinemia 1
+symbol	PGM3	AGM1	hgnc_alias_symbol	autosomal recessive agammaglobulinemia 1
+symbol	PHEX	XLH	g2p_previous_symbol	X-linked dominant hypophosphatemic rickets
+symbol	PHEX	XLH	hgnc_alias_symbol	X-linked dominant hypophosphatemic rickets
+symbol	PHF6	BFLS	g2p_previous_symbol	Borjeson-Forssman-Lehmann syndrome
+symbol	PHF6	BFLS	hgnc_previous_symbol	Borjeson-Forssman-Lehmann syndrome
+symbol	PHF6	BORJ	g2p_previous_symbol	Borjeson-Forssman-Lehmann syndrome
+symbol	PHF6	BORJ	hgnc_previous_symbol	Borjeson-Forssman-Lehmann syndrome
+symbol	PIP5K1C	LCCS3	g2p_previous_symbol	lethal congenital contracture syndrome 3
+symbol	PIP5K1C	LCCS3	hgnc_alias_symbol	lethal congenital contracture syndrome 3
+symbol	PITX2	IRID2	g2p_previous_symbol	anterior segment dysgenesis 4
+symbol	PITX2	IRID2	hgnc_previous_symbol	anterior segment dysgenesis 4
+symbol	PITX2	RIEG1	g2p_previous_symbol	Axenfeld-Rieger syndrome type 1
+symbol	PITX2	RIEG1	hgnc_previous_symbol	Axenfeld-Rieger syndrome type 1
+symbol	PITX3	ASMD	g2p_previous_symbol	anterior segment dysgenesis
+symbol	PITX3	ASMD	hgnc_previous_symbol	anterior segment dysgenesis
+symbol	PKHD1	ARPKD	g2p_previous_symbol	autosomal recessive polycystic kidney disease
+symbol	PKHD1	ARPKD	hgnc_alias_symbol	autosomal recessive polycystic kidney disease
+symbol	PLA2G6	PARK14	g2p_previous_symbol	autosomal recessive Parkinson disease 14
+symbol	PLA2G6	PARK14	hgnc_alias_symbol	autosomal recessive Parkinson disease 14
+symbol	PLP1	SPG2	g2p_previous_symbol	hereditary spastic paraplegia 2
+symbol	PLP1	SPG2	hgnc_previous_symbol	hereditary spastic paraplegia 2
+symbol	PMM2	CDG1A	g2p_previous_symbol	PMM2-congenital disorder of glycosylation
+symbol	PNPLA6	SPG39	g2p_previous_symbol	hereditary spastic paraplegia 39
+symbol	PNPLA6	SPG39	hgnc_alias_symbol	hereditary spastic paraplegia 39
+symbol	PNPLA6	SWS	g2p_previous_symbol	Sturge-Weber syndrome
+symbol	POLA1	NSX	g2p_previous_symbol	N syndrome
+symbol	POLA1	NSX	hgnc_previous_symbol	N syndrome
+symbol	POLD1	POLD	g2p_previous_symbol	leukoencephalopathy, diffuse hereditary, with spheroids 1
+symbol	POLD1	POLD	hgnc_previous_symbol	leukoencephalopathy, diffuse hereditary, with spheroids 1
+symbol	POLR1A	RPA1	g2p_previous_symbol	RPA1
+symbol	POLR1A	RPA1	hgnc_alias_symbol	RPA1
+symbol	POMGNT1	LGMD2O	g2p_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2O
+symbol	POMGNT1	LGMD2O	hgnc_alias_symbol	autosomal recessive limb-girdle muscular dystrophy type 2O
+symbol	POMT1	LGMD2K	g2p_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2K
+symbol	POMT1	LGMD2K	hgnc_alias_symbol	autosomal recessive limb-girdle muscular dystrophy type 2K
+symbol	POMT2	LGMD2N	g2p_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2N
+symbol	POMT2	LGMD2N	hgnc_alias_symbol	autosomal recessive limb-girdle muscular dystrophy type 2N
+symbol	PORCN	POR	g2p_previous_symbol	POR
+symbol	PPP1R12A	MBS	g2p_previous_symbol	Moebius syndrome
+symbol	PPP1R12A	MBS	hgnc_alias_symbol	Moebius syndrome
+symbol	PPP2R2B	SCA12	g2p_previous_symbol	spinocerebellar ataxia type 12
+symbol	PPP2R2B	SCA12	hgnc_previous_symbol	spinocerebellar ataxia type 12
+symbol	PPT1	CLN1	g2p_previous_symbol	neuronal ceroid lipofuscinosis 1
+symbol	PPT1	CLN1	hgnc_alias_symbol	neuronal ceroid lipofuscinosis 1
+symbol	PPT1	INCL	g2p_previous_symbol	infantile neuronal ceroid lipofuscinosis
+symbol	PPT1	INCL	hgnc_alias_symbol	infantile neuronal ceroid lipofuscinosis
+symbol	PQBP1	MRX2	g2p_previous_symbol	intellectual disability, X-linked 2
+symbol	PQBP1	MRX2	hgnc_previous_symbol	intellectual disability, X-linked 2
+symbol	PRKD1	PKD1	hgnc_alias_symbol	polycystic kidney disease 1
+symbol	PRPF8	RP13	g2p_previous_symbol	retinitis pigmentosa 13
+symbol	PRPF8	RP13	hgnc_previous_symbol	retinitis pigmentosa 13
+symbol	PRPS1	CMTX5	g2p_previous_symbol	Charcot-Marie-Tooth disease X-linked recessive 5
+symbol	PRPS1	CMTX5	hgnc_alias_symbol	Charcot-Marie-Tooth disease X-linked recessive 5
+symbol	PSPH	PSP	g2p_previous_symbol	supranuclear palsy, progressive, 1
+symbol	PSPH	PSP	hgnc_previous_symbol	supranuclear palsy, progressive, 1
+symbol	PTCH1	NBCCS	g2p_previous_symbol	nevoid basal cell carcinoma syndrome
+symbol	PTCH1	NBCCS	hgnc_previous_symbol	nevoid basal cell carcinoma syndrome
+symbol	PTPN11	NS1	g2p_previous_symbol	Noonan syndrome 1
+symbol	PTPN11	NS1	hgnc_previous_symbol	Noonan syndrome 1
+symbol	RAB3GAP1	WARBM1	g2p_previous_symbol	Warburg micro syndrome 1
+symbol	RAB3GAP1	WARBM1	hgnc_alias_symbol	Warburg micro syndrome 1
+symbol	RAB3GAP2	SPG69	g2p_previous_symbol	autosomal recessive spastic paraplegia type 69
+symbol	RAB3GAP2	SPG69	hgnc_alias_symbol	autosomal recessive spastic paraplegia type 69
+symbol	RAD51	FANCR	g2p_previous_symbol	Fanconi anemia complementation group R
+symbol	RAD51	FANCR	hgnc_alias_symbol	Fanconi anemia complementation group R
+symbol	RAD51C	FANCO	g2p_previous_symbol	Fanconi anemia complementation group O
+symbol	RAD51C	FANCO	hgnc_alias_symbol	Fanconi anemia complementation group O
+symbol	RANBP2	ADANE	g2p_previous_symbol	familial acute necrotizing encephalopathy
+symbol	RANBP2	ADANE	hgnc_alias_symbol	familial acute necrotizing encephalopathy
+symbol	RARS1	RARS	g2p_previous_symbol	myelodysplastic syndrome with ring sideroblasts
+symbol	RARS1	RARS	hgnc_previous_symbol	myelodysplastic syndrome with ring sideroblasts
+symbol	RASA1	CM-AVM	g2p_previous_symbol	capillary malformation-arteriovenous malformation syndrome
+symbol	RASA1	CM-AVM	hgnc_alias_symbol	capillary malformation-arteriovenous malformation syndrome
+symbol	RBBP8	SCKL2	g2p_previous_symbol	Seckel syndrome 2
+symbol	RBBP8	SCKL2	hgnc_previous_symbol	Seckel syndrome 2
+symbol	RET	HSCR1	g2p_previous_symbol	Hirschsprung disease, susceptibility to, 1
+symbol	RET	HSCR1	hgnc_previous_symbol	Hirschsprung disease, susceptibility to, 1
+symbol	RET	MEN2A	g2p_previous_symbol	multiple endocrine neoplasia type 2A
+symbol	RET	MEN2A	hgnc_previous_symbol	multiple endocrine neoplasia type 2A
+symbol	RET	MEN2B	g2p_previous_symbol	multiple endocrine neoplasia type 2B
+symbol	RET	MEN2B	hgnc_previous_symbol	multiple endocrine neoplasia type 2B
+symbol	RFT1	CDG1N	g2p_previous_symbol	RFT1-congenital disorder of glycosylation
+symbol	RFT1	CDG1N	hgnc_alias_symbol	RFT1-congenital disorder of glycosylation
+symbol	RMND1	RMD1	g2p_previous_symbol	rippling muscle disease 1
+symbol	RMND1	RMD1	hgnc_alias_symbol	rippling muscle disease 1
+symbol	RMRP	NME1	hgnc_alias_symbol	NME1
+symbol	ROBO3	HGPPS	g2p_previous_symbol	horizontal gaze palsy with progressive scoliosis
+symbol	ROBO3	HGPPS	hgnc_previous_symbol	horizontal gaze palsy with progressive scoliosis
+symbol	ROBO3	HGPS	g2p_previous_symbol	Hutchinson-Gilford progeria syndrome
+symbol	ROBO3	HGPS	hgnc_alias_symbol	Hutchinson-Gilford progeria syndrome
+symbol	ROR2	BDB1	g2p_previous_symbol	brachydactyly type B1
+symbol	ROR2	BDB1	hgnc_previous_symbol	brachydactyly type B1
+symbol	RPE65	LCA2	g2p_previous_symbol	Leber congenital amaurosis 2
+symbol	RPE65	LCA2	hgnc_alias_symbol	Leber congenital amaurosis 2
+symbol	RPE65	RP20	g2p_previous_symbol	retinitis pigmentosa 20
+symbol	RPE65	RP20	hgnc_previous_symbol	retinitis pigmentosa 20
+symbol	RPGRIP1	CORD13	g2p_previous_symbol	cone-rod dystrophy 13
+symbol	RPGRIP1	CORD13	hgnc_alias_symbol	cone-rod dystrophy 13
+symbol	RPGRIP1	LCA6	g2p_previous_symbol	Leber congenital amaurosis 6
+symbol	RPGRIP1	LCA6	hgnc_alias_symbol	Leber congenital amaurosis 6
+symbol	RPGRIP1L	JBTS7	g2p_previous_symbol	Joubert syndrome 7
+symbol	RPGRIP1L	JBTS7	hgnc_alias_symbol	Joubert syndrome 7
+symbol	RPGRIP1L	MKS5	g2p_previous_symbol	Meckel syndrome, type 5
+symbol	RPGRIP1L	MKS5	hgnc_alias_symbol	Meckel syndrome, type 5
+symbol	RPS19	DBA	g2p_previous_symbol	Diamond-Blackfan anemia
+symbol	RPS19	DBA	hgnc_alias_symbol	Diamond-Blackfan anemia
+symbol	RPS6KA3	CLS	g2p_previous_symbol	capillary leak syndrome
+symbol	RPS6KA3	CLS	hgnc_previous_symbol	capillary leak syndrome
+symbol	RSPH1	CILD24	g2p_previous_symbol	primary ciliary dyskinesia 24
+symbol	RSPH1	CILD24	hgnc_alias_symbol	primary ciliary dyskinesia 24
+symbol	RTEL1	NHL	g2p_previous_symbol	non-Hodgkin lymphoma
+symbol	RTEL1	NHL	hgnc_alias_symbol	non-Hodgkin lymphoma
+symbol	RYR2	ARVC2	g2p_previous_symbol	catecholaminergic polymorphic ventricular tachycardia 1
+symbol	RYR2	ARVC2	hgnc_alias_symbol	catecholaminergic polymorphic ventricular tachycardia 1
+symbol	RYR2	ARVD2	g2p_previous_symbol	catecholaminergic polymorphic ventricular tachycardia 1
+symbol	RYR2	ARVD2	hgnc_previous_symbol	catecholaminergic polymorphic ventricular tachycardia 1
+symbol	SACS	ARSACS	g2p_previous_symbol	Charlevoix-Saguenay spastic ataxia
+symbol	SACS	ARSACS	hgnc_alias_symbol	Charlevoix-Saguenay spastic ataxia
+symbol	SACS	SPAX6	g2p_previous_symbol	Charlevoix-Saguenay spastic ataxia
+symbol	SACS	SPAX6	hgnc_alias_symbol	Charlevoix-Saguenay spastic ataxia
+symbol	SALL1	TBS	g2p_previous_symbol	Townes-Brocks syndrome
+symbol	SALL1	TBS	hgnc_previous_symbol	Townes-Brocks syndrome
+symbol	SARS1	SARS	g2p_previous_symbol	severe acute respiratory syndrome
+symbol	SARS1	SARS	hgnc_previous_symbol	severe acute respiratory syndrome
+symbol	SARS2	SARS	g2p_previous_symbol	severe acute respiratory syndrome
+symbol	SARS2	SARS	hgnc_alias_symbol	severe acute respiratory syndrome
+symbol	SBDS	SDS	g2p_previous_symbol	Shwachman-Diamond syndrome
+symbol	SBDS	SDS	hgnc_alias_symbol	Shwachman-Diamond syndrome
+symbol	SCN4A	HYPP	g2p_previous_symbol	hyperkalemic periodic paralysis
+symbol	SCN4A	HYPP	hgnc_alias_symbol	hyperkalemic periodic paralysis
+symbol	SCN8A	MED	g2p_previous_symbol	multiple epiphyseal dysplasia
+symbol	SCN8A	MED	hgnc_previous_symbol	multiple epiphyseal dysplasia
+symbol	SDCCAG8	BBS16	g2p_previous_symbol	Bardet-Biedl syndrome 16
+symbol	SDCCAG8	BBS16	hgnc_alias_symbol	Bardet-Biedl syndrome 16
+symbol	SELENON	MDRS1	g2p_previous_symbol	rigid spine muscular dystrophy 1
+symbol	SELENON	MDRS1	hgnc_previous_symbol	rigid spine muscular dystrophy 1
+symbol	SELENON	RSMD1	g2p_previous_symbol	rigid spine muscular dystrophy 1
+symbol	SELENON	RSMD1	hgnc_previous_symbol	rigid spine muscular dystrophy 1
+symbol	SELENON	RSS	hgnc_alias_symbol	rigid spine muscular dystrophy 1
+symbol	SEMA3A	SEMD	g2p_previous_symbol	spondyloepimetaphyseal dysplasia
+symbol	SGSH	MPS3A	g2p_previous_symbol	mucopolysaccharidosis type 3A
+symbol	SGSH	MPS3A	hgnc_alias_symbol	mucopolysaccharidosis type 3A
+symbol	SH3BP2	CRBM	g2p_previous_symbol	cherubism
+symbol	SH3BP2	CRBM	hgnc_alias_symbol	cherubism
+symbol	SHH	HLP3	g2p_previous_symbol	holoprosencephaly 3
+symbol	SHH	HLP3	hgnc_previous_symbol	holoprosencephaly 3
+symbol	SHH	HPE3	g2p_previous_symbol	holoprosencephaly 3
+symbol	SHH	HPE3	hgnc_previous_symbol	holoprosencephaly 3
+symbol	SHH	SMMCI	g2p_previous_symbol	solitary median maxillary central incisor syndrome
+symbol	SHH	SMMCI	hgnc_alias_symbol	solitary median maxillary central incisor syndrome
+symbol	SIK1	MSK	g2p_previous_symbol	medullary sponge kidney
+symbol	SIX3	HPE2	g2p_previous_symbol	holoprosencephaly 2
+symbol	SIX3	HPE2	hgnc_previous_symbol	holoprosencephaly 2
+symbol	SLC16A2	AHDS	g2p_previous_symbol	Allan-Herndon-Dudley syndrome
+symbol	SLC16A2	AHDS	hgnc_previous_symbol	Allan-Herndon-Dudley syndrome
+symbol	SLC17A5	ISSD	g2p_previous_symbol	free sialic acid storage disease, infantile form
+symbol	SLC17A5	ISSD	hgnc_alias_symbol	free sialic acid storage disease, infantile form
+symbol	SLC22A5	CDSP	g2p_previous_symbol	systemic primary carnitine deficiency disease
+symbol	SLC22A5	CDSP	hgnc_previous_symbol	systemic primary carnitine deficiency disease
+symbol	SLC22A5	SCD	g2p_previous_symbol	Schnyder corneal dystrophy
+symbol	SLC22A5	SCD	hgnc_alias_symbol	Schnyder corneal dystrophy
+symbol	SLC25A13	CTLN2	g2p_previous_symbol	citrullinemia type II
+symbol	SLC25A13	CTLN2	hgnc_previous_symbol	citrullinemia type II
+symbol	SLC25A22	EIEE3	g2p_previous_symbol	developmental and epileptic encephalopathy, 3
+symbol	SLC25A22	EIEE3	hgnc_alias_symbol	developmental and epileptic encephalopathy, 3
+symbol	SLC25A22	GC1	g2p_previous_symbol	GC1
+symbol	SLC25A22	GC1	hgnc_alias_symbol	GC1
+symbol	SLC2A1	DYT18	g2p_previous_symbol	childhood onset GLUT1 deficiency syndrome 2
+symbol	SLC2A1	DYT18	hgnc_alias_symbol	childhood onset GLUT1 deficiency syndrome 2
+symbol	SLC2A1	DYT9	g2p_previous_symbol	dystonia 9
+symbol	SLC2A1	DYT9	hgnc_alias_symbol	dystonia 9
+symbol	SLC33A1	SPG42	g2p_previous_symbol	hereditary spastic paraplegia 42
+symbol	SLC33A1	SPG42	hgnc_previous_symbol	hereditary spastic paraplegia 42
+symbol	SLC37A4	GSD1B	g2p_previous_symbol	glycogen storage disease Ib
+symbol	SLC37A4	GSD1D	g2p_previous_symbol	glycogen storage disease Id
+symbol	SLC4A11	CHED2	g2p_previous_symbol	congenital hereditary endothelial dystrophy of cornea
+symbol	SLC4A11	CHED2	hgnc_previous_symbol	congenital hereditary endothelial dystrophy of cornea
+symbol	SLX4	FANCP	g2p_previous_symbol	Fanconi anemia complementation group P
+symbol	SLX4	FANCP	hgnc_alias_symbol	Fanconi anemia complementation group P
+symbol	SMPD1	ASM	g2p_previous_symbol	aggressive systemic mastocytosis
+symbol	SMPD1	ASM	hgnc_alias_symbol	aggressive systemic mastocytosis
+symbol	SMS	SRS	g2p_previous_symbol	Silver-Russell syndrome
+symbol	SMS	SRS	hgnc_previous_symbol	Silver-Russell syndrome
+symbol	SOX10	WS2E	g2p_previous_symbol	Waardenburg syndrome type 2E
+symbol	SOX10	WS2E	hgnc_alias_symbol	Waardenburg syndrome type 2E
+symbol	SOX10	WS4	g2p_previous_symbol	Waardenburg-Shah syndrome
+symbol	SOX10	WS4	hgnc_alias_symbol	Waardenburg-Shah syndrome
+symbol	SOX9	CMD1	g2p_previous_symbol	congenital muscular dystonia, ATP2A1-related, cattle
+symbol	SOX9	CMD1	hgnc_previous_symbol	congenital muscular dystonia, ATP2A1-related, cattle
+symbol	SOX9	SRA1	g2p_previous_symbol	SRA1
+symbol	SOX9	SRA1	hgnc_alias_symbol	SRA1
+symbol	SPAG1	CILD28	g2p_previous_symbol	primary ciliary dyskinesia 28
+symbol	SPAG1	CILD28	hgnc_alias_symbol	primary ciliary dyskinesia 28
+symbol	SPAST	SPG4	g2p_previous_symbol	hereditary spastic paraplegia 4
+symbol	SPAST	SPG4	hgnc_previous_symbol	hereditary spastic paraplegia 4
+symbol	SPG11	ALS5	g2p_previous_symbol	amyotrophic lateral sclerosis type 5
+symbol	SPG11	ALS5	hgnc_previous_symbol	amyotrophic lateral sclerosis type 5
+symbol	SPTBN2	SCA5	g2p_previous_symbol	spinocerebellar ataxia type 5
+symbol	SPTBN2	SCA5	hgnc_previous_symbol	spinocerebellar ataxia type 5
+symbol	SYN1	MRX50	g2p_previous_symbol	intellectual disability, X-linked 50
+symbol	SYN1	MRX50	hgnc_previous_symbol	intellectual disability, X-linked 50
+symbol	SYNE1	ARCA1	g2p_previous_symbol	autosomal recessive ataxia, Beauce type
+symbol	SYNE1	ARCA1	hgnc_alias_symbol	autosomal recessive ataxia, Beauce type
+symbol	SYNE1	SCAR8	g2p_previous_symbol	autosomal recessive ataxia, Beauce type
+symbol	SYNE1	SCAR8	hgnc_alias_symbol	autosomal recessive ataxia, Beauce type
+symbol	TAF1	DYT3	g2p_previous_symbol	X-linked dystonia-parkinsonism
+symbol	TAF1	DYT3	hgnc_previous_symbol	X-linked dystonia-parkinsonism
+symbol	TAFAZZIN	BTHS	g2p_previous_symbol	Barth syndrome
+symbol	TAFAZZIN	BTHS	hgnc_alias_symbol	Barth syndrome
+symbol	TBX3	UMS	g2p_previous_symbol	ulnar-mammary syndrome
+symbol	TBX3	UMS	hgnc_previous_symbol	ulnar-mammary syndrome
+symbol	TBX5	HOS	g2p_previous_symbol	Holt-Oram syndrome
+symbol	TBX5	HOS	hgnc_previous_symbol	Holt-Oram syndrome
+symbol	TCN2	D22S676	g2p_previous_symbol	macrocytic anemia
+symbol	TCN2	D22S676	hgnc_alias_symbol	macrocytic anemia
+symbol	TCN2	D22S750	g2p_previous_symbol	macrocytic anemia
+symbol	TCN2	D22S750	hgnc_alias_symbol	macrocytic anemia
+symbol	TCTN1	JBTS13	g2p_previous_symbol	Joubert syndrome 13
+symbol	TCTN1	JBTS13	hgnc_alias_symbol	Joubert syndrome 13
+symbol	TCTN2	JBTS24	g2p_previous_symbol	Joubert syndrome 24
+symbol	TCTN2	JBTS24	hgnc_alias_symbol	Joubert syndrome 24
+symbol	TCTN2	MKS8	g2p_previous_symbol	Meckel syndrome, type 8
+symbol	TCTN2	MKS8	hgnc_alias_symbol	Meckel syndrome, type 8
+symbol	TCTN3	JBTS18	g2p_previous_symbol	Joubert syndrome 18
+symbol	TCTN3	JBTS18	hgnc_alias_symbol	Joubert syndrome 18
+symbol	TEK	VMCM	g2p_previous_symbol	multiple cutaneous and mucosal venous malformations
+symbol	TEK	VMCM	hgnc_previous_symbol	multiple cutaneous and mucosal venous malformations
+symbol	TGFB1	CED	g2p_previous_symbol	cranioectodermal dysplasia
+symbol	TGFB1	CED	hgnc_alias_symbol	cranioectodermal dysplasia
+symbol	TGFB3	ARVD	g2p_previous_symbol	arrhythmogenic right ventricular cardiomyopathy
+symbol	TGFB3	ARVD	hgnc_previous_symbol	arrhythmogenic right ventricular cardiomyopathy
+symbol	TGFB3	ARVD1	g2p_previous_symbol	arrhythmogenic right ventricular dysplasia 1
+symbol	TGFB3	ARVD1	hgnc_previous_symbol	arrhythmogenic right ventricular dysplasia 1
+symbol	TGFBR1	MSSE	g2p_previous_symbol	multiple self-healing squamous epithelioma
+symbol	TGFBR1	MSSE	hgnc_previous_symbol	multiple self-healing squamous epithelioma
+symbol	TGIF1	HPE4	g2p_previous_symbol	holoprosencephaly 4
+symbol	TGIF1	HPE4	hgnc_previous_symbol	holoprosencephaly 4
+symbol	TH	DYT5b	hgnc_alias_symbol	TH-deficient dopa-responsive dystonia
+symbol	THAP1	DYT6	g2p_previous_symbol	torsion dystonia 6
+symbol	THAP1	DYT6	hgnc_previous_symbol	torsion dystonia 6
+symbol	TK2	SCA31	g2p_previous_symbol	spinocerebellar ataxia type 31
+symbol	TK2	SCA31	hgnc_alias_symbol	spinocerebellar ataxia type 31
+symbol	TMEM216	CORS2	g2p_previous_symbol	Joubert syndrome 2
+symbol	TMEM216	CORS2	hgnc_previous_symbol	Joubert syndrome 2
+symbol	TMEM216	JBTS2	g2p_previous_symbol	Joubert syndrome 2
+symbol	TMEM216	JBTS2	hgnc_alias_symbol	Joubert syndrome 2
+symbol	TMEM216	MKS2	g2p_previous_symbol	Meckel syndrome, type 2
+symbol	TMEM216	MKS2	hgnc_previous_symbol	Meckel syndrome, type 2
+symbol	TMEM237	JBTS14	g2p_previous_symbol	Joubert syndrome 14
+symbol	TMEM237	JBTS14	hgnc_alias_symbol	Joubert syndrome 14
+symbol	TMEM240	SCA21	g2p_previous_symbol	spinocerebellar ataxia type 21
+symbol	TMEM240	SCA21	hgnc_previous_symbol	spinocerebellar ataxia type 21
+symbol	TMEM67	JBTS6	g2p_previous_symbol	Joubert syndrome 6
+symbol	TMEM67	JBTS6	hgnc_alias_symbol	Joubert syndrome 6
+symbol	TMEM67	MKS3	g2p_previous_symbol	Meckel syndrome, type 3
+symbol	TMEM67	MKS3	hgnc_previous_symbol	Meckel syndrome, type 3
+symbol	TMEM67	NPHP11	g2p_previous_symbol	nephronophthisis 11
+symbol	TMEM67	NPHP11	hgnc_alias_symbol	nephronophthisis 11
+symbol	TMEM70	MC5DN2	hgnc_alias_symbol	mitochondrial complex V (ATP synthase) deficiency, nuclear type 2
+symbol	TNNT3	DA2B	g2p_previous_symbol	Sheldon-hall syndrome
+symbol	TNNT3	DA2B	hgnc_alias_symbol	Sheldon-hall syndrome
+symbol	TOR1A	DYT1	g2p_previous_symbol	early-onset generalized limb-onset dystonia
+symbol	TOR1A	DYT1	hgnc_previous_symbol	early-onset generalized limb-onset dystonia
+symbol	TP63	EEC3	g2p_previous_symbol	ectrodactyly, ectodermal dysplasia, and cleft lip-palate syndrome 3
+symbol	TP63	EEC3	hgnc_alias_symbol	ectrodactyly, ectodermal dysplasia, and cleft lip-palate syndrome 3
+symbol	TP63	SHFM4	g2p_previous_symbol	split hand-foot malformation 4
+symbol	TP63	SHFM4	hgnc_alias_symbol	split hand-foot malformation 4
+symbol	TPM2	DA1	g2p_previous_symbol	digitotalar dysmorphism
+symbol	TPM2	DA1	hgnc_alias_symbol	digitotalar dysmorphism
+symbol	TPM2	NEM4	g2p_previous_symbol	congenital myopathy 23
+symbol	TPM2	NEM4	hgnc_alias_symbol	congenital myopathy 23
+symbol	TPM3	NEM1	g2p_previous_symbol	congenital myopathy 4A, autosomal dominant
+symbol	TPM3	NEM1	hgnc_previous_symbol	congenital myopathy 4A, autosomal dominant
+symbol	TPP1	CLN2	g2p_previous_symbol	neuronal ceroid lipofuscinosis 2
+symbol	TPP1	CLN2	hgnc_previous_symbol	neuronal ceroid lipofuscinosis 2
+symbol	TPP1	SCAR7	g2p_previous_symbol	autosomal recessive spinocerebellar ataxia 7
+symbol	TPP1	SCAR7	hgnc_previous_symbol	autosomal recessive spinocerebellar ataxia 7
+symbol	TRIM32	BBS11	g2p_previous_symbol	Bardet-Biedl syndrome 11
+symbol	TRIM32	BBS11	hgnc_alias_symbol	Bardet-Biedl syndrome 11
+symbol	TRIM32	LGMD2H	g2p_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2H
+symbol	TRIM32	LGMD2H	hgnc_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2H
+symbol	TRIM37	MUL	g2p_previous_symbol	mulibrey nanism
+symbol	TRIM37	MUL	hgnc_previous_symbol	mulibrey nanism
+symbol	TRPM1	CSNB1C	g2p_previous_symbol	congenital stationary night blindness 1C
+symbol	TRPM1	CSNB1C	hgnc_alias_symbol	congenital stationary night blindness 1C
+symbol	TRPV4	CMT2C	g2p_previous_symbol	Charcot-Marie-Tooth disease axonal type 2C
+symbol	TRPV4	CMT2C	hgnc_alias_symbol	Charcot-Marie-Tooth disease axonal type 2C
+symbol	TSC1	TSC	g2p_previous_symbol	tuberous sclerosis
+symbol	TSC1	TSC	hgnc_previous_symbol	tuberous sclerosis
+symbol	TTC8	BBS8	g2p_previous_symbol	Bardet-Biedl syndrome 8
+symbol	TTC8	BBS8	hgnc_alias_symbol	Bardet-Biedl syndrome 8
+symbol	TTC8	RP51	g2p_previous_symbol	retinitis pigmentosa 51
+symbol	TTC8	RP51	hgnc_alias_symbol	retinitis pigmentosa 51
+symbol	TTN	CMD1G	g2p_previous_symbol	dilated cardiomyopathy 1G
+symbol	TTN	CMD1G	hgnc_previous_symbol	dilated cardiomyopathy 1G
+symbol	TTN	CMH9	g2p_previous_symbol	hypertrophic cardiomyopathy 9
+symbol	TTN	CMH9	hgnc_alias_symbol	hypertrophic cardiomyopathy 9
+symbol	TTN	LGMD2J	g2p_previous_symbol	autosomal recessive limb-girdle muscular dystrophy type 2J
+symbol	TTN	LGMD2J	hgnc_alias_symbol	autosomal recessive limb-girdle muscular dystrophy type 2J
+symbol	TTN	TMD	g2p_previous_symbol	temporomandibular joint disorder
+symbol	TTN	TMD	hgnc_alias_symbol	temporomandibular joint disorder
+symbol	TUBB4A	DYT4	g2p_previous_symbol	torsion dystonia 4
+symbol	TUBB4A	DYT4	hgnc_previous_symbol	torsion dystonia 4
+symbol	TWIST1	ACS3	g2p_previous_symbol	Saethre-Chotzen syndrome
+symbol	TWIST1	ACS3	hgnc_previous_symbol	Saethre-Chotzen syndrome
+symbol	TWIST1	CRS	g2p_previous_symbol	congenital rubella syndrome
+symbol	TWIST1	CRS	hgnc_previous_symbol	congenital rubella syndrome
+symbol	TWIST1	SCS	g2p_previous_symbol	Saethre-Chotzen syndrome
+symbol	TWIST1	SCS	hgnc_alias_symbol	Saethre-Chotzen syndrome
+symbol	TYR	OCA1	g2p_previous_symbol	oculocutaneous albinism type 1
+symbol	TYR	OCA1	hgnc_alias_symbol	oculocutaneous albinism type 1
+symbol	TYR	OCA1A	g2p_previous_symbol	oculocutaneous albinism type 1A
+symbol	TYR	OCA1A	hgnc_alias_symbol	oculocutaneous albinism type 1A
+symbol	TYRP1	OCA3	g2p_previous_symbol	oculocutaneous albinism type 3
+symbol	TYRP1	OCA3	hgnc_alias_symbol	oculocutaneous albinism type 3
+symbol	UBE2T	FANCT	g2p_previous_symbol	Fanconi anemia complementation group T
+symbol	UBE2T	FANCT	hgnc_alias_symbol	Fanconi anemia complementation group T
+symbol	UPF3B	MRX82	g2p_previous_symbol	intellectual disability, X-linked 82
+symbol	UPF3B	MRX82	hgnc_alias_symbol	intellectual disability, X-linked 82
+symbol	VCP	IBMPFD	g2p_previous_symbol	inclusion body myopathy with Paget disease of bone and frontotemporal dementia
+symbol	VCP	IBMPFD	hgnc_alias_symbol	inclusion body myopathy with Paget disease of bone and frontotemporal dementia
+symbol	WASHC5	SPG8	g2p_previous_symbol	hereditary spastic paraplegia 8
+symbol	WASHC5	SPG8	hgnc_previous_symbol	hereditary spastic paraplegia 8
+symbol	WDPCP	BBS15	g2p_previous_symbol	Bardet-Biedl syndrome 15
+symbol	WDPCP	BBS15	hgnc_alias_symbol	Bardet-Biedl syndrome 15
+symbol	WDR19	NPHP13	g2p_previous_symbol	nephronophthisis 13
+symbol	WDR19	NPHP13	hgnc_alias_symbol	nephronophthisis 13
+symbol	WDR45	NBIA5	g2p_previous_symbol	neurodegeneration with brain iron accumulation 5
+symbol	WDR45	NBIA5	hgnc_alias_symbol	neurodegeneration with brain iron accumulation 5
+symbol	WFS1	DIDMOAD	g2p_previous_symbol	Wolfram syndrome
+symbol	WFS1	DIDMOAD	hgnc_alias_symbol	Wolfram syndrome
+symbol	WFS1	WFS	g2p_previous_symbol	Waterhouse-Friderichsen syndrome
+symbol	WFS1	WFS	hgnc_alias_symbol	Waterhouse-Friderichsen syndrome
+symbol	WNT10B	SHFM6	g2p_previous_symbol	split hand-foot malformation 6
+symbol	WNT10B	SHFM6	hgnc_alias_symbol	split hand-foot malformation 6
+symbol	XPA	XP1	g2p_previous_symbol	xeroderma pigmentosum group A
+symbol	XPA	XP1	hgnc_alias_symbol	xeroderma pigmentosum group A
+symbol	XPC	XPCC	g2p_previous_symbol	xeroderma pigmentosum group C
+symbol	XPC	XPCC	hgnc_alias_symbol	xeroderma pigmentosum group C
+symbol	XPNPEP3	NPHPL1	g2p_previous_symbol	nephronophthisis-like nephropathy 1
+symbol	XPNPEP3	NPHPL1	hgnc_alias_symbol	nephronophthisis-like nephropathy 1
+symbol	ZBTB18	RP58	g2p_previous_symbol	retinitis pigmentosa 58
+symbol	ZBTB18	RP58	hgnc_alias_symbol	retinitis pigmentosa 58
+symbol	ZC4H2	MCS	g2p_previous_symbol	Wieacker-Wolff syndrome
+symbol	ZC4H2	MCS	hgnc_previous_symbol	Wieacker-Wolff syndrome
+symbol	ZC4H2	MRXS4	g2p_previous_symbol	Wieacker-Wolff syndrome
+symbol	ZC4H2	MRXS4	hgnc_previous_symbol	Wieacker-Wolff syndrome
+symbol	ZC4H2	WWS	g2p_previous_symbol	muscular dystrophy-dystroglycanopathy, type A
+symbol	ZC4H2	WWS	hgnc_previous_symbol	muscular dystrophy-dystroglycanopathy, type A
+symbol	ZEB1	PPCD3	g2p_previous_symbol	posterior polymorphous corneal dystrophy 3
+symbol	ZEB1	PPCD3	hgnc_previous_symbol	posterior polymorphous corneal dystrophy 3
+symbol	ZFYVE26	SPG15	g2p_previous_symbol	hereditary spastic paraplegia 15
+symbol	ZFYVE26	SPG15	hgnc_previous_symbol	hereditary spastic paraplegia 15
+symbol	ZIC2	HPE5	g2p_previous_symbol	holoprosencephaly 5
+symbol	ZIC2	HPE5	hgnc_alias_symbol	holoprosencephaly 5
+symbol	ZMPSTE24	HGPS	g2p_previous_symbol	Hutchinson-Gilford progeria syndrome
+symbol	ZMPSTE24	HGPS	hgnc_alias_symbol	Hutchinson-Gilford progeria syndrome
+symbol	ZMYM2	FIM	g2p_previous_symbol	congenital myasthenic syndrome 6
+symbol	ZMYM2	FIM	hgnc_alias_symbol	congenital myasthenic syndrome 6
+symbol	ZMYND10	CILD22	g2p_previous_symbol	primary ciliary dyskinesia 22
+symbol	ZMYND10	CILD22	hgnc_alias_symbol	primary ciliary dyskinesia 22

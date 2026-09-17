@@ -197,3 +197,87 @@ def test_symbol_fallback_only_for_pubtator_unannotated_abstracts(tmp_path):
     assert rows["100"]["candidate_g2p_ids"] == ["G2P00001"]  # no DMD added to an annotated row
     assert rows["500"]["candidate_g2p_ids"] == ["G2P00004", "G2P00005"]   # "ITPR1-related" -> ITPR1
     assert rows["500"]["candidate_sources"] == ["symbol_fallback", "symbol_fallback"]
+
+
+# ----------------------------------------------------------------------- --resolution hgnc
+HGNC_FULL = textwrap.dedent("""\
+    hgnc_id\tsymbol\tname\talias_symbol\tprev_symbol\talias_name\tprev_name\tentrez_id
+    HGNC:11957\tMED12\tmediator complex subunit 12\tKIAA0192\tOPA1|HOPA\t\t\t9968
+    HGNC:8140\tOPA1\tOPA1 mitochondrial dynamin like GTPase\t\t\t\t\t4976
+    HGNC:9791\tRAI1\tretinoic acid induced 1\t\tSMCR\t\tSmith-Magenis syndrome chromosome region\t10743
+    HGNC:11123\tSMS\tspermine synthase\t\t\t\t\t6611
+    HGNC:6990\tMECP2\tmethyl-CpG binding protein 2\tRTT\t\t\tRett syndrome\t4204
+    """)
+G2P_FULL = textwrap.dedent("""\
+    g2p id,gene symbol,hgnc id,previous gene symbols
+    G2P00747,MED12,11957,OPA1; HOPA
+    G2P00752,RAI1,9791,SMCR
+    G2P00787,SMS,11123,
+    G2P00600,MECP2,6990,RTT
+    """)
+MONDO_OBO = textwrap.dedent("""\
+    [Term]
+    id: MONDO:0008434
+    name: Smith-Magenis syndrome
+    synonym: "SMS" EXACT []
+    relationship: has_material_basis_in_germline_mutation_in http://identifiers.org/hgnc/9791 ! RAI1
+
+    [Term]
+    id: MONDO:0010726
+    name: Rett syndrome
+    synonym: "RTT" EXACT []
+    relationship: has_material_basis_in_germline_mutation_in http://identifiers.org/hgnc/6990 ! MECP2
+
+    [Term]
+    id: http://identifiers.org/hgnc/8140
+    name: OPA1
+    """)
+
+
+def _run_hgnc(tmp_path, tiabs, pubtator_rows, *extra):
+    (tmp_path / "g2p.csv").write_text(G2P_FULL)
+    (tmp_path / "hgnc.txt").write_text(HGNC_FULL)
+    (tmp_path / "mondo.obo").write_text(MONDO_OBO)
+    with gzip.open(tmp_path / "gene_info.gz", "wt") as f:
+        f.write("#tax_id\tGeneID\tSymbol\n")
+    with gzip.open(tmp_path / "g2pub.gz", "wt") as f:
+        for row in pubtator_rows:
+            f.write("\t".join(row) + "\n")
+    pl.DataFrame({"pmid": [str(i) for i in range(len(tiabs))], "tiab": tiabs}).write_parquet(
+        tmp_path / "in.parquet")
+    return _run(tmp_path, "--resolution", "hgnc", "--hgnc", str(tmp_path / "hgnc.txt"),
+                "--mondo_obo", str(tmp_path / "mondo.obo"), "--symbol_fallback", *extra)
+
+
+def _cands(out):
+    return {r["pmid"]: r["candidate_g2p_ids"] for r in out.iter_rows(named=True)}
+
+
+def test_hgnc_resolution_does_not_follow_another_genes_previous_symbol(tmp_path):
+    """PubTator's OPA1 (GeneID 4976) is not MED12, although G2P lists OPA1 as MED12's old symbol."""
+    out = _cands(_run_hgnc(tmp_path, ["OPA1 variants in optic atrophy."],
+                           [("0", "Gene", "4976", "OPA1", "PubTator3")]))
+    assert "0" not in out
+    # the verbatim route does not use OPA1 either: it is another gene's approved symbol
+    out = _cands(_run_hgnc(tmp_path, ["OPA1 variants in optic atrophy."], []))
+    assert "0" not in out
+
+
+def test_hgnc_resolution_excludes_disease_name_aliases_and_uses_disease_context(tmp_path):
+    tiabs = [
+        "Smith-Magenis syndrome (SMS): clinical review of 20 patients.",   # SMS is the disease
+        "SMS variants cause Snyder-Robinson syndrome.",                   # SMS is the gene
+        "Girls with RTT have regression.",                                # RTT is a disease alias
+        "A RAI1 frameshift in Smith-Magenis syndrome (SMS).",            # RAI1 via PubTator, not SMS
+    ]
+    rows = [("0", "Gene", "6611", "SMS", "PubTator3"), ("1", "Gene", "6611", "SMS", "PubTator3"),
+            ("2", "Gene", "4204", "RTT", "PubTator3"), ("3", "Gene", "10743", "RAI1", "PubTator3"),
+            ("3", "Gene", "6611", "SMS", "PubTator3")]
+    out = _cands(_run_hgnc(tmp_path, tiabs, rows))
+    assert "0" not in out
+    assert out["1"] == ["G2P00787"]
+    assert "2" not in out
+    assert out["3"] == ["G2P00752"]
+    # ablation: without the context rule the disease abbreviation admits spermine synthase
+    out = _cands(_run_hgnc(tmp_path, tiabs, rows, "--no_disease_context"))
+    assert out["0"] == ["G2P00787"]

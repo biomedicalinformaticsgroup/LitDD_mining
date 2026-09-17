@@ -132,6 +132,32 @@ def load_pubtator_genes(
     return {p: set(d) for p, d in out.items()}
 
 
+def load_pubtator_gene_ids(path: str, pmids: set[str] | None) -> dict[str, dict[str, set[str]]]:
+    """pmid -> {NCBI GeneID: mention strings} from PubTator3 TEXT annotations only.
+
+    Identifier-level counterpart of ``load_pubtator_genes``: no symbol lookup, so the caller
+    resolves each GeneID to a gene by identifier (HGNC ``entrez_id``) instead of by matching a
+    symbol string. Database cross-reference rows (gene2pubmed, BioGRID, ...) are ignored.
+    """
+    out: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    with _open_text(path) as f:
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 3:
+                continue
+            pmid = parts[0]
+            if pmids is not None and pmid not in pmids:
+                continue
+            if "PubTator3" not in (parts[4] if len(parts) > 4 else ""):
+                continue
+            mentions = {m for m in (parts[3] if len(parts) > 3 else "").split("|") if m}
+            for eid in (parts[2] or "").split(";"):
+                eid = eid.strip()
+                if eid:
+                    out[pmid][eid] |= mentions
+    return {p: dict(d) for p, d in out.items()}
+
+
 def mention_in_text(text: str, mentions: set[str], symbol: str) -> bool:
     """True when any PubTator mention (or, lacking mentions, the symbol) occurs in ``text``
     as a whole token (case-insensitive; boundaries are non-alphanumeric so 'P-gp' works)."""
