@@ -30,7 +30,7 @@ jobs:
       - name: Unit tests (CPU only)
         run: >-
           uv run --no-project
-          --with numpy --with pandas --with polars --with pyarrow --with pytest
+          --with numpy --with pandas --with polars --with pyarrow --with pronto --with pytest
           pytest tests/ -q
 
   secret-scan:
