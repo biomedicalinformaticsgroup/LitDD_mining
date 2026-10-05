@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
-"""5-fold StratifiedGroupKFold hyperparameter search for the BERT classifier.
+"""Select screen hyperparameters by stratified group k-fold cross-validation on the training set.
 
-Operates *only on the training set* — the held-out test set is never loaded
-here. For each (learning_rate, weight_decay, ...) combination in the grid,
-trains a fresh BERT for ``--epochs`` epochs on 4 folds and scores fold-F1 on
-the 5th. The combination with the highest mean fold F1 is written to
-``--out_json`` (consumed downstream by ``litdd/training/bert_finetune.py
---hp_json …``).
+Reads one HuggingFace ``save_to_disk`` directory (``--train_ds_dir``) with ``tiab``, ``label``
+and the grouping column (``--group_col``, default ``tiab``); the test set is not read. For each
+(learning rate, weight decay, epochs) combination of the grid it trains ``--input_model`` on
+``n_folds - 1`` folds and scores F1 on the remaining fold, with no group shared between the
+two sides of a fold. Writes ``--out_json`` with every combination's fold F1 values and the
+combination with the highest mean F1 under ``best``, which ``bert_finetune.py --hp_json``
+consumes.
 
-The grouping column (``--group_col``, default ``tiab``) prevents the same
-abstract appearing in both the training and validation halves of any fold.
-
-Default grid is intentionally small (``lr × weight_decay`` = 4 combos × 5
-folds = 20 trainings) so a sweep fits in a few hours on 1× A100. Override
-via ``--lr_grid`` / ``--wd_grid`` / ``--epochs_grid``.
+The default grid is the product of ``--lr_grid`` and ``--wd_grid`` at a single epoch count.
 """
 from __future__ import annotations
 
@@ -23,11 +19,9 @@ import itertools
 import json
 import os
 import time
-from typing import Iterable
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-import evaluate
 import numpy as np
 import torch
 from datasets import Dataset, load_from_disk
@@ -40,13 +34,9 @@ from transformers import (
     TrainingArguments,
 )
 
+from litdd.training.screen_common import make_compute_metrics, parse_floats, parse_ints
 
-def parse_floats(s: Iterable[str]) -> list[float]:
-    return [float(x) for x in s]
-
-
-def parse_ints(s: Iterable[str]) -> list[int]:
-    return [int(x) for x in s]
+MAX_LENGTH = 512
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,7 +49,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--out_json", default="litdd/training/bert_hp_search.json")
 
-    # Grid (each flag accepts multiple values)
+    # Grid; each flag accepts several values.
     p.add_argument("--lr_grid", nargs="+", default=["1e-5", "3e-5"],
                    help="Learning-rate grid.")
     p.add_argument("--wd_grid", nargs="+", default=["0.1", "0.3"],
@@ -67,26 +57,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--epochs_grid", nargs="+", default=["3"],
                    help="Epochs grid (single value typical).")
 
-    # Fixed (not searched in default config)
+    # Fixed for every combination.
     p.add_argument("--train_bs", type=int, default=32)
     p.add_argument("--eval_bs", type=int, default=64)
     return p.parse_args()
-
-
-def make_compute_metrics():
-    f1 = evaluate.load("f1")
-    prec = evaluate.load("precision")
-    rec = evaluate.load("recall")
-
-    def fn(eval_pred):
-        logits, labels = eval_pred
-        preds = np.argmax(logits, axis=-1)
-        return {
-            "eval_f1": f1.compute(predictions=preds, references=labels)["f1"],
-            "eval_precision": prec.compute(predictions=preds, references=labels, zero_division=0)["precision"],
-            "eval_recall": rec.compute(predictions=preds, references=labels, zero_division=0)["recall"],
-        }
-    return fn
 
 
 def evaluate_one_fold(
@@ -102,6 +76,7 @@ def evaluate_one_fold(
     seed: int,
     fold_idx: int,
 ) -> dict:
+    """Train on ``train_idx`` and evaluate on ``val_idx``; return fold F1, precision, recall and runtime."""
     print(f"\n  -- fold {fold_idx} --", flush=True)
     fold_train = ds_train_full.select(train_idx.tolist())
     fold_val = ds_train_full.select(val_idx.tolist())
@@ -109,7 +84,7 @@ def evaluate_one_fold(
     tokenizer = AutoTokenizer.from_pretrained(input_model)
 
     def preprocess(b):
-        return tokenizer(b["tiab"], truncation=True, max_length=512)  # noqa: F821 (closure over tokenizer)
+        return tokenizer(b["tiab"], truncation=True, max_length=MAX_LENGTH)
 
     keep = {"tiab", "label"}
 
@@ -149,7 +124,7 @@ def evaluate_one_fold(
     runtime = time.time() - t0
     metrics["runtime_s"] = round(runtime, 1)
 
-    del trainer, model, tokenizer, tok_train, tok_val
+    del trainer, model, tok_train, tok_val
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -181,7 +156,7 @@ def main() -> int:
 
     grid = list(itertools.product(lrs, wds, epochs_list))
     print(f"[Info] HP grid: {len(grid)} combos × {args.n_folds} folds = "
-          f"{len(grid) * args.n_folds} BERT trainings.")
+          f"{len(grid) * args.n_folds} trainings.")
     print(f"[Info] groups: train_size={len(ds_train)} unique_{args.group_col}={len(set(groups))}")
 
     results = []

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the external-set positive training pool for the high-recall screen experiment (R3.3).
+"""Build the external-set positive training pool for the screen.
 
 Takes the external truth papers (premined DDG2P `publications` / ClinGen / HPOA), attaches
 title+abstract, keeps only gene-present papers (G2P gene symbol OR previous/alias symbol OR
@@ -42,13 +42,13 @@ def gene_fullnames(path: str) -> dict[str, str]:
 
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--truthsets", default="revision/external_recall/truthsets.csv")
-    ap.add_argument("--tiab_csv", default="revision/external_recall/evagg_external_eval.csv",
+    ap.add_argument("--truthsets", required=True, help="truthsets.csv from build_truthsets.py")
+    ap.add_argument("--tiab_csv", required=True,
                     help="pmid,tiab for the truth papers")
     ap.add_argument("--ddg2p", required=True)
     ap.add_argument("--annotated", required=True, help="annotated_tiab.csv (train/test PMIDs to exclude)")
     ap.add_argument("--gene_info", required=True)
-    ap.add_argument("--out", default="revision/external_recall/external_positives.csv")
+    ap.add_argument("--out", required=True)
     return ap.parse_args()
 
 

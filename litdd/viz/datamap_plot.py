@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Render the literature-space datamap figure (static PNG + interactive HTML).
 
-Pipeline: ``ce_tsne.py`` produces ``filtered_clean_genes_clusters_and_viz.parquet``
-(2D ``viz_x``/``viz_y`` coords, ``cluster_id`` and ``cluster_label`` per record). This
-script labels clusters with MONDO disease terms and renders them with ``datamapplot``:
+Input: a parquet with one row per mapped record holding 2D coordinates (``viz_x``,
+``viz_y``), a ``cluster_id`` and the record's G2P ids (``--clusters_parquet``). This script
+labels clusters with MONDO disease terms and renders them with ``datamapplot``:
 
   - Static plot: per-cluster label from a two-group refined LCA of the cluster's
     G2P->MONDO diseases (split into two groups by ancestor Jaccard distance, with an
@@ -12,10 +12,9 @@ script labels clusters with MONDO disease terms and renders them with ``datamapp
   - Interactive plot: multi-scale label layers from the single deterministic LCA
     coarsened to increasing ontology depths.
 
-This is a single-file, de-duplicated rewrite of the original exploratory notebook (which
-redefined the same helpers three times); the labelling logic that produced the figures is
-preserved. Large inputs (clusters parquet, ``mondo.owl``) are not shipped; ``mondo.owl`` is
-downloaded on first run if absent. Requires owlready2 and datamapplot (see requirements).
+Reads the clusters parquet, the G2P DD CSV (``g2p id`` and ``disease MONDO`` columns) and
+``mondo.owl``, which is downloaded when absent. Writes the static PNG, the interactive HTML and
+a parquet of the per-point label layers. Requires owlready2 and datamapplot.
 """
 from __future__ import annotations
 
@@ -26,7 +25,6 @@ from collections import deque
 from functools import lru_cache
 from itertools import combinations
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -36,7 +34,7 @@ MONDO_OWL_URL = "https://purl.obolibrary.org/obo/mondo.owl"
 MONDO_ROOT_IRI = "http://purl.obolibrary.org/obo/MONDO_0700096"  # human disease
 NOISE_LABEL = "NOISE"
 OTHER_LABEL = "MONDO:OTHER"
-# Generic labels we refuse as a cluster name (re-split / go deeper instead).
+# Labels too generic for a cluster name; the group is split or coarsened further instead.
 BANNED_LABELS = {"syndromic disease", "hereditary disease", "human disease", "autosomal genetic disease"}
 
 _MONDO_ID_RE = re.compile(r"(?:https?://purl\.obolibrary\.org/obo/)?MONDO[:_]\s*(\d+)", re.IGNORECASE)
@@ -46,7 +44,7 @@ _G2P_RE = re.compile(r"\bG2P[^\s,;|/]*", re.IGNORECASE)
 # --------------------------------------------------------------------------- #
 # G2P -> MONDO mapping and cluster-label parsing
 # --------------------------------------------------------------------------- #
-def normalize_mondo_curie(s) -> Optional[str]:
+def normalize_mondo_curie(s) -> str | None:
     """Normalize any MONDO-like token to 'MONDO:NNNNNNN' (7 digits), else None."""
     if not isinstance(s, str) or not s.strip() or s.strip().upper() == "NO MATCH":
         return None
@@ -54,10 +52,10 @@ def normalize_mondo_curie(s) -> Optional[str]:
     return f"MONDO:{m.group(1).zfill(7)}" if m else None
 
 
-def build_g2p_to_mondo(g2p_file: str) -> Dict[str, str]:
+def build_g2p_to_mondo(g2p_file: str) -> dict[str, str]:
     """Map G2P id (upper) -> MONDO CURIE from the G2P DD CSV."""
     g2p = pd.read_csv(g2p_file).dropna(subset=["g2p id", "disease MONDO"])
-    mapping: Dict[str, str] = {}
+    mapping: dict[str, str] = {}
     for gid, mondo in zip(g2p["g2p id"].astype(str), g2p["disease MONDO"].astype(str)):
         curie = normalize_mondo_curie(mondo)
         gid = gid.strip().upper()
@@ -66,7 +64,7 @@ def build_g2p_to_mondo(g2p_file: str) -> Dict[str, str]:
     return mapping
 
 
-def parse_g2p_codes(label) -> List[str]:
+def parse_g2p_codes(label) -> list[str]:
     """Parse G2P ids from the codes portion (before first '|') of a cluster label."""
     if not isinstance(label, str) or not label.strip():
         return []
@@ -100,7 +98,7 @@ class Mondo:
     def _name_to_curie(name: str) -> str:
         return name.replace("_", ":").strip()
 
-    def _compute_depths(self, root_cls) -> Dict[str, int]:
+    def _compute_depths(self, root_cls) -> dict[str, int]:
         depths = {root_cls.name: 0}
         q = deque([root_cls])
         while q:
@@ -144,7 +142,7 @@ class Mondo:
             return 0
         return max(0, sum(1 for x in cls.descendants() if self._is_mondo(x)) - 1)
 
-    def lca(self, curies: List[str]) -> Optional[str]:
+    def lca(self, curies: list[str]) -> str | None:
         """Deterministic LCA: fewest descendants, then deepest, then lexicographic."""
         curies = [c for c in curies if c]
         if not curies:
@@ -173,7 +171,7 @@ def _jaccard(a: frozenset, b: frozenset) -> float:
     return 1.0 - (len(a & b) / union) if union else 1.0
 
 
-def _agglomerative_split_two(curies: List[str], mondo: Mondo) -> List[List[str]]:
+def _agglomerative_split_two(curies: list[str], mondo: Mondo) -> list[list[str]]:
     """Average-linkage agglomeration (Jaccard of ancestor sets) down to two groups."""
     n = len(curies)
     if n <= 1:
@@ -205,7 +203,7 @@ def _agglomerative_split_two(curies: List[str], mondo: Mondo) -> List[List[str]]
     return groups
 
 
-def _group_lcas_refined(curies: List[str], mondo: Mondo) -> List[dict]:
+def _group_lcas_refined(curies: list[str], mondo: Mondo) -> list[dict]:
     """LCA(s) for a group; if the LCA is a banned generic term, split and recurse."""
     curies = [c for c in curies if c]
     if not curies:
@@ -216,7 +214,7 @@ def _group_lcas_refined(curies: List[str], mondo: Mondo) -> List[dict]:
                 for c in curies]
     label = mondo.label(lca).strip()
     if label.lower() in BANNED_LABELS and len(curies) >= 2:
-        out: List[dict] = []
+        out: list[dict] = []
         for g in _agglomerative_split_two(curies, mondo):
             if g:
                 out.extend(_group_lcas_refined(g, mondo))
@@ -224,7 +222,7 @@ def _group_lcas_refined(curies: List[str], mondo: Mondo) -> List[dict]:
     return [{"curie": lca, "label": label, "size": len(curies), "depth": mondo.depths.get(lca, -10**9)}]
 
 
-def two_lca_label(g2p_codes: List[str], g2p_to_mondo: Dict[str, str], mondo: Mondo) -> str:
+def two_lca_label(g2p_codes: list[str], g2p_to_mondo: dict[str, str], mondo: Mondo) -> str:
     """'; '-joined refined two-group LCA label for a cluster's G2P codes."""
     curies, seen = [], set()
     for c in g2p_codes:
@@ -237,7 +235,7 @@ def two_lca_label(g2p_codes: List[str], g2p_to_mondo: Dict[str, str], mondo: Mon
     if len(curies) == 1:
         return mondo.label(curies[0]).strip() or OTHER_LABEL
 
-    infos: List[dict] = []
+    infos: list[dict] = []
     for g in _agglomerative_split_two(curies, mondo):
         if g:
             infos.extend(_group_lcas_refined(g, mondo))
@@ -250,7 +248,7 @@ def two_lca_label(g2p_codes: List[str], g2p_to_mondo: Dict[str, str], mondo: Mon
 # --------------------------------------------------------------------------- #
 # Single-LCA multi-scale layers (drive the interactive plot)
 # --------------------------------------------------------------------------- #
-def _coarsened_label(curie: Optional[str], mondo: Mondo, depth_cap: Optional[int]) -> str:
+def _coarsened_label(curie: str | None, mondo: Mondo, depth_cap: int | None) -> str:
     if not curie:
         return OTHER_LABEL
     if depth_cap is not None:
@@ -262,15 +260,15 @@ def _coarsened_label(curie: Optional[str], mondo: Mondo, depth_cap: Optional[int
     return mondo.label(curie).strip() or OTHER_LABEL
 
 
-def build_label_layers(df: pd.DataFrame, g2p_to_mondo: Dict[str, str], mondo: Mondo,
-                       depth_caps=(3, 6)) -> List[np.ndarray]:
+def build_label_layers(df: pd.DataFrame, g2p_to_mondo: dict[str, str], mondo: Mondo,
+                       depth_caps=(3, 6)) -> list[np.ndarray]:
     """Coarse -> fine layers: depth-capped LCA, ..., point LCA, raw primary."""
     n = len(df)
     layers = [np.empty(n, dtype=object) for _ in range(len(depth_caps) + 2)]
     cid = df["cluster_id"].to_numpy()
     raw = df["cluster_label"].astype(str).to_numpy()
 
-    lca_cache: Dict[str, Optional[str]] = {}
+    lca_cache: dict[str, str | None] = {}
     for i in range(n):
         if cid[i] == -1:
             for layer in layers:
@@ -288,10 +286,10 @@ def build_label_layers(df: pd.DataFrame, g2p_to_mondo: Dict[str, str], mondo: Mo
     return layers
 
 
-def static_cluster_labels(df: pd.DataFrame, g2p_to_mondo: Dict[str, str], mondo: Mondo,
+def static_cluster_labels(df: pd.DataFrame, g2p_to_mondo: dict[str, str], mondo: Mondo,
                           top_n: int) -> np.ndarray:
     """Per-point primary two-LCA label collapsed to the top-N (noise -> NOISE)."""
-    primary_by_cluster: Dict[int, str] = {}
+    primary_by_cluster: dict[int, str] = {}
     for cid, sub in df.groupby("cluster_id"):
         if cid == -1:
             primary_by_cluster[cid] = NOISE_LABEL
@@ -313,14 +311,14 @@ def static_cluster_labels(df: pd.DataFrame, g2p_to_mondo: Dict[str, str], mondo:
 # --------------------------------------------------------------------------- #
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--clusters-parquet", default="filtered_clean_genes_clusters_and_viz.parquet",
-                    help="Output of ce_tsne.py (viz_x, viz_y, cluster_id, cluster_label)")
-    ap.add_argument("--g2p-file", required=True, help="G2P DD CSV (for G2P->MONDO mapping)")
-    ap.add_argument("--mondo-owl", default="mondo.owl", help="MONDO OWL file (downloaded if absent)")
-    ap.add_argument("--out-static", default="datamapplot_output.png")
-    ap.add_argument("--out-interactive", default="mondo_interactive_datamap.html")
-    ap.add_argument("--out-layers", default="datamap_with_mondo_layers.parquet")
-    ap.add_argument("--top-n", type=int, default=30, help="Labels to keep in the static plot")
+    ap.add_argument("--clusters_parquet", default="filtered_clean_genes_clusters_and_viz.parquet",
+                    help="parquet with viz_x, viz_y, cluster_id and the record's G2P ids per row")
+    ap.add_argument("--g2p_file", required=True, help="G2P DD CSV (for G2P->MONDO mapping)")
+    ap.add_argument("--mondo_owl", default="mondo.owl", help="MONDO OWL file (downloaded if absent)")
+    ap.add_argument("--out_static", default="datamapplot_output.png")
+    ap.add_argument("--out_interactive", default="mondo_interactive_datamap.html")
+    ap.add_argument("--out_layers", default="datamap_with_mondo_layers.parquet")
+    ap.add_argument("--top_n", type=int, default=30, help="Labels to keep in the static plot")
     return ap.parse_args()
 
 

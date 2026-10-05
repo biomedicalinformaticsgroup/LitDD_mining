@@ -1,28 +1,22 @@
 #!/usr/bin/env python3
-"""Draw a blinded, stratified sample of the deployed LitDD corpus for a manual
-precision audit (Reviewer 2 B1 / R2-P1,P2).
+"""Draw a blinded, stratified sample of the released map for a manual precision audit.
 
-The deployed corpus is the set of (PMID -> G2P disease) mappings the pipeline emits
-(e.g. ``final_tiab_mappings.parquet``). Its precision was never measured directly — the
-headline 0.83 is from a ~26%-positive balanced test set, which does not transfer to the
-deployed base rate. This script stratifies the corpus and draws a sample for a clinical
-geneticist to label as correct / incorrect, **blinded** to the model score and stratum.
+Each audited unit is one (PMID, assigned G2P id) mapping from the adjudication output
+(one row per abstract with ``llm_dis_map`` and ``candidate_text``). Strata recorded per unit:
 
-Each audited unit is one (PMID, assigned G2P id) mapping. Strata tagged per unit:
-  - confidence : cross-encoder score of the assigned id (from ``top5_cross``)
-  - recency    : publication year (``pubdate``)
-  - disease_volume : number of corpus mappings for that G2P id (rare/mid/high terciles)
-  - gene_multiplicity : single vs multiple DDG2P entries for the assigned gene
+  recency            publication year band (``pubdate``)
+  disease_volume     number of corpus mappings for that G2P id (rare, mid, high terciles)
+  gene_multiplicity  single or multiple panel entries for the assigned gene
 
-The primary allocation is equal-per-cell over (confidence x gene_multiplicity) with a
-floor, which oversamples the small high-uncertainty cells; all four strata are recorded
-so precision + Wilson CIs can be computed per stratum afterwards (see score_audit.py).
+Allocation is equal per cell over the primary strata with a floor, so small cells are
+oversampled; every stratum is recorded so precision and Wilson intervals can be computed per
+stratum afterwards (``score_audit.py``). A minimum number of records published at or after
+``--cutoff_year`` is guaranteed so precision can be compared before and after the
+adjudication model's knowledge cutoff.
 
-Outputs (default under revision/precision_audit/, which is gitignored — the worksheet
-contains real abstracts and is annotator-facing, not committed):
-  audit_worksheet.csv          blinded; annotator A labels the full sample
-  audit_worksheet_overlap.csv  the overlap subset; annotator B labels this for kappa
-  audit_key.csv                audit_id -> score/strata/assigned id (NOT shown to annotators)
+Outputs under ``--out_dir``: ``audit_worksheet.csv`` (blinded, annotator A),
+``audit_worksheet_overlap.csv`` (the overlap subset for annotator B) and ``audit_key.csv``
+(strata and assigned ids, not shown to annotators).
 """
 from __future__ import annotations
 
@@ -32,20 +26,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-LGMDE_DISEASE_FIELD = 5  # g2p_id - gene - gene_mim - hgnc - prev_symbols - DISEASE NAME - ...
-CONF_BINS = [(0.90, 0.95), (0.95, 0.99), (0.99, 1.01)]
+from litdd.evaluation.common import G2P_ID_RE, g2p_ids_split
+
 RECENCY_BINS = [(0, 2009, "<=2009"), (2010, 2019, "2010-2019"), (2020, 9999, ">=2020")]
 VERDICT_HELP = "correct | incorrect | uncertain"
 ERROR_CATS = ("wrong_gene", "wrong_allelic_requirement", "wrong_mechanism", "somatic_only",
               "non_human_only", "acronym_gene_confusion", "cnv_snv_confusion",
               "no_molecular_confirmation", "wrong_disease_same_gene", "other")
-
-
-def conf_bin(score: float) -> str:
-    for lo, hi in CONF_BINS:
-        if lo <= score < hi:
-            return f"conf_{lo:.2f}-{hi:.2f}".replace("1.01", "1.00")
-    return "conf_other"
+STRATA = ["recency", "disease_volume", "gene_multiplicity"]
 
 
 def recency_bin(year) -> str:
@@ -59,44 +47,39 @@ def recency_bin(year) -> str:
     return "year_unknown"
 
 
-def _thread_for(g2p_id: str, threads) -> str:
-    """Find the candidate LGMDE thread string whose id matches the assigned id."""
-    if threads is None:
+def _block_for(g2p_id: str, candidate_text) -> str:
+    """The candidate text block whose id matches the assigned id, or ''."""
+    if candidate_text is None:
         return ""
-    for t in threads:
-        if isinstance(t, str) and t.split(" - ", 1)[0].strip() == g2p_id:
-            return t
+    for t in list(candidate_text):
+        m = G2P_ID_RE.search(str(t))
+        if m and m.group(0) == g2p_id:
+            return str(t)
     return ""
 
 
-def _score_for(g2p_id: str, top5) -> float:
-    """Cross-encoder score of the assigned id from the top5_cross list of {label, score}."""
-    if top5 is None:
-        return float("nan")
-    for c in top5:
-        label = c.get("label", "") if isinstance(c, dict) else ""
-        if label.split(" - ", 1)[0].strip() == g2p_id:
-            return float(c.get("score", float("nan")))
-    return float("nan")
+def _field(block: str, label: str) -> str:
+    """Value of a ``Label: value`` line in a candidate block, or ''."""
+    for line in block.splitlines():
+        if line.strip().lower().startswith(label.lower() + ":"):
+            return line.split(":", 1)[1].strip()
+    return ""
 
 
 def explode_mappings(df: pd.DataFrame) -> pd.DataFrame:
-    """One row per (pmid, assigned g2p_id) with score, thread, disease, gene."""
+    """One row per (pmid, assigned g2p_id) with the candidate block, disease and gene."""
     rows = []
     for r in df.itertuples(index=False):
-        ans = r.llm_dis_map
-        if not isinstance(ans, str) or not ans.strip() or ans.strip().upper() == "NO MATCH":
-            continue
-        for gid in [x.strip() for x in ans.split(";") if x.strip().upper().startswith("G2P")]:
-            thread = _thread_for(gid, r.top_5_cross_lgmde)
-            parts = [p.strip() for p in thread.split(" - ")] if thread else []
+        for gid in sorted(g2p_ids_split(r.llm_dis_map)):
+            if not gid.upper().startswith("G2P"):
+                continue
+            block = _block_for(gid, getattr(r, "candidate_text", None))
             rows.append({
                 "pmid": int(r.pmid),
                 "assigned_g2p_id": gid,
-                "assigned_gene": parts[1] if len(parts) > 1 else "",
-                "assigned_disease": parts[LGMDE_DISEASE_FIELD] if len(parts) > LGMDE_DISEASE_FIELD else "",
-                "assigned_lgmde_thread": thread,
-                "score": _score_for(gid, r.top5_cross),
+                "assigned_gene": _field(block, "Gene Symbol"),
+                "assigned_disease": _field(block, "Disease Name"),
+                "assigned_candidate_text": block,
                 "year": r.pubdate,
                 "title": r.title or "",
                 "abstract": r.abstract or "",
@@ -106,10 +89,8 @@ def explode_mappings(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_strata(units: pd.DataFrame, g2p_file: str) -> pd.DataFrame:
     units = units.copy()
-    units["confidence"] = units["score"].map(conf_bin)
     units["recency"] = units["year"].map(recency_bin)
 
-    # disease_volume: corpus mappings per assigned id -> terciles
     counts = units["assigned_g2p_id"].value_counts()
     units["_vol"] = units["assigned_g2p_id"].map(counts)
     try:
@@ -118,17 +99,20 @@ def add_strata(units: pd.DataFrame, g2p_file: str) -> pd.DataFrame:
         units["disease_volume"] = "all"
     units["disease_volume"] = units["disease_volume"].astype(str)
 
-    # gene_multiplicity: # DDG2P entries per gene symbol in the G2P CSV
     g2p = pd.read_csv(g2p_file, dtype=str, keep_default_na=False)
-    gene_col = "gene symbol" if "gene symbol" in g2p.columns else g2p.columns[1]
-    entries_per_gene = g2p.groupby(gene_col).size()
-    units["_n_ddg2p"] = units["assigned_gene"].map(entries_per_gene).fillna(1).astype(int)
-    units["gene_multiplicity"] = np.where(units["_n_ddg2p"] > 1, "multiple", "single")
-    return units.drop(columns=["_vol", "_n_ddg2p"])
+    g2p.columns = [c.strip() for c in g2p.columns]
+    entries_per_gene = g2p.groupby("gene symbol").size()
+    id_to_gene = dict(zip(g2p["g2p id"], g2p["gene symbol"]))
+    gene = units["assigned_gene"].where(units["assigned_gene"] != "",
+                                        units["assigned_g2p_id"].map(id_to_gene))
+    units["assigned_gene"] = gene.fillna("")
+    units["_n_entries"] = units["assigned_gene"].map(entries_per_gene).fillna(1).astype(int)
+    units["gene_multiplicity"] = np.where(units["_n_entries"] > 1, "multiple", "single")
+    return units.drop(columns=["_vol", "_n_entries"])
 
 
 def stratified_sample(units: pd.DataFrame, n: int, primary_cols, floor: int, rng) -> pd.DataFrame:
-    """Equal-per-cell allocation over the primary strata (with a floor), random within cell."""
+    """Equal-per-cell allocation over the primary strata with a floor, random within cell."""
     cells = list(units.groupby(list(primary_cols)))
     base = max(floor, n // max(1, len(cells)))
     picked = []
@@ -137,7 +121,6 @@ def stratified_sample(units: pd.DataFrame, n: int, primary_cols, floor: int, rng
         picked.append(cell.sample(n=take, random_state=rng.integers(1 << 31)))
     out = pd.concat(picked) if picked else units.iloc[:0]
 
-    # Trim to ~n (drop from the largest cells) or top up from the remainder.
     if len(out) > n:
         out = out.sample(n=n, random_state=rng.integers(1 << 31))
     elif len(out) < n:
@@ -149,9 +132,8 @@ def stratified_sample(units: pd.DataFrame, n: int, primary_cols, floor: int, rng
 
 def ensure_min_post_cutoff(sample: pd.DataFrame, units: pd.DataFrame, cutoff_year: int,
                            min_post: int, rng) -> pd.DataFrame:
-    """Guarantee at least `min_post` records published at/after `cutoff_year` (for an
-    adequately-powered post-cutoff / LLM-contamination check, R3.1), swapping in extra
-    post-cutoff units for pre-cutoff ones to keep the sample size constant."""
+    """Swap pre-cutoff units for post-cutoff ones until at least ``min_post`` records are
+    published at or after ``cutoff_year``; the sample size is unchanged."""
     key = ["pmid", "assigned_g2p_id"]
     s_yr = pd.to_numeric(sample["year"], errors="coerce")
     need = min_post - int((s_yr >= cutoff_year).sum())
@@ -169,32 +151,31 @@ def ensure_min_post_cutoff(sample: pd.DataFrame, units: pd.DataFrame, cutoff_yea
     return sample.sample(frac=1, random_state=rng.integers(1 << 31)).reset_index(drop=True)
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--input", required=True, help="Deployed-corpus parquet (e.g. final_tiab_mappings.parquet)")
-    ap.add_argument("--g2p_file", required=True, help="G2P DD CSV (for gene-multiplicity strata)")
-    ap.add_argument("--out_dir", default="revision/precision_audit", help="Output dir (gitignored)")
-    ap.add_argument("--n", type=int, default=500, help="Audit sample size")
-    ap.add_argument("--overlap", type=int, default=100, help="Overlap subset size for inter-annotator kappa")
-    ap.add_argument("--floor", type=int, default=40, help="Minimum units per primary cell")
-    ap.add_argument("--primary", nargs="+", default=["confidence", "gene_multiplicity"],
-                    help="Strata used for allocation (oversampled)")
+    ap.add_argument("--input", required=True,
+                    help="adjudication parquet with pmid, title, abstract, pubdate, candidate_text, llm_dis_map")
+    ap.add_argument("--g2p_file", required=True, help="G2P export, for the gene-multiplicity stratum")
+    ap.add_argument("--out_dir", required=True)
+    ap.add_argument("--n", type=int, default=500, help="audit sample size")
+    ap.add_argument("--overlap", type=int, default=100, help="overlap subset size for inter-annotator kappa")
+    ap.add_argument("--floor", type=int, default=40, help="minimum units per primary cell")
+    ap.add_argument("--primary", nargs="+", default=["gene_multiplicity", "recency"],
+                    help="strata used for allocation")
     ap.add_argument("--cutoff_year", type=int, default=2024,
-                    help="Guarantee --min_post_cutoff records at/after this year for the "
-                         "LLM-contamination check (R3.1). Model DeepSeek-R1-Distill-Qwen-14B "
-                         "(Qwen2.5-14B base) has a knowledge cutoff ~Dec 2023, so 2024+ is "
-                         "post-cutoff; use 2025 for a margin that is also post DeepSeek-R1's 2024-07.")
+                    help="year from which records count as published after the adjudication "
+                         "model's knowledge cutoff")
     ap.add_argument("--min_post_cutoff", type=int, default=80,
-                    help="Minimum post-cutoff records for an adequately-powered contamination check")
+                    help="minimum number of post-cutoff records in the sample")
     ap.add_argument("--seed", type=int, default=42)
     return ap.parse_args()
 
 
-def main():
+def main() -> int:
     args = parse_args()
     rng = np.random.default_rng(args.seed)
 
-    cols = ["pmid", "title", "abstract", "pubdate", "top5_cross", "top_5_cross_lgmde", "llm_dis_map"]
+    cols = ["pmid", "title", "abstract", "pubdate", "candidate_text", "llm_dis_map"]
     df = pd.read_parquet(args.input, columns=cols)
     units = explode_mappings(df)
     units = add_strata(units, args.g2p_file)
@@ -213,25 +194,25 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     blind_cols = ["audit_id", "pmid", "title", "abstract", "assigned_g2p_id",
-                  "assigned_disease", "assigned_gene", "assigned_lgmde_thread"]
+                  "assigned_disease", "assigned_gene", "assigned_candidate_text"]
     worksheet = sample[blind_cols].copy()
-    worksheet["verdict"] = ""          # annotator fills: correct | incorrect | uncertain
-    worksheet["error_category"] = ""   # if incorrect, one of ERROR_CATS
+    worksheet["verdict"] = ""
+    worksheet["error_category"] = ""
     worksheet["notes"] = ""
     worksheet.to_csv(out / "audit_worksheet.csv", index=False)
     worksheet[sample["in_overlap"].values].to_csv(out / "audit_worksheet_overlap.csv", index=False)
 
-    key_cols = ["audit_id", "pmid", "assigned_g2p_id", "score", "confidence",
-                "year", "recency", "disease_volume", "gene_multiplicity", "in_overlap"]
+    key_cols = ["audit_id", "pmid", "assigned_g2p_id", "year", *STRATA, "in_overlap"]
     sample[key_cols].to_csv(out / "audit_key.csv", index=False)
 
     print(f"Wrote {len(worksheet)} units to {out}/audit_worksheet.csv "
-          f"({len(overlap_ids)} in overlap; {n_post} post-cutoff >= {args.cutoff_year})")
+          f"({len(overlap_ids)} in overlap; {n_post} published >= {args.cutoff_year})")
     print("Verdict values:", VERDICT_HELP, "| error categories:", ", ".join(ERROR_CATS))
     print("\nStratum coverage:")
-    for col in ["confidence", "recency", "disease_volume", "gene_multiplicity"]:
+    for col in STRATA:
         print(f"  {col}:", dict(sample[col].value_counts()))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

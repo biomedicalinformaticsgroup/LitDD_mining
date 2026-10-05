@@ -4,8 +4,7 @@
 ``data/annotation_corrections.csv`` (pmid, g2p_id_from, g2p_id_to, reason, date, by[, label])
 records every clinician-reviewed change: a row with ``g2p_id_from`` relabels that positive pair
 to ``g2p_id_to``; a row with an empty ``g2p_id_from`` ADDS a reviewed pair (``label`` 1 = new
-positive, 0 = new negative) -- the 2026-09-01 review of the adjudicator's unlabelled extra
-entries on co-reporting abstracts. This script applies it to:
+positive, 0 = new negative). This script applies it to:
 
   --anno_csv       the full pair annotation (g2p_id, pmid, tiab, label) -> --anno_out
                    (positive rows for (pmid, g2p_id_from) are moved to g2p_id_to; an existing
@@ -15,23 +14,19 @@ entries on co-reporting abstracts. This script applies it to:
 
 Every applied / unmatched correction is printed; unmatched ones abort.
 
-    python litdd/evaluation/apply_annotation_corrections.py \\
+    python -m litdd.evaluation.apply_annotation_corrections \\
         --corrections data/annotation_corrections.csv \\
-        --anno_csv $REF/g2p_id_tiab_anno_df_FINAL.csv \\
-        --anno_out revision/external_recall/g2p_id_tiab_anno_df_FINAL_corrected.csv \\
-        --pmid_csv data/annotated_pmid.csv --g2p_csv $REF/G2P_DD_2025-02-15.csv
+        --anno_csv g2p_id_tiab_anno_df_FINAL.csv --anno_out anno_corrected.csv \\
+        --pmid_csv data/annotated_pmid.csv --g2p_csv G2P_DD.csv
 """
 from __future__ import annotations
 
 import argparse
 import os
-import sys
 
 import pandas as pd
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, ROOT)
-from litdd.threads import build_lgmde_map  # noqa: E402
+from litdd.threads import build_lgmde_map
 
 
 def main() -> int:

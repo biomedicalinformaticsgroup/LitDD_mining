@@ -1,34 +1,32 @@
 #!/usr/bin/env python3
-"""Merge augmentation annotations into the BERT-screen training set, with the per-PMID
-collapse rule (Reviewer 3 R3.4 / R1.3 augmentation).
+"""Merge an annotation worksheet into the screen's annotated set.
 
-The BERT screen is gene-AGNOSTIC ("is this a GDD gene-disease paper?", not "which disease"),
-so a PMID must not be both positive and negative. Collapse rule, applied per PMID:
-  - if ANY annotation for the PMID is label 1  -> keep the positive row(s), drop the 0 rows;
-  - if ALL annotations for the PMID are 0       -> keep them all.
-(The existing annotated set already satisfies this; this enforces it when new annotations are
-added, e.g. if a paper is annotated against several candidate diseases.)
+Reads ``--annotated`` (``pmid, tiab, g2p_lgmde, label``), the worksheet ``--augmentation``
+(``pmid, title, abstract, g2p_id, confirm_positive``) and the G2P DD CSV ``--ddg2p``. Worksheet
+rows whose ``confirm_positive`` holds an accepted token (1/0, yes/no, true/false, y/n) become
+annotated rows: ``tiab`` is title and abstract joined, and ``g2p_lgmde`` is rebuilt from the
+first fifteen G2P columns of the entry (``hgnc id`` prefixed with ``HGNC:``).
 
-Labelling rule for the augmentation (gene level, for the screen):
-  1 = the abstract shows THIS GENE causes a developmental disorder (any DD phenotype, even if
-      the specific disease differs from the candidate's);
-  0 = not gene-DD evidence (functional/non-human only, gene mentioned incidentally, or no
-      molecular confirmation).
+The screen classifies an abstract, not an abstract-entry pair, so a PMID is not allowed to
+carry both labels. After concatenation the rows are collapsed per PMID: when any row of a PMID
+is labelled 1 the rows labelled 0 are dropped; when every row is 0 all rows are kept.
 
-Inputs: annotated_tiab.csv (pmid, tiab, g2p_lgmde, label) + the augmentation worksheet
-(augmentation_candidates_to_annotate.csv with `confirm_positive` filled 1/0/blank). g2p_lgmde
-for augmentation rows is rebuilt from the current DDG2P (first 15 columns, HGNC-prefixed).
-Output: a merged annotated_tiab-format CSV ready for final_traintest_dataset.py.
+Writes the collapsed set to ``--out`` in the ``annotated`` format, ready for
+``final_traintest_dataset.py``, and prints the row counts before and after collapsing.
 """
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
 
+from litdd.training.screen_common import confirmed_worksheet
 
-def lgmde_builder(ddg2p_csv: str):
+
+def lgmde_builder(ddg2p_csv: str) -> Callable[[str], str]:
+    """Return a function mapping a G2P id to its ``g2p_lgmde`` string (first fifteen G2P columns)."""
     dd = pd.read_csv(ddg2p_csv)
     dd.columns = [c.strip() for c in dd.columns]
     cols15 = list(dd.columns[:15])
@@ -49,33 +47,29 @@ def lgmde_builder(ddg2p_csv: str):
 
 
 def collapse_per_pmid(df: pd.DataFrame) -> pd.DataFrame:
-    """any 1 -> keep positives, drop 0s ; all 0 -> keep all."""
+    """Per PMID: keep only the rows labelled "1" when there are any, otherwise keep every row."""
     parts = []
     for _, grp in df.groupby("pmid", sort=False):
         parts.append(grp[grp["label"] == "1"] if (grp["label"] == "1").any() else grp)
     return pd.concat(parts, ignore_index=True)
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--annotated", required=True, help="existing annotated_tiab.csv")
-    ap.add_argument("--augmentation", required=True, help="augmentation worksheet with confirm_positive")
-    ap.add_argument("--ddg2p", required=True)
-    ap.add_argument("--out", default="revision/external_recall/annotated_tiab_augmented.csv")
+    ap.add_argument("--annotated", required=True, help="annotated CSV (pmid, tiab, g2p_lgmde, label)")
+    ap.add_argument("--augmentation", required=True, help="annotation worksheet with a confirm_positive column")
+    ap.add_argument("--ddg2p", required=True, help="G2P DD CSV")
+    ap.add_argument("--out", required=True, help="merged CSV in the annotated format")
     return ap.parse_args()
 
 
-def main():
+def main() -> None:
     args = parse_args()
     ann = pd.read_csv(args.annotated, dtype=str).fillna("")[["pmid", "tiab", "g2p_lgmde", "label"]]
 
-    aug = pd.read_csv(args.augmentation, dtype=str).fillna("")
-    aug["confirm_positive"] = aug["confirm_positive"].str.strip().str.lower()
-    aug = aug[aug["confirm_positive"].isin(["0", "1", "yes", "no", "true", "false", "y", "n"])].copy()
-    aug["label"] = aug["confirm_positive"].map(
-        lambda v: "1" if v in ("1", "yes", "true", "y") else "0")
+    aug = confirmed_worksheet(pd.read_csv(args.augmentation, dtype=str).fillna(""))
+    aug["label"] = aug["label"].astype(str)
     build = lgmde_builder(args.ddg2p)
-    aug["tiab"] = (aug["title"] + " " + aug["abstract"]).str.strip()
     aug["g2p_lgmde"] = aug["g2p_id"].map(build)
     aug = aug[["pmid", "tiab", "g2p_lgmde", "label"]]
 
@@ -87,7 +81,7 @@ def main():
 
     print(f"existing annotated rows: {len(ann)} | augmentation rows added: {len(aug)} "
           f"({int((aug['label'] == '1').sum())} positive, {int((aug['label'] == '0').sum())} negative)")
-    print(f"collapse dropped {before - len(collapsed)} conflicting 0-rows (PMIDs that also had a 1)")
+    print(f"collapse dropped {before - len(collapsed)} 0-rows of PMIDs that also had a 1")
     print(f"merged screen set: {len(collapsed)} rows | labels {collapsed['label'].value_counts().to_dict()} "
           f"-> {args.out}")
 

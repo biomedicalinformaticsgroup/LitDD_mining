@@ -1,27 +1,20 @@
 #!/usr/bin/env python3
-"""Fine-tune the LitDD-BERT classifier and evaluate on the held-out test set.
+"""Fine-tune a screen classifier on a training dataset and evaluate it once on the test set.
 
-Methodology (with ``litdd/training/cv_hp_search_bert.py``):
-
-  1. Build the 80/20 train/test split with ``final_traintest_dataset.py``.
-  2. **Hyperparameter selection** via ``cv_hp_search_bert.py``: 5-fold
-     ``StratifiedGroupKFold`` on the *training* set only. Each (lr,
-     weight_decay, ...) combination is scored by mean fold F1.
-  3. **Refit** on the *full* training set with the selected hyperparameters
-     (this script).
-  4. **Evaluate once** on the untouched test set (this script).
-
-Pass the chosen hyperparameters via CLI flags, or use ``--hp_json
-hp_search_results.json`` to load them from the search-script output.
+Reads two HuggingFace ``save_to_disk`` directories (``--train_ds_dir``, ``--test_ds_dir``) with
+``tiab`` and ``label`` columns, and the hyperparameters either from the flags or from the JSON
+written by ``cv_hp_search_bert.py`` (``--hp_json``, whose ``best`` entry overrides the flags).
+Trains ``--input_model`` on the full training set, saves the model and tokenizer to
+``--best_model_dir``, evaluates on the test set and writes the test metrics (accuracy,
+precision, recall, F1) next to the trainer output.
 """
+from __future__ import annotations
+
 import argparse
-import json
 import os
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-import evaluate
-import numpy as np
 import torch
 from datasets import load_from_disk
 from transformers import (
@@ -32,8 +25,9 @@ from transformers import (
     TrainingArguments,
 )
 
-# ModernBERT context is 8,192. The previous 512 cap was inherited from the BERT-large
-# base and truncated ~1% of abstracts; keep train and inference lengths equal.
+from litdd.training.screen_common import make_compute_metrics, maybe_load_hp_json
+
+# ModernBERT context length; training and inference use the same cap.
 MAX_LENGTH = 8192
 if torch.cuda.is_available():
     torch.backends.cuda.matmul.allow_tf32 = True
@@ -44,16 +38,7 @@ if torch.cuda.is_available():
         pass
 
 
-def maybe_load_hp_json(path: str | None) -> dict:
-    if not path:
-        return {}
-    with open(path) as f:
-        data = json.load(f)
-    # Expect either {"best": {...}} or directly a flat dict.
-    return data.get("best", data)
-
-
-def main(args):
+def main(args: argparse.Namespace) -> None:
     hp = maybe_load_hp_json(args.hp_json)
     learning_rate = hp.get("learning_rate", args.learning_rate)
     weight_decay = hp.get("weight_decay", args.weight_decay)
@@ -84,22 +69,6 @@ def main(args):
     tokenized_test = tokenize(ds_test)
 
     collator = DataCollatorWithPadding(tokenizer=tokenizer, pad_to_multiple_of=8)
-
-    acc = evaluate.load("accuracy")
-    prec = evaluate.load("precision")
-    rec = evaluate.load("recall")
-    f1 = evaluate.load("f1")
-
-    def compute_metrics(eval_pred):
-        logits, labels = eval_pred
-        preds = np.argmax(logits, axis=-1)
-        return {
-            "eval_accuracy": acc.compute(predictions=preds, references=labels)["accuracy"],
-            "eval_precision": prec.compute(predictions=preds, references=labels)["precision"],
-            "eval_recall": rec.compute(predictions=preds, references=labels)["recall"],
-            "eval_f1": f1.compute(predictions=preds, references=labels)["f1"],
-        }
-
     model = AutoModelForSequenceClassification.from_pretrained(args.input_model, num_labels=2)
 
     training_args = TrainingArguments(
@@ -109,7 +78,7 @@ def main(args):
         per_device_eval_batch_size=args.eval_bs,
         num_train_epochs=epochs,
         weight_decay=weight_decay,
-        eval_strategy="no",          # no peeking at the test set during training
+        eval_strategy="no",  # the test set is evaluated once, after training
         save_strategy="epoch",
         save_total_limit=1,
         seed=args.seed,
@@ -124,13 +93,13 @@ def main(args):
         train_dataset=tokenized_train,
         tokenizer=tokenizer,
         data_collator=collator,
-        compute_metrics=compute_metrics,
+        compute_metrics=make_compute_metrics(accuracy=True),
     )
 
     if torch.cuda.is_available():
         print("Using GPU:", torch.cuda.get_device_name(0))
 
-    print(f"[Info] Train={len(ds_train)} Test={len(ds_test)} (test held out until final eval)")
+    print(f"[Info] Train={len(ds_train)} Test={len(ds_test)}")
     trainer.train()
     trainer.save_model(args.best_model_dir)
     tokenizer.save_pretrained(args.best_model_dir)
@@ -141,11 +110,11 @@ def main(args):
 
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--train_ds_dir", default="litdd/training/ds_bert_train")
     p.add_argument("--test_ds_dir", default="litdd/training/ds_test")
     p.add_argument("--input_model", default="answerdotai/ModernBERT-large")
-    # Hyperparameter overrides — typically loaded via --hp_json from CV search.
+    # Hyperparameters; --hp_json overrides these with the CV-selected values.
     p.add_argument("--learning_rate", type=float, default=1.736e-5)
     p.add_argument("--train_bs", type=int, default=32)
     p.add_argument("--eval_bs", type=int, default=32)
@@ -156,5 +125,4 @@ if __name__ == "__main__":
     p.add_argument("--output_dir", default="litdd/training/bert_finetune_results")
     p.add_argument("--best_model_dir", default="litdd/training/lit_dd_BERT_best")
     p.add_argument("--seed", type=int, default=42)
-    args = p.parse_args()
-    main(args)
+    main(p.parse_args())

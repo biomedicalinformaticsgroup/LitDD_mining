@@ -1,37 +1,24 @@
 #!/usr/bin/env python3
-"""Build train / test splits for the LitDD-BERT classifier.
+"""Split the annotated set into training and test portions at the group level.
 
-The split is performed at the group level — every grouping key appears in exactly
-one of {train, test}, with stratification on whether that group has any positive
-label. Default ratio is 80 / 20.
+Reads a CSV with at least ``g2p_lgmde`` and ``label`` columns (``tiab`` and ``pmid`` optional).
+Every value of the grouping column falls in exactly one of the two portions, and the split is
+stratified on whether a group holds any positive label. ``--group_col`` chooses the grouping
+axis:
 
-``--group_col`` selects the leakage-control axis and supports stricter held-out
-validations (Reviewer 2 E1/E2):
-  tiab    (default) — no abstract shared across train/test
-  pmid              — no PMID shared
-  gene              — GENE-held-out: no gene appears in both halves
-  g2p_id            — DISEASE-held-out: no G2P disease entry appears in both halves
-``gene`` and ``g2p_id`` are derived from ``g2p_lgmde`` and used only for grouping
-(never as model features). Gene-/disease-held-out are the stricter generalisation
-tests the reviewer asks for; a TIAB-level split can overestimate when the same
-gene/disease context appears on both sides.
+  tiab    (default) no abstract appears in both portions
+  pmid              no PMID appears in both portions
+  gene              no gene appears in both portions
+  g2p_id            no G2P disease entry appears in both portions
 
-Hyperparameters are selected via 5-fold ``StratifiedGroupKFold`` cross-
-validation **inside** the train portion (see ``litdd/training/`` scripts).
-The test set is touched exactly once, after refitting on the full train with
-the selected hyperparameters.
+``gene`` and ``g2p_id`` are parsed from ``g2p_lgmde`` and used for grouping only; they are not
+written to the output. When the requested column is absent the split falls back to ``pmid``.
 
-Inputs:
-  --annotated_csv   CSV with columns: pmid, tiab (optional), g2p_lgmde, label.
-                    Defaults to ``annotated_pmid.csv`` shipped with the repo.
-
-Outputs (HuggingFace ``save_to_disk`` directories):
-  ds_bert_train, ds_cross_train  — train portion (BERT and cross-encoder
-                                    share the same training examples)
-  ds_test                         — held-out test, only touched after the
-                                    final refit
-
-Use ``--dry_run`` to print sizes / ratios without writing any files.
+Writes two HuggingFace ``save_to_disk`` directories under ``--out_dir``: ``ds_bert_train`` and
+``ds_test``, each with ``tiab`` (when present), ``g2p_lgmde`` and a two-class ``label``.
+Hyperparameters are then selected by cross-validation inside ``ds_bert_train``
+(``cv_hp_search_bert.py``) and ``ds_test`` is evaluated once after the final refit.
+``--dry_run`` prints the group and row counts without writing.
 """
 from __future__ import annotations
 
@@ -41,16 +28,16 @@ import sys
 
 import pandas as pd
 
-# datasets + sklearn are imported lazily inside main() so the pure helpers
-# (e.g. derive_group_columns) can be imported/tested without the heavy deps.
+# datasets and sklearn are imported inside main() so derive_group_columns can be
+# imported and tested without them.
 
 REQUIRED_COLS = {"label"}
-# g2p_lgmde format: g2p_id - gene symbol - gene_mim - hgnc - prev_symbols - disease - ...
+# g2p_lgmde fields: g2p_id - gene symbol - gene_mim - hgnc - prev_symbols - disease - ...
 LGMDE_GENE_FIELD = 1
 
 
 def derive_group_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Add `gene` and `g2p_id` columns parsed from g2p_lgmde (for held-out grouping)."""
+    """Return a copy of ``df`` with ``g2p_id`` and ``gene`` columns parsed from ``g2p_lgmde``."""
     parts = df["g2p_lgmde"].astype(str).str.split(" - ")
     df = df.copy()
     df["g2p_id"] = parts.map(lambda p: p[0].strip() if p else "")
@@ -72,8 +59,8 @@ def parse_args() -> argparse.Namespace:
         "--group_col",
         default="tiab",
         choices=["tiab", "pmid", "gene", "g2p_id"],
-        help="Leakage-control axis: tiab/pmid, or gene (gene-held-out) / g2p_id "
-             "(disease-held-out). Falls back to 'pmid' when the column is absent.",
+        help="Grouping axis: tiab, pmid, gene (gene-held-out) or g2p_id (disease-held-out). "
+             "Falls back to 'pmid' when the column is absent.",
     )
     p.add_argument("--dry_run", action="store_true", help="Print sizes; do not write to disk.")
     return p.parse_args()
@@ -94,7 +81,7 @@ def main() -> int:
         print(f"[ERROR] {args.annotated_csv} missing 'g2p_lgmde' column.", file=sys.stderr)
         return 1
 
-    # derive gene / g2p_id for the stricter held-out splits, then resolve the group column
+    # Parse gene and g2p_id, then resolve the grouping column.
     df = derive_group_columns(df)
     group_col = args.group_col if args.group_col in df.columns else "pmid"
     if group_col not in df.columns:
@@ -112,17 +99,16 @@ def main() -> int:
     )
     train_keys = set(train_grp[group_col])
     test_keys = set(test_grp[group_col])
-    assert train_keys.isdisjoint(test_keys), f"{group_col} leakage: train ↔ test"
+    assert train_keys.isdisjoint(test_keys), f"{group_col} shared between train and test"
 
     df_train = df[df[group_col].isin(train_keys)].copy()
     df_test = df[df[group_col].isin(test_keys)].copy()
 
-    print(f"[Info] group_col='{group_col}' — {len(train_keys)} train / {len(test_keys)} test "
-          f"disjoint groups (held-out).")
+    print(f"[Info] group_col='{group_col}' — {len(train_keys)} train / {len(test_keys)} test disjoint groups.")
     if group_col in ("gene", "g2p_id") and "tiab" in df.columns:
+        # An abstract can pair with a held-out candidate and a retained one, so it may appear on both sides.
         shared = set(df_train["tiab"]) & set(df_test["tiab"])
-        print(f"[Info] {group_col}-held-out: {len(shared)} abstract(s) appear on both sides "
-              "(expected — an abstract can pair with held-out and retained candidates).")
+        print(f"[Info] {group_col}-held-out: {len(shared)} abstract(s) appear on both sides.")
 
     keep = ["tiab", "g2p_lgmde", "label"] if "tiab" in df.columns else ["g2p_lgmde", "label"]
     df_train = df_train[keep]
@@ -153,14 +139,12 @@ def main() -> int:
 
     os.makedirs(args.out_dir, exist_ok=True)
     train_out = os.path.join(args.out_dir, "ds_bert_train")
-    cross_out = os.path.join(args.out_dir, "ds_cross_train")
     test_out = os.path.join(args.out_dir, "ds_test")
 
     ds_train.save_to_disk(train_out)
-    ds_train.save_to_disk(cross_out)  # cross-encoder uses the same train set
     ds_test.save_to_disk(test_out)
 
-    print(f"[Info] saved → {train_out}, {cross_out}, {test_out}")
+    print(f"[Info] saved → {train_out}, {test_out}")
     return 0
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Assemble external ground-truth (g2p_id -> PMID) sets for the LitDD recall evaluation
-(Reviewer 3 R3.4 / Reviewer 2 C1/C2): the curated literature LitDD should recover.
+the curated literature the pipeline is expected to recover.
 
 Three sources, all dated before the August-2025 DDG2P that LitDD is built on, and all
 restricted to disorders in DDG2P (matched at the disease/G2P-ID level):
@@ -117,7 +117,7 @@ def clingen_caselevel(dd: pd.DataFrame, exports_dir: str) -> pd.DataFrame:
     """Case-level (genetic) ClinGen evidence PMIDs, matched to DDG2P by MONDO.
 
     `dd` is already restricted to leaf MONDOs, so a matched MONDO is a single gene-disease
-    (a few leaf MONDOs still carry 2 G2P entries — mono/bi-allelic pairs — which we keep)."""
+    (leaf MONDOs that carry two G2P entries, a mono- and a bi-allelic pair, are kept)."""
     mondo_to_g2p: dict[str, list[str]] = defaultdict(list)
     for gid, mondo in zip(dd["g2p id"], dd["disease MONDO"]):
         if mondo.strip():
@@ -163,7 +163,7 @@ def parse_args():
     ap.add_argument("--exclude_meta", default=None,
                     help="truth_meta.csv (pmid,lang,source) — drop non-English + GeneReviews/StatPearls "
                          "truth PMIDs (the mined corpus excludes these too)")
-    ap.add_argument("--out_dir", default="revision/external_recall")
+    ap.add_argument("--out_dir", required=True)
     return ap.parse_args()
 
 

@@ -1,7 +1,8 @@
-"""End-to-end test for the gene-candidate gate (`litdd/pipeline/gene_candidates.py`)."""
+"""End-to-end tests for the gene gate CLI (``python -m litdd.pipeline.gene_candidates``)."""
 from __future__ import annotations
 
 import gzip
+import json
 import subprocess
 import sys
 import textwrap
@@ -12,209 +13,32 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[1]
 
 G2P = textwrap.dedent("""\
-    g2p id,gene symbol,gene mim,hgnc id,previous gene symbols,disease name,disease mim,disease MONDO,allelic requirement,cross cutting modifier,confidence,variant consequence,variant types,molecular mechanism,molecular mechanism support
-    G2P00001,ARG1,111,663,,ARG1-related hyperargininemia,207800,,biallelic_autosomal,,definitive,absent gene product,,loss of function,inferred
-    G2P00002,ARG2,222,664,,ARG2-related disorder,,,biallelic_autosomal,,limited,absent gene product,,loss of function,inferred
-    G2P00003,FBN1,333,3603,FBN,FBN1-related Marfan syndrome,154700,,monoallelic_autosomal,,definitive,altered gene product structure,missense_variant,dominant negative,evidence
+    g2p id,gene symbol,hgnc id,previous gene symbols,disease name
+    G2P00001,ARG1,663,,ARG1-related hyperargininemia
+    G2P00002,ARG2,664,,ARG2-related disorder
+    G2P00003,FBN1,3603,FBN,FBN1-related Marfan syndrome
+    G2P00004,DMD,2928,,DMD-related Duchenne muscular dystrophy
+    G2P00005,ITPR1,6180,,ITPR1-related spinocerebellar ataxia
+    G2P00747,MED12,11957,OPA1; HOPA,MED12-related disorder
+    G2P00752,RAI1,HGNC:9791,SMCR,Smith-Magenis syndrome
+    G2P00787,SMS,11123,,Snyder-Robinson syndrome
+    G2P00600,MECP2,6990,RTT,Rett syndrome
     """)
 
 HGNC = textwrap.dedent("""\
-    hgnc_id\tsymbol\tname\talias_name\tprev_name
-    HGNC:663\tARG1\targinase 1\t\t
-    HGNC:664\tARG2\targinase 2\t\t
-    HGNC:3603\tFBN1\tfibrillin 1\t\t
-    """)
-
-
-def _setup(tmp_path):
-    (tmp_path / "g2p.csv").write_text(G2P)
-    (tmp_path / "hgnc.txt").write_text(HGNC)
-    with gzip.open(tmp_path / "gene_info.gz", "wt") as f:
-        f.write("#tax_id\tGeneID\tSymbol\n9606\t383\tARG1\n9606\t2200\tFBN1\n")
-    with gzip.open(tmp_path / "g2pub.gz", "wt") as f:
-        f.write("100\tGene\t383\tARG1\tPubTator3\n")     # symbol match -> ARG1
-        f.write("300\tGene\t2200\tFBN1|fibrillin 1\tPubTator3\n")  # mention occurs in TIAB -> FBN1
-    pl.DataFrame({
-        "pmid": ["100", "200", "300", "400"],
-        "tiab": [
-            "A homozygous ARG1 variant in hyperargininemia.",      # PubTator
-            "The two human arginase genes in hyperargininemia.",   # name only, family -> both
-            "Fibrillin 1 in Marfan syndrome.",                     # PubTator + name
-            "An abstract about nothing relevant whatsoever.",      # no gene -> dropped
-        ],
-    }).write_parquet(tmp_path / "in.parquet")
-    return tmp_path
-
-
-def _run(tmp_path, *extra):
-    out = tmp_path / "out.parquet"
-    cmd = [sys.executable, str(ROOT / "litdd/pipeline/gene_candidates.py"),
-           "--input_parquet", str(tmp_path / "in.parquet"),
-           "--g2p_csv", str(tmp_path / "g2p.csv"),
-           "--gene2pubtator", str(tmp_path / "g2pub.gz"),
-           "--gene_info", str(tmp_path / "gene_info.gz"),
-           "--out_parquet", str(out), *extra]
-    r = subprocess.run(cmd, capture_output=True, text=True)
-    assert r.returncode == 0, r.stderr
-    return pl.read_parquet(out)
-
-
-def test_pubtator_loader_separates_text_annotations_from_database_links(tmp_path):
-    import gzip
-
-    from litdd.genes import load_pubtator_genes, mention_in_text
-    g2p = tmp_path / "gene2pubtator3.gz"
-    with gzip.open(g2p, "wt") as f:
-        f.write("100\tGene\t1756\tDMD|dystrophin\tPubTator3|gene2pubmed\n")   # text annotation
-        f.write("100\tGene\t4204\t\tBioGRID|gene2pubmed\n")                    # database link only
-        f.write("100\tGene\t2261\tFGFR3\tPubTator3\n")                         # full-text mention
-    gene_info = {"1756": "DMD", "4204": "MECP2", "2261": "FGFR3"}
-    legacy = load_pubtator_genes(str(g2p), {"100"}, gene_info)
-    assert legacy["100"] == {"DMD", "MECP2", "FGFR3"}                          # old behaviour
-    text_only = load_pubtator_genes(str(g2p), {"100"}, gene_info,
-                                    text_annotations_only=True, with_mentions=True)
-    assert set(text_only["100"]) == {"DMD", "FGFR3"}                           # BioGRID row gone
-    tiab = "Dystrophin analysis in muscular dystrophy."
-    assert mention_in_text(tiab, text_only["100"]["DMD"], "DMD")               # via mention name
-    assert not mention_in_text(tiab, text_only["100"]["FGFR3"], "FGFR3")       # full-text-only gene
-    assert mention_in_text("The P-gp transporter", {"P-gp"}, "ABCB1")          # hyphen boundaries
-
-
-def test_gate_drops_rows_with_no_detected_gene(tmp_path):
-    df = _run(_setup(tmp_path))
-    assert set(df["pmid"].to_list()) == {"100", "300"}  # 200 needs --hgnc, 400 has no gene
-
-
-def test_name_matching_recovers_the_protein_name_case(tmp_path):
-    tmp_path = _setup(tmp_path)
-    df = _run(tmp_path, "--hgnc", str(tmp_path / "hgnc.txt"), "--family_stems")
-    rows = {p: (c, s) for p, c, s in zip(df["pmid"], df["candidate_g2p_ids"],
-                                         df["candidate_sources"])}
-    # PMID 200 says "arginase" and never the symbol: PubTator misses it, and only the
-    # enzyme-family stem can see it, so this needs --family_stems. Without that flag the
-    # row is dropped -- the precision/recall trade-off is explicit, see the test below.
-    assert "200" in rows
-    assert set(rows["200"][0]) == {"G2P00001", "G2P00002"}
-    assert set(rows["200"][1]) == {"name_match"}
-
-
-def test_full_name_matching_is_the_default(tmp_path):
-    """Without --family_stems the descriptive-family case is not rescued.
-
-    Recorded so the default's cost is visible: full-name matching is precise (a syndrome
-    mention can never pull in its whole gene family) but cannot see "arginase" without a
-    numeral.
-    """
-    tmp_path = _setup(tmp_path)
-    df = _run(tmp_path, "--hgnc", str(tmp_path / "hgnc.txt"))
-    assert "200" not in set(df["pmid"].to_list())
-
-
-def test_provenance_prefers_symbol_match(tmp_path):
-    tmp_path = _setup(tmp_path)
-    df = _run(tmp_path, "--hgnc", str(tmp_path / "hgnc.txt"), "--family_stems")
-    row = df.filter(pl.col("pmid") == "300")
-    assert row["candidate_g2p_ids"].to_list()[0] == ["G2P00003"]
-    assert row["candidate_sources"].to_list()[0] == ["symbol_match"]
-
-
-def test_keep_unmatched_falls_back_to_full_panel(tmp_path):
-    tmp_path = _setup(tmp_path)
-    df = _run(tmp_path, "--keep_unmatched")
-    row = df.filter(pl.col("pmid") == "400")
-    assert row.height == 1
-    assert len(row["candidate_g2p_ids"].to_list()[0]) == 3   # whole panel
-    assert set(row["candidate_sources"].to_list()[0]) == {"fallback_full_panel"}
-
-
-def test_candidate_mode_emits_the_downstream_contract(tmp_path, monkeypatch):
-    """The gene-gated cross-encoder path must emit `top5_cross` in the layout
-    `llm_map.py` and `final_data_clean.py` already expect: list<struct<label, score>>.
-
-    The model itself is stubbed -- this is about the data contract, not the scoring.
-    """
-    import types
-
-    sys.path.insert(0, str(ROOT))
-    import litdd.pipeline.crossencode as ce
-
-    tmp_path = _setup(tmp_path)
-    cand = _run(tmp_path, "--hgnc", str(tmp_path / "hgnc.txt"))
-    cand_path = tmp_path / "cand.parquet"
-    cand.write_parquet(cand_path)
-
-    class _Stub:
-        def predict(self, pairs):
-            return [0.95] * len(pairs)
-
-    monkeypatch.setattr(ce, "load_crossencoder", lambda *a, **k: (_Stub(), "cpu"))
-    monkeypatch.setitem(sys.modules, "torch", types.ModuleType("torch"))
-
-    ce.process_shard_candidates(
-        candidates_parquet=str(cand_path),
-        g2p_csv=str(tmp_path / "g2p.csv"),
-        out_dir=str(tmp_path / "out"),
-        skip_if_exists=False,
-    )
-    out = list((tmp_path / "out").glob("*.parquet"))
-    assert len(out) == 1
-    df = pl.read_parquet(out[0])
-    assert "top5_cross" in df.columns
-    first = df["top5_cross"].to_list()[0]
-    assert isinstance(first, list) and first, "expected a non-empty candidate list"
-    assert set(first[0]) == {"label", "score"}
-    assert first[0]["label"].startswith("G2P")   # the full LGMDE thread string
-    assert 0.0 <= first[0]["score"] <= 1.0
-    # data-driven k: nothing is truncated to 5 by default
-    assert all(len(r) == len(c) for r, c in zip(df["top5_cross"].to_list(),
-                                                df["candidate_g2p_ids"].to_list()))
-
-
-def test_symbol_fallback_only_for_pubtator_unannotated_abstracts(tmp_path):
-    """PubTator3 has no annotation at all for some (old, title-only) records although the
-    gene symbol is verbatim in the text -- 9 curated test abstracts (DMD x6, ITPR1, NEXMIF,
-    SCN8A, CPLANE1). --symbol_fallback matches panel symbols verbatim there, and ONLY there:
-    an abstract PubTator did annotate must not gain fallback candidates."""
-    (tmp_path / "g2p.csv").write_text(G2P + "G2P00004,DMD,444,2928,,DMD-related Duchenne muscular dystrophy,310200,,monoallelic_X_hemizygous,,definitive,absent gene product,,loss of function,inferred\nG2P00005,ITPR1,555,6180,,ITPR1-related spinocerebellar ataxia,,,monoallelic_autosomal,,definitive,altered gene product structure,,dominant negative,inferred\n")
-    (tmp_path / "hgnc.txt").write_text(HGNC)
-    with gzip.open(tmp_path / "gene_info.gz", "wt") as f:
-        f.write("#tax_id\tGeneID\tSymbol\n9606\t383\tARG1\n9606\t1756\tDMD\n")
-    with gzip.open(tmp_path / "g2pub.gz", "wt") as f:
-        f.write("100\tGene\t383\tARG1\tPubTator3\n")   # annotated: fallback must not apply
-    pl.DataFrame({
-        "pmid": ["100", "500", "600"],
-        "tiab": [
-            "A homozygous ARG1 variant; DMD is mentioned in passing.",   # PubTator: ARG1 only
-            "DMD carrier detection; long-term follow-up of ITPR1-related disorder.",  # unannotated
-            "The CAT scan was normal; SET the MAX dose.",                # blocklisted words only
-        ],
-    }).write_parquet(tmp_path / "in.parquet")
-    without = _run(tmp_path)
-    assert without["pmid"].to_list() == ["100"]
-    with_fb = _run(tmp_path, "--symbol_fallback")
-    rows = {r["pmid"]: r for r in with_fb.to_dicts()}
-    assert set(rows) == {"100", "500"}                       # 600 still dropped
-    assert rows["100"]["candidate_g2p_ids"] == ["G2P00001"]  # no DMD added to an annotated row
-    assert rows["500"]["candidate_g2p_ids"] == ["G2P00004", "G2P00005"]   # "ITPR1-related" -> ITPR1
-    assert rows["500"]["candidate_sources"] == ["symbol_fallback", "symbol_fallback"]
-
-
-# ----------------------------------------------------------------------- --resolution hgnc
-HGNC_FULL = textwrap.dedent("""\
     hgnc_id\tsymbol\tname\talias_symbol\tprev_symbol\talias_name\tprev_name\tentrez_id
+    HGNC:663\tARG1\targinase 1\t\t\t\t\t383
+    HGNC:664\tARG2\targinase 2\t\t\t\t\t384
+    HGNC:3603\tFBN1\tfibrillin 1\t\tFBN\t\t\t2200
+    HGNC:2928\tDMD\tdystrophin\t\t\t\t\t1756
+    HGNC:6180\tITPR1\tinositol 1,4,5-trisphosphate receptor type 1\t\t\t\t\t3708
     HGNC:11957\tMED12\tmediator complex subunit 12\tKIAA0192\tOPA1|HOPA\t\t\t9968
     HGNC:8140\tOPA1\tOPA1 mitochondrial dynamin like GTPase\t\t\t\t\t4976
     HGNC:9791\tRAI1\tretinoic acid induced 1\t\tSMCR\t\tSmith-Magenis syndrome chromosome region\t10743
     HGNC:11123\tSMS\tspermine synthase\t\t\t\t\t6611
     HGNC:6990\tMECP2\tmethyl-CpG binding protein 2\tRTT\t\t\tRett syndrome\t4204
     """)
-G2P_FULL = textwrap.dedent("""\
-    g2p id,gene symbol,hgnc id,previous gene symbols
-    G2P00747,MED12,11957,OPA1; HOPA
-    G2P00752,RAI1,9791,SMCR
-    G2P00787,SMS,11123,
-    G2P00600,MECP2,6990,RTT
-    """)
+
 MONDO_OBO = textwrap.dedent("""\
     [Term]
     id: MONDO:0008434
@@ -229,55 +53,148 @@ MONDO_OBO = textwrap.dedent("""\
     relationship: has_material_basis_in_germline_mutation_in http://identifiers.org/hgnc/6990 ! MECP2
 
     [Term]
+    id: MONDO:0010679
+    name: Duchenne muscular dystrophy
+    synonym: "DMD" EXACT []
+    relationship: has_material_basis_in_germline_mutation_in http://identifiers.org/hgnc/2928 ! DMD
+
+    [Term]
     id: http://identifiers.org/hgnc/8140
     name: OPA1
     """)
 
 
-def _run_hgnc(tmp_path, tiabs, pubtator_rows, *extra):
-    (tmp_path / "g2p.csv").write_text(G2P_FULL)
-    (tmp_path / "hgnc.txt").write_text(HGNC_FULL)
+def _run(tmp_path: Path, tiabs: list[str], pubtator_rows: list[tuple[str, ...]] = (),
+         audit: bool = False) -> pl.DataFrame:
+    """Write the fixtures and run the gate; pmids are "0", "1", ... in ``tiabs`` order."""
+    (tmp_path / "g2p.csv").write_text(G2P)
+    (tmp_path / "hgnc.txt").write_text(HGNC)
     (tmp_path / "mondo.obo").write_text(MONDO_OBO)
-    with gzip.open(tmp_path / "gene_info.gz", "wt") as f:
-        f.write("#tax_id\tGeneID\tSymbol\n")
     with gzip.open(tmp_path / "g2pub.gz", "wt") as f:
         for row in pubtator_rows:
             f.write("\t".join(row) + "\n")
     pl.DataFrame({"pmid": [str(i) for i in range(len(tiabs))], "tiab": tiabs}).write_parquet(
         tmp_path / "in.parquet")
-    return _run(tmp_path, "--resolution", "hgnc", "--hgnc", str(tmp_path / "hgnc.txt"),
-                "--mondo_obo", str(tmp_path / "mondo.obo"), "--symbol_fallback", *extra)
+    out = tmp_path / "out.parquet"
+    cmd = [sys.executable, "-m", "litdd.pipeline.gene_candidates",
+           "--input_parquet", str(tmp_path / "in.parquet"),
+           "--g2p_csv", str(tmp_path / "g2p.csv"),
+           "--gene2pubtator", str(tmp_path / "g2pub.gz"),
+           "--hgnc", str(tmp_path / "hgnc.txt"),
+           "--mondo_obo", str(tmp_path / "mondo.obo"),
+           "--out_parquet", str(out)]
+    if audit:
+        cmd += ["--audit_prefix", str(tmp_path / "audit" / "gate")]
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
+    assert r.returncode == 0, r.stderr
+    return pl.read_parquet(out)
 
 
-def _cands(out):
-    return {r["pmid"]: r["candidate_g2p_ids"] for r in out.iter_rows(named=True)}
+def _rows(out: pl.DataFrame) -> dict[str, dict]:
+    return {r["pmid"]: r for r in out.iter_rows(named=True)}
 
 
-def test_hgnc_resolution_does_not_follow_another_genes_previous_symbol(tmp_path):
-    """PubTator's OPA1 (GeneID 4976) is not MED12, although G2P lists OPA1 as MED12's old symbol."""
-    out = _cands(_run_hgnc(tmp_path, ["OPA1 variants in optic atrophy."],
-                           [("0", "Gene", "4976", "OPA1", "PubTator3")]))
-    assert "0" not in out
-    # the verbatim route does not use OPA1 either: it is another gene's approved symbol
-    out = _cands(_run_hgnc(tmp_path, ["OPA1 variants in optic atrophy."], []))
-    assert "0" not in out
+def _pub(pmid: str, gene_id: str, mention: str) -> tuple[str, ...]:
+    return (pmid, "Gene", gene_id, mention, "PubTator3")
 
 
-def test_hgnc_resolution_excludes_disease_name_aliases_and_uses_disease_context(tmp_path):
+def test_pubtator_loaders_separate_text_annotations_from_database_links(tmp_path):
+    """load_pubtator_gene_ids keeps PubTator3 text annotations with their mention strings;
+    load_pubtator_genes returns symbols from every resource."""
+    from litdd.genes import load_pubtator_gene_ids, load_pubtator_genes, mention_in_text
+    g2p = tmp_path / "gene2pubtator3.gz"
+    with gzip.open(g2p, "wt") as f:
+        f.write("100\tGene\t1756\tDMD|dystrophin\tPubTator3|gene2pubmed\n")   # text annotation
+        f.write("100\tGene\t4204\t\tBioGRID|gene2pubmed\n")                    # database link only
+        f.write("100\tGene\t2261;2260\tFGFR3\tPubTator3\n")                    # two GeneIDs in one cell
+    gene_info = {"1756": "DMD", "4204": "MECP2", "2261": "FGFR3", "2260": "FGFR1"}
+    assert load_pubtator_genes(str(g2p), {"100"}, gene_info) == {"100": {"DMD", "MECP2", "FGFR3", "FGFR1"}}
+    ids = load_pubtator_gene_ids(str(g2p), {"100"})
+    assert ids == {"100": {"1756": {"DMD", "dystrophin"}, "2261": {"FGFR3"}, "2260": {"FGFR3"}}}
+    tiab = "Dystrophin analysis in muscular dystrophy."
+    assert mention_in_text(tiab, ids["100"]["1756"], "DMD")
+    assert not mention_in_text(tiab, ids["100"]["2261"], "FGFR3")
+    assert mention_in_text("The P-gp transporter", {"P-gp"}, "ABCB1")
+
+
+def test_gate_drops_rows_with_no_detected_gene(tmp_path):
+    """A row whose text names no panel gene by any route is not written."""
+    out = _run(tmp_path, ["A homozygous ARG1 variant in hyperargininemia.",
+                          "An abstract about nothing relevant whatsoever."],
+               [_pub("0", "383", "ARG1")])
+    assert out["pmid"].to_list() == ["0"]
+    assert out.columns[-2:] == ["candidate_g2p_ids", "candidate_sources"]
+
+
+def test_name_matching_recovers_the_protein_name_case(tmp_path):
+    """A gene written only by its HGNC descriptive name is found with source name_match."""
+    rows = _rows(_run(tmp_path, ["Fibrillin 1 in Marfan syndrome.",
+                                 "Methyl-CpG binding protein 2 dysfunction in girls."]))
+    assert rows["0"]["candidate_g2p_ids"] == ["G2P00003"]
+    assert rows["0"]["candidate_sources"] == ["name_match"]
+    assert rows["1"]["candidate_g2p_ids"] == ["G2P00600"]
+
+
+def test_provenance_prefers_symbol_match(tmp_path):
+    """A gene found by PubTator and by name is recorded once, as symbol_match."""
+    rows = _rows(_run(tmp_path, ["Fibrillin 1 in Marfan syndrome."],
+                      [_pub("0", "2200", "FBN1|fibrillin 1")]))
+    assert rows["0"]["candidate_g2p_ids"] == ["G2P00003"]
+    assert rows["0"]["candidate_sources"] == ["symbol_match"]
+
+
+def test_symbol_fallback_only_where_pubtator_verified_no_panel_gene(tmp_path):
+    """Verbatim symbols are matched only in abstracts where PubTator3 verified no panel gene;
+    blocklisted symbols never match."""
+    tiabs = [
+        "A homozygous ARG1 variant; DMD is mentioned in passing.",              # PubTator: ARG1
+        "DMD carrier detection; long-term follow-up of ITPR1-related disorder.",  # unannotated
+        "The CAT scan was normal; SET the MAX dose.",                           # blocklist only
+    ]
+    rows = _rows(_run(tmp_path, tiabs, [_pub("0", "383", "ARG1")]))
+    assert set(rows) == {"0", "1"}
+    assert rows["0"]["candidate_g2p_ids"] == ["G2P00001"]
+    assert rows["1"]["candidate_g2p_ids"] == ["G2P00004", "G2P00005"]
+    assert rows["1"]["candidate_sources"] == ["symbol_fallback", "symbol_fallback"]
+
+
+def test_another_genes_previous_symbol_is_not_followed(tmp_path):
+    """PubTator's OPA1 (GeneID 4976) does not resolve to MED12 although G2P and HGNC list OPA1
+    as a previous symbol of MED12, and the verbatim dictionary excludes OPA1 for the same reason."""
+    out = _run(tmp_path, ["OPA1 variants in optic atrophy."], [_pub("0", "4976", "OPA1")])
+    assert out.height == 0
+    out = _run(tmp_path, ["OPA1 variants in optic atrophy.", "HOPA variants."])
+    assert _rows(out).keys() == {"1"}          # HOPA, a previous symbol nobody else owns, is kept
+
+
+def test_disease_name_aliases_excluded_and_disease_context_applied(tmp_path):
+    """RTT (a MONDO synonym) is not in the verbatim dictionary; SMS counts as spermine synthase
+    only where Smith-Magenis syndrome is not also written, or where SMS is used as a gene."""
     tiabs = [
         "Smith-Magenis syndrome (SMS): clinical review of 20 patients.",   # SMS is the disease
         "SMS variants cause Snyder-Robinson syndrome.",                   # SMS is the gene
-        "Girls with RTT have regression.",                                # RTT is a disease alias
+        "Girls with RTT have regression.",                                # verbatim RTT excluded
         "A RAI1 frameshift in Smith-Magenis syndrome (SMS).",            # RAI1 via PubTator, not SMS
+        "Girls with Rett syndrome (RTT) have regression.",                # PubTator RTT in context
+        "Duchenne muscular dystrophy (DMD): DMD gene deletions.",         # gene use keeps DMD
+        "Duchenne muscular dystrophy (DMD) in boys.",                     # DMD is the disease
     ]
-    rows = [("0", "Gene", "6611", "SMS", "PubTator3"), ("1", "Gene", "6611", "SMS", "PubTator3"),
-            ("2", "Gene", "4204", "RTT", "PubTator3"), ("3", "Gene", "10743", "RAI1", "PubTator3"),
-            ("3", "Gene", "6611", "SMS", "PubTator3")]
-    out = _cands(_run_hgnc(tmp_path, tiabs, rows))
-    assert "0" not in out
-    assert out["1"] == ["G2P00787"]
-    assert "2" not in out
-    assert out["3"] == ["G2P00752"]
-    # ablation: without the context rule the disease abbreviation admits spermine synthase
-    out = _cands(_run_hgnc(tmp_path, tiabs, rows, "--no_disease_context"))
-    assert out["0"] == ["G2P00787"]
+    pub = [_pub("0", "6611", "SMS"), _pub("1", "6611", "SMS"), _pub("3", "10743", "RAI1"),
+           _pub("3", "6611", "SMS"), _pub("4", "4204", "RTT")]
+    rows = _rows(_run(tmp_path, tiabs, pub, audit=True))
+    assert set(rows) == {"1", "3", "5"}
+    assert rows["1"]["candidate_g2p_ids"] == ["G2P00787"]
+    assert rows["3"]["candidate_g2p_ids"] == ["G2P00752"]
+    assert rows["5"]["candidate_sources"] == ["symbol_fallback"]
+
+    symbols = pl.read_csv(tmp_path / "audit" / "gate_symbols.tsv", separator="\t")
+    rtt = symbols.filter(pl.col("symbol") == "RTT").to_dicts()[0]
+    assert rtt["kept"] is False and rtt["reasons"] == "disease_name"
+    names = pl.read_csv(tmp_path / "audit" / "gate_names.tsv", separator="\t")
+    assert names["name"].to_list() == ["Rett syndrome"]
+    stats = json.loads((tmp_path / "audit" / "gate_stats.json").read_text())
+    # SMS in row 0 is declined on the PubTator route and again on the verbatim route, SMS in
+    # row 3 on the PubTator route, DMD in row 6 on the verbatim route.
+    assert stats["disease_context_abstract_symbol_pairs"] == 4
+    assert stats["disease_mentions_dropped"] == 3                     # SMS in rows 0 and 3, RTT in row 4
+    assert stats["rows_symbol"] == 2 and stats["rows_verbatim"] == 1

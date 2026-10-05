@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Sample the training/annotation set for a second-annotator inter-annotator-agreement
-(IAA) exercise on the ORIGINAL labels (Reviewer 3 R3.10 / Reviewer 2 R2-A1).
+(IAA) exercise on the training labels.
 
 The ground-truth labels were produced by a single clinical geneticist. To quantify
 annotation reliability, a second annotator re-labels a blinded sample of (abstract,
@@ -12,7 +12,7 @@ unit is a pipeline *output* mapping judged correct/incorrect; here the unit is a
 label* (does this abstract support the candidate disease? 1/0), re-applied independently.
 
 Abstracts are not in annotated_pmid.csv, so a --tiab_source parquet (pmid + tiab, or
-title/abstract) is joined in. Output goes to the gitignored revision/ area.
+title/abstract) is joined in.
 """
 from __future__ import annotations
 
@@ -61,10 +61,9 @@ def parse_args():
     ap.add_argument("--tiab_source", default=None,
                     help="CSV/parquet with pmid + tiab (or title/abstract); needed only if "
                          "--annotated_csv has no tiab column")
-    ap.add_argument("--out_dir", default="revision/precision_audit")
+    ap.add_argument("--out_dir", required=True)
     ap.add_argument("--n", type=int, default=100, help="IAA sample size")
-    ap.add_argument("--balanced", action="store_true", default=True,
-                    help="Sample equal positive/negative labels (default)")
+    ap.set_defaults(balanced=True)
     ap.add_argument("--proportional", dest="balanced", action="store_false",
                     help="Sample proportional to the label distribution instead")
     ap.add_argument("--seed", type=int, default=42)

@@ -1,41 +1,38 @@
 # Training
 
-> **Terminology.** The **annotated train set** = `revision/external_recall/ds_hirecall_train`
-> (17,335 rows: original clinician annotations + reviewer-confirmed molecular positives +
-> independent curated-set literature). This is what the released screen was trained on and
-> what new models should be trained on. **`ds_bert_train` is deprecated** — the original 80%
-> split (11,201 rows), retained only for reproducing pre-revision results.
+Scripts that build the screen's training data and train the screen. Run them as modules from
+the repository root, for example `python -m litdd.training.final_traintest_dataset --dry_run`.
+Helpers shared by these scripts, `litdd/evaluation/run_bert_benchmark.py` and
+`litdd/experiments/` live in `screen_common.py`.
 
-Which script produced what. The distinction matters for reproducibility (Reviewer 2 R2-R1 /
-R2-S4): the released models come from a specific subset of these, and the revision-era
-ablations live in `experiments/` rather than here.
+## Release path
 
-## Canonical path — reproduces the released models
+The released screen, [`tmy100000001/LitDD_BERT`](https://huggingface.co/tmy100000001/LitDD_BERT),
+was trained by `finetune_seeds.py` on the training set described in the manuscript's Methods
+(the annotated set with the confirmed positives, the external curated positives and the corpus
+negatives). Every seed is saved under `<save_dir>/seed_<n>`; the released checkpoint is seed 44.
 
-Run in this order (or via `../../run_pipeline.sh --full`):
+| # | Script | Reads | Writes |
+|---|---|---|---|
+| 1 | `final_traintest_dataset.py` | `data/annotated_pmid.csv` | `ds_bert_train`, `ds_test` (group-level split, `--group_col {tiab,pmid,gene,g2p_id}`) |
+| 2 | `merge_screen_annotations.py` | annotated CSV, annotation worksheet, G2P CSV | the annotated set with the confirmed worksheet rows, collapsed per PMID |
+| 3 | `finetune_external_recall.py` | `ds_bert_train`, `ds_test`, worksheet, external truth CSV, random sample | per-variant metrics and per-paper scores for the base set plus external positives |
+| 4 | `build_corpus_negatives.py` | converted PubMed shards, G2P snapshots, truth and exclusion CSVs | decade-stratified corpus negatives CSV |
+| 5 | `build_prevalence_ladder.py` | a training dataset, the corpus negatives CSV | one dataset per `--add` count under `<out_root>/add<n>` |
+| 6 | `cv_hp_search_bert.py` | a training dataset | `--out_json` with fold F1 per grid point and the selected hyperparameters |
+| 7 | `finetune_seeds.py` | a training dataset, `ds_test`, external truth CSV, random sample | per-seed metrics CSV and, with `--save_dir`, every seed's checkpoint |
 
-| # | Script | Produces |
-|---|---|---|
-| 1 | `final_traintest_dataset.py` | group-level train/test split (`--group_col {pmid,tiab,gene,g2p_id}`) |
-| 2 | `merge_screen_annotations.py` | the augmented annotation set, merging the original labels with the reviewer-confirmed molecular-framed positives |
-| 3 | `cv_hp_search_bert.py` | screen hyperparameters — 5-fold StratifiedGroupKFold on the **training portion only** |
-| 4 | `finetune_seeds.py` | **the released screen** — [`tmy100000001/LitDD_BERT`](https://huggingface.co/tmy100000001/LitDD_BERT) |
-| 5 | `mine_hard_negatives.py` | hard negatives for the cross-encoder (`abhinand/MedEmbed-large-v0.1`, 5 per positive, rank 5–50) |
-| 6 | `cv_hp_search_crossencoder.py` | cross-encoder hyperparameters, hard negatives re-mined per fold |
-| 7 | `crossencode_finetune.py` | **the released cross-encoder** — [`tmy100000001/LitDD_crossencoder`](https://huggingface.co/tmy100000001/LitDD_crossencoder) |
+`build_heldout_splits.py` builds the training sets of the stricter held-out evaluations: it
+removes from the released training set every row of a group held out by the split under
+evaluation (a gene or G2P entry from `final_traintest_dataset.py --group_col`, or papers
+published after a cutoff year), after which steps 5 and 7 are re-run on the filtered set.
 
-`bert_finetune.py` is the plain screen trainer used for the fair-baseline comparison (Table 1)
-and for the held-out/time-split evaluations. It is *not* what produced the released checkpoint.
-
-**The released screen came from `finetune_seeds.py`**, not from `bert_finetune.py`. The name is
-historical — it seed-averages *and* saves the checkpoint. Exact invocation:
-`revision/litdd_lock_job.yaml` (fixed seed 42, CV-selected lr 3e-5 / wd 0.1 / 5 epochs).
-
-`finetune_external_recall.py` built the high-recall training set (`ds_hirecall_train`) that
-step 4 consumes, so it is on the release path even though it began as a revision experiment.
+`bert_finetune.py` trains a single model on a training dataset with the selected
+hyperparameters and evaluates it once on `ds_test`; it is the trainer used for the baseline
+comparison in `litdd/evaluation/run_bert_benchmark.py` and did not produce the released
+checkpoint.
 
 ## Not here
 
-- `experiments/` — revision-era ablations: the 2×2 factorial, learning curves, the FPR proxy,
-  and gene-conditioned dataset construction. None feed the released models.
+- `litdd/experiments/` — ablations that are not on the release path (see its README).
 - `data/annotated_pmid.csv` — the annotation input, kept out of the code directories.

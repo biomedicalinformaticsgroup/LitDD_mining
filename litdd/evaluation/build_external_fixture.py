@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Build an evaluation fixture from the external curated truth sets (premined/HPOA/ClinGen).
 
-``revision/external_recall/external_positives.csv`` holds curated (pmid, g2p_id) pairs with
-their TIABs. The held-out split was never used to train any component, so the full pipeline
-can be run over it end to end; every abstract is a curated positive, so the meaningful
-quantities are per-stage recall and the extra-entry rate (curation here is per source and
-incomplete, so extras are reported, not condemned).
+The input CSV (from ``external_recall/build_external_positives.py``) holds curated (pmid,
+g2p_id) pairs with their TIABs and a ``split`` column. The held-out split was not used to train
+any component, so the full pipeline can be run over it; every abstract is a curated positive,
+so the quantities of interest are per-stage recall and the extra-entry rate.
 
 Writes the standard fixture contract (shards/annotated_test.parquet, gold.csv,
 pairs_full.csv, provenance.json). Gold ids are resolved against ``--g2p_csv``; pairs whose
@@ -13,22 +12,18 @@ entry is retired are dropped and counted. ``--screen_preds`` (csv: pmid,...,pred
 ``bert_predict``; without it every abstract is marked screen-positive so the fixture can be
 built before the screen has run.
 
-    python litdd/evaluation/build_external_fixture.py \\
-        --external_csv revision/external_recall/external_positives.csv --split heldout \\
-        --g2p_csv revision/G2P_DD_2026-06-24.csv --out_dir revision/llm_eval/external_2026
+    python -m litdd.evaluation.build_external_fixture \\
+        --external_csv external_positives.csv --split heldout --g2p_csv G2P_DD.csv --out_dir fixture/
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import sys
 
 import pandas as pd
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, ROOT)
-from litdd.threads import build_lgmde_map  # noqa: E402
+from litdd.threads import build_lgmde_map
 
 
 def main() -> int:
@@ -68,7 +63,7 @@ def main() -> int:
                           "true_g2p_ids": ";".join(gold_ids), "n_gold": len(gold_ids),
                           "n_labelled_pairs": len(grp), "genereviews": False,
                           "bert_predict": bert, "gold_in_candidates": None,
-                          "max_cross_score": float("nan"), "n_pmids_for_tiab": 1,
+                          "n_pmids_for_tiab": 1,
                           "sources": ";".join(sorted(set(grp["source"])))})
         for g in gold_ids:
             pair_rows.append({"pmid": pmid, "row_id": row_id, "g2p_id": g, "label": 1,

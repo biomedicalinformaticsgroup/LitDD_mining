@@ -1,128 +1,82 @@
 #!/usr/bin/env python3
-"""Resolve duplicate and withdrawn PubMed records after XML -> parquet conversion.
+"""Resolve duplicate, withdrawn and retracted PubMed records after XML to parquet conversion.
 
-Two facts about the MEDLINE distribution make this necessary, and neither was handled
-before: updatefiles **reissue** records that already appear in the annual baseline (a
-revised abstract, a corrected date), and they carry ``DeleteCitation`` entries for records
-PubMed has withdrawn.
+Reads
+    ``<download_dir>/parquet_download_files/*.parquet``  shards from ``pubmed_to_parquet.py``
+    ``<download_dir>/deleted_pmids.txt``  withdrawn PMIDs from ``extract_deleted_pmids.py``
+    ``<download_dir>/corrections.csv``    (pmid, reftype) links from ``extract_corrections.py``
 
-.. warning::
-   ``pubmed_parser`` exposes a ``delete`` field but **it never fires**: measured on the full
-   2026 corpus it is True for 0 of 45,056,462 records, across both baseline and updatefiles,
-   even though the raw updatefile XML plainly contains ``<DeleteCitation>`` blocks.
-   ``<DeleteCitation>`` is a sibling of ``<PubmedArticle>`` holding bare ``<PMID>`` elements
-   with no article body, so a parser walking article records never emits a row for them.
-   Withdrawn PMIDs must therefore be supplied via ``--deleted_pmids``, produced by
-   ``extract_deleted_pmids.py``, which reads the raw XML directly. The ``delete`` column is
-   still honoured if it ever starts working, but it cannot be relied on alone.
+Writes
+    ``<download_dir>/pmid_keep.parquet``  manifest of (pmid, source_shard), one row per
+    PMID kept, which ``bert_predict_vllm.py --keep_parquet`` filters against; the shards
+    themselves are left unchanged.
 
-Left alone, both propagate: a duplicated PMID is screened twice, cross-encoded twice and
-adjudicated twice, so it can contribute two identical ``(PMID, G2P_ID)`` rows to the final
-map and inflate every count in the cascade funnel; a withdrawn record stays in the corpus.
+MEDLINE updatefiles reissue records that already appear in the annual baseline and carry
+``<DeleteCitation>`` entries for records PubMed has withdrawn. Unresolved, a duplicated PMID
+passes through every stage twice and a withdrawn record stays in the corpus. The manifest
+is computed as follows:
 
-Resolution, applied over the whole converted corpus:
-  * drop every PMID marked ``delete``;
-  * drop retractions, retraction notices, errata and expressions of concern by MeSH
-    publication type (see ``DEFAULT_EXCLUDE_PUBTYPES``);
-  * for PMIDs appearing in more than one shard, keep the occurrence from the
-    highest-numbered file — the distribution is ordered so later files supersede earlier
-    ones, which is what makes a reissued record a correction rather than a duplicate.
+* drop every PMID listed in the withdrawn-PMID file or flagged ``delete`` by the parser
+  (the parser emits no row for ``<DeleteCitation>`` entries, so the file is the working
+  source; see ``extract_deleted_pmids.py``);
+* drop records whose MeSH publication type marks them as a retracted article, a retraction
+  notice, an erratum notice, an expression of concern or a duplicate publication
+  (``DEFAULT_EXCLUDE_PUBTYPES``);
+* drop records whose CommentsCorrections links mark them as retracted, as a retraction or
+  concern notice, as the subject of an expression of concern, or as the earlier version
+  of a republished article (``DEFAULT_EXCLUDE_REFTYPES``);
+* for a PMID appearing in more than one shard, keep the occurrence from the
+  highest-numbered file, since later distribution files supersede earlier ones.
 
-Writes a ``pmid_keep.parquet`` manifest of (pmid, source_shard) that ``bert_predict.py``
-filters against, so the parquet shards themselves stay untouched and re-runnable.
+Retracted articles and their notices are caught by publication type; the RefType pass adds
+papers with an expression of concern and earlier versions of republished articles,
+which no publication type expresses. Papers that merely have a published correction
+(``ErratumIn``) are kept; the correction notices themselves are excluded by publication type.
 
 Example
 -------
-    python litdd/pipeline/dedupe_pmids.py --download_dir data/pubmed_download_2026
+    python -m litdd.pipeline.dedupe_pmids --download_dir data/pubmed_download
 """
 from __future__ import annotations
 
 import argparse
+import logging
 import os
+import sys
 from glob import glob
 
 import polars as pl
 
-# Retractions and corrections, excluded from the corpus by MeSH publication type.
-# Counts are from the full 2026 download (45,056,462 records; see
-# revision/kco/publication_types_2026.csv for all 85 types observed).
-#
-# Matched on the MeSH ID prefix, NOT the label: D016440 appears under two different labels
-# in the same corpus ("Retraction Notice" 37,618 and the legacy "Retraction of Publication"
-# 4), so label matching would miss records.
+logger = logging.getLogger("litdd.dedupe_pmids")
+
+# MeSH publication types excluded from the corpus, matched on the descriptor id prefix
+# rather than the label, because one id can appear under more than one label.
 DEFAULT_EXCLUDE_PUBTYPES = (
-    "D016441",  # Retracted Publication          36,775  the retracted article itself
-    "D016440",  # Retraction Notice              37,622  the notice (covers both labels)
-    "D016425",  # Published Erratum             242,873  correction notice, not a paper
-    "D000075742",  # Expression of Concern        4,937
-    "D016438",  # Duplicate Publication             930
+    "D016441",     # Retracted Publication: the retracted article itself
+    "D016440",     # Retraction Notice
+    "D016425",     # Published Erratum: the correction notice
+    "D000075742",  # Expression of Concern
+    "D016438",     # Duplicate Publication
 )
+# D016439 Corrected and Republished Article is kept: the republished version is the valid
+# record, and its earlier version is removed through the RepublishedIn link below.
 
-# D016439 Corrected and Republished Article (1,776) is deliberately KEPT: the republished
-# version is the corrected, valid science. Its superseded predecessor is removed instead, via
-# the RepublishedIn RefType below -- which is what makes keeping the publication type safe.
-
-# CommentsCorrections RefTypes to exclude. These are NOT MeSH and pubmed_parser does not
-# expose them at all, so they must come from extract_corrections.py.
-#
-# The two mechanisms are COMPLEMENTARY IN DIRECTION, not redundant -- this is the reason the
-# RefType pass is needed, measured on the 2026 corpus:
-#
-#   publication types mark the NOTICE        RefTypes ...Of/...For also mark the notice
-#   RefTypes ...In mark the PAPER the notice concerns -- which publication type cannot express
-#
-#   reftype                     pmids   not caught by publication type
-#   RetractionOf               32,352        0    notices: fully covered by D016440
-#   ErratumFor                207,703        0    notices: fully covered by D016425
-#   ExpressionOfConcernFor      3,827        0
-#   RetractionIn               34,178        0    <- retractions agree almost exactly
-#   ErratumIn                 349,161  347,078    <- the papers that HAVE a correction
-#                                                     (NO LONGER EXCLUDED -- see below)
-#   ExpressionOfConcernIn       4,413    3,526
-#   RepublishedIn               1,450    1,400
-#   RetractedandRepublishedIn      74       48
-#
-# So for RETRACTIONS the two agree essentially perfectly (RetractionIn 34,178 vs D016441
-# 34,180, symmetric difference 2) -- publication type alone does NOT leak retracted papers.
-# The RefType pass earns its place on ExpressionOfConcernIn and the superseded-republication
-# markers, which no publication type expresses. It does NOT earn it on ErratumIn: see the
-# note on the exclusion tuple below for why that one was removed.
-# NARROWED 2026-09-05: ErratumIn and ErratumFor were removed from this set. Excluding
-# ErratumIn dropped every paper that merely HAS a published correction -- 340,217 otherwise
-# eligible records, 1.08% of the corpus, including landmark in-scope gene-discovery reports
-# ("Mutations in MKKS cause Bardet-Biedl syndrome", "Mutations in PATCHED-1 ... are associated
-# with holoprosencephaly"). Measured cost: 294 of the 7,644 curated external-truth papers were
-# never screened, making the correction rule the SECOND-largest cause of recall miss (22.7% of
-# all misses) -- larger than the screen's own false negatives. A corrected typo is not a
-# retraction, so the rule now covers only WITHDRAWN or SUPERSEDED science. The erratum notices
-# themselves (D016425 Published Erratum) are still excluded by publication type, so restoring
-# these RefTypes readmits corrected papers without readmitting correction notices.
+# CommentsCorrections RefTypes excluded from the corpus. These are not MeSH terms and the
+# parser does not expose them, so they come from extract_corrections.py. The ``In`` and
+# ``Of``/``For`` suffixes point in opposite directions: ``RetractionIn`` is on the retracted
+# paper, ``RetractionOf`` on the notice.
 DEFAULT_EXCLUDE_REFTYPES = (
-    "RetractionIn",            # this paper WAS retracted
-    "RetractionOf",            # this IS the retraction notice
-    "ExpressionOfConcernIn",   # concern raised about this paper
-    "ExpressionOfConcernFor",  # this IS the concern notice
-    "RepublishedIn",           # SUPERSEDED predecessor of a corrected republication;
-                               # its RepublishedFrom counterpart (the corrected version)
-                               # is deliberately NOT excluded.
-    "RetractedandRepublishedIn",   # superseded version that was retracted then republished;
-                                   # mirrors RepublishedIn. Its RetractedandRepublishedFrom
-                                   # counterpart (the corrected republication) is retained,
-                                   # consistent with keeping D016439.
+    "RetractionIn",              # this paper was retracted
+    "RetractionOf",              # this record is the retraction notice
+    "ExpressionOfConcernIn",     # a concern was raised about this paper
+    "ExpressionOfConcernFor",    # this record is the concern notice
+    "RepublishedIn",             # earlier version of a corrected republication
+    "RetractedandRepublishedIn",  # earlier version that was retracted and republished
 )
-
-# Deliberately NOT excluded: RepublishedFrom / RetractedandRepublishedFrom (the corrected
-# republications -- the valid science), CommentIn/CommentOn (commentary, not correction),
-# UpdateIn/UpdateOf, ReprintIn/ReprintOf, OriginalReportIn, SummaryForPatientsIn,
-# AssociatedDataset, AssociatedPublication, and D016426 Scientific Integrity Review (491).
-#
-# Full RefType census of the 2026 corpus (3,346,504 links over 1,600 files):
-#   CommentIn 1,268,042 | CommentOn 1,252,824 | ErratumIn 390,627 | ErratumFor 247,327
-#   UpdateOf 105,713 | UpdateIn 63,967 | RetractionOf 38,128 | RetractionIn 36,962
-#   ExpressionOfConcernFor 5,933 | ExpressionOfConcernIn 5,363 | ReprintOf 3,280
-#   ReprintIn 3,248 | RepublishedFrom 1,698 | OriginalReportIn 1,615 | RepublishedIn 1,496
-#   SummaryForPatientsIn 1,406 | AssociatedDataset 462 | AssociatedPublication 442
-#   RetractedandRepublishedIn 86 | RetractedandRepublishedFrom 79
+# Not excluded: RepublishedFrom and RetractedandRepublishedFrom (the corrected republications),
+# ErratumIn (papers that have a correction), CommentIn/CommentOn, UpdateIn/UpdateOf,
+# ReprintIn/ReprintOf, OriginalReportIn, SummaryForPatientsIn, AssociatedDataset and
+# AssociatedPublication.
 
 
 def shard_order_key(path: str) -> str:
@@ -130,7 +84,8 @@ def shard_order_key(path: str) -> str:
     return os.path.basename(path)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Command-line interface."""
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -139,41 +94,28 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out", default=None,
                    help="Manifest path (default <download_dir>/pmid_keep.parquet)")
     p.add_argument("--exclude_pubtypes", default=",".join(DEFAULT_EXCLUDE_PUBTYPES),
-                   help="Comma-separated MeSH publication-type IDs to exclude, matched on the "
-                        "`Dxxxxxxx:` prefix rather than the label (labels are not unique -- "
-                        "D016440 appears as both 'Retraction Notice' and 'Retraction of "
-                        "Publication'). Pass an empty string to disable.")
+                   help="Comma-separated MeSH publication-type ids to exclude, matched on the "
+                        "'Dxxxxxxx:' prefix rather than the label. Empty string disables.")
     p.add_argument("--exclude_reftypes", default=",".join(DEFAULT_EXCLUDE_REFTYPES),
                    help="Comma-separated CommentsCorrections RefTypes to exclude. Requires "
                         "--corrections_csv. Empty string disables.")
     p.add_argument("--corrections_csv", default=None,
                    help="CSV of pmid,reftype from extract_corrections.py. Defaults to "
-                        "<download_dir>/corrections.csv if present. Without it, retracted "
-                        "papers whose publication_types was never updated are NOT excluded.")
+                        "<download_dir>/corrections.csv if present.")
     p.add_argument("--deleted_pmids", default=None,
                    help="File of withdrawn PMIDs, one per line, from extract_deleted_pmids.py. "
-                        "Required in practice: pubmed_parser's `delete` flag never fires "
-                        "(0/45,056,462 on the 2026 corpus) because <DeleteCitation> carries no "
-                        "article body. Defaults to <download_dir>/deleted_pmids.txt if present.")
-    return p.parse_args()
+                        "Defaults to <download_dir>/deleted_pmids.txt if present.")
+    return p.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
-    parquet_dir = os.path.join(args.download_dir, "parquet_download_files")
-    out_path = args.out or os.path.join(args.download_dir, "pmid_keep.parquet")
-
-    shards = sorted(glob(os.path.join(parquet_dir, "*.parquet")), key=shard_order_key)
-    if not shards:
-        raise SystemExit(f"No parquet shards found in {parquet_dir}")
-    print(f"Scanning {len(shards)} shard(s)")
-
+def scan_shards(shards: list[str]) -> pl.DataFrame:
+    """Read pmid, publication_types and the delete flag from every shard, with the shard order."""
     frames = []
     for order, path in enumerate(shards):
         cols = pl.read_parquet_schema(path)
         select = [pl.col("pmid").cast(pl.Utf8), pl.lit(order).alias("shard_order"),
                   pl.lit(os.path.basename(path)).alias("source_shard")]
-        # `delete` is absent from baseline-only shards; treat those as not-deleted.
+        # Baseline-only shards have no delete column; treat their rows as not deleted.
         select.append(
             pl.col("delete").cast(pl.Boolean).alias("delete") if "delete" in cols
             else pl.lit(False).alias("delete")
@@ -183,14 +125,27 @@ def main() -> int:
             if "publication_types" in cols else pl.lit("").alias("publication_types")
         )
         frames.append(pl.scan_parquet(path).select(select))
+    return pl.concat(frames).collect()
 
-    df = pl.concat(frames).collect()
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stderr)
+    parquet_dir = os.path.join(args.download_dir, "parquet_download_files")
+    out_path = args.out or os.path.join(args.download_dir, "pmid_keep.parquet")
+
+    shards = sorted(glob(os.path.join(parquet_dir, "*.parquet")), key=shard_order_key)
+    if not shards:
+        logger.error("No parquet shards found in %s", parquet_dir)
+        return 1
+    logger.info("Scanning %d shard(s)", len(shards))
+
+    df = scan_shards(shards)
     total = df.height
 
+    # Withdrawn PMIDs: the parser's delete flag plus the file extracted from <DeleteCitation>.
     deleted_pmids = set(df.filter(pl.col("delete"))["pmid"].to_list())
     from_flag = len(deleted_pmids)
-
-    # The real source of withdrawals: PMIDs parsed straight out of <DeleteCitation>.
     deleted_path = args.deleted_pmids or os.path.join(args.download_dir, "deleted_pmids.txt")
     from_file = 0
     if os.path.exists(deleted_path):
@@ -199,12 +154,11 @@ def main() -> int:
         from_file = len(extra)
         deleted_pmids |= extra
     else:
-        print(f"[warn] no withdrawn-PMID file at {deleted_path}; withdrawn papers will NOT be "
-              f"excluded (pubmed_parser's `delete` flag alone finds none). "
-              f"Run extract_deleted_pmids.py first.")
+        logger.warning("no withdrawn-PMID file at %s; withdrawn papers are not excluded. "
+                       "Run extract_deleted_pmids.py first.", deleted_path)
     df = df.filter(~pl.col("pmid").is_in(list(deleted_pmids)) if deleted_pmids else pl.lit(True))
 
-    # Retractions / corrections, by MeSH ID prefix.
+    # Retractions and corrections by MeSH publication-type id prefix.
     excl = [t.strip() for t in args.exclude_pubtypes.split(",") if t.strip()]
     n_pubtype = 0
     if excl:
@@ -215,7 +169,7 @@ def main() -> int:
         if pubtype_pmids:
             df = df.filter(~pl.col("pmid").is_in(list(pubtype_pmids)))
 
-    # CommentsCorrections RefTypes -- the non-MeSH correction mechanism.
+    # Retractions and corrections by CommentsCorrections RefType.
     reftypes = [t.strip() for t in args.exclude_reftypes.split(",") if t.strip()]
     n_reftype = 0
     if reftypes:
@@ -231,9 +185,8 @@ def main() -> int:
             if ref_pmids:
                 df = df.filter(~pl.col("pmid").is_in(list(ref_pmids)))
         else:
-            print(f"[warn] no corrections file at {corr_path}; RefType exclusions skipped. "
-                  f"Retracted papers whose publication_types was never updated will remain. "
-                  f"Run extract_corrections.py first.")
+            logger.warning("no corrections file at %s; RefType exclusions skipped. "
+                           "Run extract_corrections.py first.", corr_path)
 
     # Later shards supersede earlier ones for the same PMID.
     keep = (df.sort("shard_order", descending=True)
@@ -242,15 +195,15 @@ def main() -> int:
               .sort("pmid"))
 
     keep.write_parquet(out_path)
-    print(f"records scanned        : {total}")
-    print(f"withdrawn (DeleteCitation): {len(deleted_pmids)} "
-          f"(delete flag: {from_flag}, DeleteCitation file: {from_file})")
-    print(f"duplicate occurrences  : "
-          f"{total - len(deleted_pmids) - n_pubtype - n_reftype - keep.height}")
-    print(f"excluded by pubtype    : {n_pubtype} ({','.join(excl) if excl else 'disabled'})")
-    print(f"excluded by reftype    : {n_reftype} ({','.join(reftypes) if reftypes else 'disabled'})")
-    print(f"unique PMIDs kept      : {keep.height}")
-    print(f"manifest -> {out_path}")
+    logger.info("records scanned        : %d", total)
+    logger.info("withdrawn (DeleteCitation): %d (delete flag: %d, DeleteCitation file: %d)",
+                len(deleted_pmids), from_flag, from_file)
+    logger.info("duplicate occurrences  : %d",
+                total - len(deleted_pmids) - n_pubtype - n_reftype - keep.height)
+    logger.info("excluded by pubtype    : %d (%s)", n_pubtype, ",".join(excl) if excl else "disabled")
+    logger.info("excluded by reftype    : %d (%s)", n_reftype, ",".join(reftypes) if reftypes else "disabled")
+    logger.info("unique PMIDs kept      : %d", keep.height)
+    logger.info("manifest -> %s", out_path)
     return 0
 
 

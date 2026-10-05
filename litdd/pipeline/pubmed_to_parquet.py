@@ -1,25 +1,27 @@
 #!/usr/bin/env python3
 """Convert downloaded PubMed/MEDLINE XML into one parquet shard per XML file.
 
-Idempotent: a shard whose output already exists is skipped, so the job is restartable
-and works as a daily top-up alongside ``download_pubmed.py``. Conversion is CPU-bound
-(lxml parsing) and embarrassingly parallel — use ``--workers`` (or ``--shard`` /
-``--num_shards`` to spread across pods).
+Reads ``<download_dir>/raw_download_files/*.xml.gz`` and writes
+``<download_dir>/parquet_download_files/<name>.parquet`` with the columns emitted by
+``pubmed_parser.parse_medline_xml`` and ``pubdate`` reduced to a four-digit year. A shard
+whose output already exists is skipped, so the job is restartable and works as a daily
+top-up alongside ``download_pubmed.py``. Conversion is CPU-bound and parallel across
+``--workers`` processes, or across pods with ``--shard`` and ``--num_shards``.
 
-Records that PubMed has withdrawn or revised are handled here rather than downstream:
-``pubmed_parser`` exposes a ``delete`` flag for ``DeleteCitation`` entries, and updatefiles
-reissue PMIDs that already appear in the baseline. ``dedupe_pmids.py`` resolves both once
-the whole corpus is converted.
+``pubmed_parser`` emits no row for ``<DeleteCitation>`` entries, so withdrawn PMIDs are
+extracted from the raw XML by ``extract_deleted_pmids.py`` and removed, together with the
+PMIDs that updatefiles reissue, by ``dedupe_pmids.py`` after the whole corpus is converted.
 
 Example
 -------
-    python litdd/pipeline/pubmed_to_parquet.py \
-        --download_dir data/pubmed_download_2026 --workers 16
+    python -m litdd.pipeline.pubmed_to_parquet --download_dir data/pubmed_download --workers 16
 """
 from __future__ import annotations
 
 import argparse
+import logging
 import os
+import sys
 import traceback
 from concurrent.futures import ProcessPoolExecutor
 from glob import glob
@@ -27,9 +29,11 @@ from glob import glob
 import pandas as pd
 import pubmed_parser as pp
 
+logger = logging.getLogger("litdd.pubmed_to_parquet")
+
 
 def parse_pubdate_year(value) -> int:
-    """MEDLINE pubdate -> four-digit year int; 0 when unparseable."""
+    """Return the four-digit year of a MEDLINE pubdate string, or 0 when it cannot be parsed."""
     try:
         return int(str(value).split("-")[0])
     except (ValueError, TypeError, AttributeError):
@@ -37,7 +41,7 @@ def parse_pubdate_year(value) -> int:
 
 
 def process_file_to_parquet(xml_file: str, output_directory: str) -> tuple[str, str]:
-    """Convert one XML.gz to parquet. Returns (xml_file, status)."""
+    """Convert one ``.xml.gz`` file to parquet. Returns (xml_file, status)."""
     base_name = os.path.splitext(os.path.splitext(os.path.basename(xml_file))[0])[0]
     output_file = os.path.join(output_directory, f"{base_name}.parquet")
 
@@ -47,12 +51,12 @@ def process_file_to_parquet(xml_file: str, output_directory: str) -> tuple[str, 
     try:
         docs = pp.parse_medline_xml(xml_file, year_info_only=False)
         df = pd.DataFrame(list(docs))
-        # Unparseable dates become 0 rather than raising, so one malformed record cannot
-        # cost the whole shard (the screen's pubdate > 1980 filter then excludes them).
+        # An unparseable date becomes 0, which the screen's year filter excludes.
         df["pubdate"] = [parse_pubdate_year(v) for v in df["pubdate"]]
         df.to_parquet(output_file, engine="pyarrow", index=False)
         return xml_file, f"ok ({len(df)} rows)"
-    except Exception as e:  # noqa: BLE001 - one bad shard must not stop the corpus
+    except Exception as e:
+        # One failed shard is recorded in a marker file; the other shards continue.
         error_info = str(e) + "\n" + traceback.format_exc()
         marker = os.path.join(output_directory, f"BAD_DOWNLOAD_{base_name}.txt")
         with open(marker, "w") as f:
@@ -60,21 +64,23 @@ def process_file_to_parquet(xml_file: str, output_directory: str) -> tuple[str, 
         return xml_file, f"FAILED (logged to {marker})"
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Command-line interface."""
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     p.add_argument("--download_dir", required=True,
                    help="Directory holding raw_download_files/; parquet_download_files/ is written inside it")
     p.add_argument("--workers", type=int, default=1,
-                   help="Parallel conversion processes (default 1; 16 is a good value on a CPU node)")
+                   help="Parallel conversion processes (default 1)")
     p.add_argument("--shard", type=int, default=0, help="Shard index for splitting across pods")
     p.add_argument("--num_shards", type=int, default=1, help="Total shards")
-    return p.parse_args()
+    return p.parse_args(argv)
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stderr)
     download_dir = os.path.join(args.download_dir, "raw_download_files")
     output_dir = os.path.join(args.download_dir, "parquet_download_files")
     os.makedirs(output_dir, exist_ok=True)
@@ -82,7 +88,7 @@ def main() -> int:
     xml_files = sorted(glob(os.path.join(download_dir, "*.xml.gz")))
     if args.num_shards > 1:
         xml_files = [f for i, f in enumerate(xml_files) if i % args.num_shards == args.shard]
-    print(f"[shard {args.shard}/{args.num_shards}] {len(xml_files)} XML file(s) to consider")
+    logger.info("[shard %d/%d] %d XML file(s) to consider", args.shard, args.num_shards, len(xml_files))
 
     failures = 0
     if args.workers > 1:
@@ -90,16 +96,16 @@ def main() -> int:
             results = pool.map(process_file_to_parquet, xml_files,
                                [output_dir] * len(xml_files))
             for xml_file, status in results:
-                print(f"{os.path.basename(xml_file)}: {status}", flush=True)
+                logger.info("%s: %s", os.path.basename(xml_file), status)
                 failures += status.startswith("FAILED")
     else:
         for xml_file in xml_files:
             _, status = process_file_to_parquet(xml_file, output_dir)
-            print(f"{os.path.basename(xml_file)}: {status}", flush=True)
+            logger.info("%s: %s", os.path.basename(xml_file), status)
             failures += status.startswith("FAILED")
 
-    print(f"Done. {failures} failure(s).")
-    # A partial conversion must not look like success to the stage that follows.
+    logger.info("Done. %d failure(s).", failures)
+    # A partial conversion exits non-zero so the next stage does not start on it.
     return 1 if failures else 0
 
 

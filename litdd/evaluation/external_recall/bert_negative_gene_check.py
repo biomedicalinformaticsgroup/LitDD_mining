@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test whether the causative gene is mentioned in LitDD BERT-negative recall misses (R3.4).
+"""Test whether the causative gene is mentioned in the screen-negative recall misses.
 
 LitDD's BERT (run over all of PubMed) classifies a paper positive only if it reads as a
 gene–disease case mapping. A curated paper it scores negative is a miss — but if the paper
@@ -14,7 +14,7 @@ This is a rough abstract-level screen — full names and full text are not cover
 gene-absent count is an UPPER bound; PubTator over full text is the accurate follow-up (run
 it on bert_negative_gene_absent_pmids.txt).
 
-Outputs (gitignored revision/ area):
+Outputs (under --out_dir):
   bert_negative_gene_presence.csv      every miss: pmid, g2p, symbols, title, abstract, gene_in_tiab
   bert_negative_gene_present.csv       the gene-present subset (for manual review)
   bert_negative_gene_absent_pmids.txt  PMIDs with no gene mention in the abstract (-> PubTator)
@@ -81,9 +81,9 @@ def mentions(symbols: set[str], text: str) -> bool:
 
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--misses", default="revision/external_recall/deployed_misses.csv")
+    ap.add_argument("--misses", required=True, help="deployed_misses.csv from characterise_misses.py")
     ap.add_argument("--ddg2p", required=True)
-    ap.add_argument("--out_dir", default="revision/external_recall")
+    ap.add_argument("--out_dir", required=True)
     ap.add_argument("--api_key", default=None)
     ap.add_argument("--batch_size", type=int, default=100)
     return ap.parse_args()

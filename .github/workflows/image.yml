@@ -1,18 +1,7 @@
 name: Container image
 
-# Builds the LitDD GPU image and pushes it to GHCR.
-#
-# This exists because the compute cluster's pods have NO EGRESS -- they cannot reach PyPI, so
-# dependencies cannot be installed at pod start. Image *pulls* do work, so baking the stack
-# into an image is the only route. It also makes the published pipeline reproducible from one
-# `docker run`, which is what reviewer points R2-R2 (pinned, working dependencies) and R2-R4
-# (runnable end-to-end) ask for.
-#
-# Built here rather than locally because the build needs egress and there is no local build
-# path: the login node has a docker client but no reachable daemon, and no podman/buildah.
-#
-# Images are tagged by commit SHA so a run manifest can name the exact image that produced
-# a result (R2-E3).
+# Builds the LitDD GPU image and pushes it to GHCR, tagged by commit SHA so a run manifest can
+# name the exact image that produced a result.
 
 on:
   push:
@@ -20,19 +9,19 @@ on:
     tags: ["v*"]
     paths:
       - "containers/Dockerfile"
-      - "requirements-image.txt"
+      - "requirements.txt"
       - "pyproject.toml"
       - "litdd/**"
       - ".github/workflows/image.yml"
   pull_request:
     paths:
       - "containers/Dockerfile"
-      - "requirements-image.txt"
+      - "requirements.txt"
       - ".github/workflows/image.yml"
   workflow_dispatch:
     inputs:
       vllm_version:
-        description: "Base vLLM image tag (must satisfy GPT-OSS-20B; screen re-verified per bump)"
+        description: "Base vLLM image tag"
         default: "v0.23.0"
         required: false
 
@@ -49,8 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The vLLM base image is large and the runner's default disk is not; reclaim the
-      # preinstalled toolchains before pulling it.
+      # Free space for the vLLM base image.
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
@@ -60,7 +48,6 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        # Skipped for pull_request from forks, which cannot access packages: write.
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
@@ -86,8 +73,7 @@ jobs:
           file: containers/Dockerfile
           build-args: |
             VLLM_VERSION=${{ inputs.vllm_version || 'v0.23.0' }}
-          # On pull_request, build only -- verifies the Dockerfile still builds without
-          # publishing an image from unreviewed code.
+          # Pull requests build without publishing.
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -1,44 +1,20 @@
 #!/usr/bin/env python3
 """Sample corpus-representative negatives for the screen's training set.
 
-WHY
----
-The released screen fires on 19.46% of random 2026 PubMed records; the previously deployed one
-fires on 2.48% (matching the historic 2.32%). Same rows, same fp32 path -- the only difference
-is the checkpoint. The cause is training-set composition:
+Reads the converted PubMed parquet shards under ``--corpus_dir`` (the whole corpus, not the
+screened subset) and draws English records published after ``--min_year`` with a non-empty
+title or abstract. Excluded from the draw are PMIDs cited in the ``publications`` column of the
+G2P snapshots (``--g2p_csvs``), PMIDs in the external truth sets (``--truth_csvs``) and PMIDs in
+the annotated training and test material (``--exclude_csvs``). Every remaining record is
+labelled 0; the residual contamination is bounded by the prevalence of uncurated gene-disease
+papers in PubMed.
 
-    ds_bert_train      11,201 rows, 25.5% positive  -> 2.48% corpus rate
-    ds_hirecall_train  17,335 rows, 51.8% positive  -> 19.46% corpus rate
-    ds_test             2,779 rows, 25.0% positive
+By default the ``--n`` records are drawn in equal numbers per publication decade, so the
+negatives cover every era at the same density; ``--uniform`` draws in proportion to the corpus
+instead. Decades with fewer records than the per-decade target are reported.
 
-The augmentation added ~6,100 positives and NO negatives, doubling training prevalence against
-a deployment prevalence of roughly 1-2%. Worse, every negative in the set is a
-`(tiab, g2p_lgmde)` pair drawn from gene-disease-relevant literature, so the model has never
-seen an ordinary PubMed abstract -- a chemistry paper, an ecology survey, a drug trial -- and
-has no reason to reject one. `random_csv` was only ever used for evaluation, never training.
-
-ds_test cannot detect this: at 25% positive it is ~25x denser in positives than deployment, so
-a model can look identical there (F1 0.91 vs 0.92) while behaving 8x differently at scale.
-
-WHAT THIS DOES
---------------
-Draws PMIDs at random from the FULL converted PubMed corpus -- every eligible record, not the
-BERT-screened subset -- and treats them as negative unless plausibly positive. Excluded:
-  * PMIDs cited in the G2P `publications` column of any supplied snapshot;
-  * PMIDs in the external curated truth sets (premined / HPOA / ClinGen);
-  * PMIDs already in the annotated train or test material (no leakage either way).
-
-Residual contamination is bounded by the prevalence of uncurated DD gene-disease papers,
-~1-2%, which is acceptable for negatives and is realistic label noise in any case.
-
-SAMPLING IS DECADE-STRATIFIED BY DEFAULT. PubMed's own composition is heavily recency-weighted
-(a uniform draw comes out ~43% from the 2020s and ~17% from the 1980s), and the released
-model's false-positive rate varies strongly by era -- 10.66% in the 1980s rising to 25.55% in
-the 2020s. Sampling uniformly would under-teach exactly the decades where behaviour differs
-most. Equal-per-decade over-weights old literature relative to deployment, which is a
-deliberate trade: we cannot train at the true ~1% prevalence anyway, so even coverage of the
-error surface is worth more than matching the prior. Pass --uniform to match corpus
-composition instead.
+Writes ``--out`` as a CSV with ``pmid, tiab, g2p_lgmde, label, pubdate`` (``g2p_lgmde`` empty,
+``label`` 0) and prints the exclusion counts and the per-decade tallies.
 """
 from __future__ import annotations
 
@@ -51,17 +27,16 @@ import sys
 csv.field_size_limit(10**9)
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--corpus_dir", default="data/pubmed_download_2026/parquet_download_files",
-                   help="Converted PubMed parquet shards (the whole corpus, not BERT output)")
-    p.add_argument("--g2p_csvs", nargs="+", default=["revision/G2P_DD_2026-06-24.csv"])
-    p.add_argument("--truth_csvs", nargs="+",
-                   default=["revision/external_recall/external_positives.csv",
-                            "revision/external_recall/evagg_external_eval.csv"])
-    p.add_argument("--exclude_csvs", nargs="+",
-                   default=["revision/external_recall/annotated_tiab_augmented.csv"],
+                   help="Converted PubMed parquet shards (the whole corpus, not screen output)")
+    p.add_argument("--g2p_csvs", nargs="+", required=True,
+                   help="G2P snapshots whose publications column lists PMIDs to exclude")
+    p.add_argument("--truth_csvs", nargs="+", required=True,
+                   help="External truth CSVs whose PMIDs are excluded")
+    p.add_argument("--exclude_csvs", nargs="+", required=True,
                    help="Train/test material whose PMIDs must never appear as new negatives")
     p.add_argument("--n", type=int, default=200000, help="Total negatives to draw")
     p.add_argument("--shards", type=int, default=300, help="Corpus shards to sample from")
@@ -70,11 +45,12 @@ def parse_args():
                         "equal-per-decade")
     p.add_argument("--min_year", type=int, default=1980)
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--out", default="revision/external_recall/corpus_negatives.csv")
+    p.add_argument("--out", required=True, help="Output CSV of negatives")
     return p.parse_args()
 
 
 def pmids_from_csv(path: str) -> set[str]:
+    """Numeric PMIDs from a CSV's ``pmid`` or ``PMID`` column; empty when the file or column is absent."""
     if not os.path.exists(path):
         print(f"  [skip] {path} (absent)")
         return set()
@@ -94,6 +70,7 @@ def pmids_from_csv(path: str) -> set[str]:
 
 
 def g2p_publication_pmids(path: str) -> set[str]:
+    """Numeric PMIDs from the ``publications`` column of a G2P CSV (``;`` or ``,`` separated)."""
     if not os.path.exists(path):
         print(f"  [skip] {path} (absent)")
         return set()
@@ -108,7 +85,7 @@ def g2p_publication_pmids(path: str) -> set[str]:
     return out
 
 
-def main():
+def main() -> int:
     a = parse_args()
     import random
 
@@ -120,7 +97,7 @@ def main():
         excl |= g2p_publication_pmids(p)
     for p in a.truth_csvs + a.exclude_csvs:
         excl |= pmids_from_csv(p)
-    print(f"  TOTAL excluded: {len(excl):,} PMIDs")
+    print(f"  total excluded: {len(excl):,} PMIDs")
 
     shards = sorted(glob.glob(os.path.join(a.corpus_dir, "*.parquet")))
     if not shards:
@@ -129,6 +106,7 @@ def main():
     pick = random.sample(shards, min(a.shards, len(shards)))
     print(f"\nSampling from {len(pick)} of {len(shards)} corpus shards")
 
+    # English records after min_year with a non-empty title or abstract.
     df = (pl.scan_parquet(pick)
             .filter((pl.col("languages") == "eng") & (pl.col("pubdate") > a.min_year))
             .select([pl.col("pmid").cast(pl.Utf8), pl.col("pubdate"),
@@ -146,6 +124,7 @@ def main():
     if a.uniform:
         out = df.sample(n=min(a.n, df.height), seed=a.seed, shuffle=True)
     else:
+        # Equal draw per decade; decades below the target are reported.
         decades = sorted(df["decade"].unique().to_list())
         per = a.n // len(decades)
         parts = []
@@ -159,7 +138,6 @@ def main():
         out = pl.concat(parts)
         print(f"\n  decade-stratified: target {per:,} per decade across {len(decades)}")
         for d, have in short:
-            # Report rather than silently under-fill: a thin decade changes the balance.
             print(f"  [warn] {d}s has only {have:,} available, below the {per:,} target")
 
     out = (out.with_columns([pl.lit("").alias("g2p_lgmde"), pl.lit(0).alias("label")])

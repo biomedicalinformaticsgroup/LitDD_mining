@@ -4,31 +4,25 @@
 ``final_traintest_dataset.py`` builds ``ds_test`` with ``reduce_group``: for an abstract with
 any positive pair it keeps ONLY the positive pairs, for an all-negative abstract only one
 negative. The clinicians, however, labelled each abstract against every DDG2P entry of its
-gene(s) (an FGFR3 abstract carries labels for all eight FGFR3 entries). Those dropped sibling
-negatives -- 412 pairs on 224 positive test abstracts -- are exactly what an allelic-series
-evaluation needs, and they were never used in training (the split is by abstract), so
-restoring them from the annotation file is completing the test labels, not re-annotating.
+gene(s), so the split drops the sibling negatives of every positive abstract. This script
+restores them from the annotation file; they were not used in training because the split is
+by abstract.
 
 Writes <fixture>/pairs_full.csv with the same columns as pairs.csv (pmid, row_id, g2p_id,
 label, in_panel) and checks that the positive set is unchanged from gold.csv.
 
-    python litdd/evaluation/complete_test_pairs.py \\
-        --anno_csv $REF/g2p_id_tiab_anno_df_FINAL.csv \\
-        --fixture_dir revision/llm_eval/annotated_2026 --g2p_csv revision/G2P_DD_2026-06-24.csv
+    python -m litdd.evaluation.complete_test_pairs \\
+        --anno_csv g2p_id_tiab_anno_df_FINAL.csv --fixture_dir fixture/ --g2p_csv G2P_DD.csv
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import sys
 
 import pandas as pd
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, ROOT)
-
-from litdd.threads import build_lgmde_map  # noqa: E402
+from litdd.threads import build_lgmde_map
 
 
 def main() -> int:
