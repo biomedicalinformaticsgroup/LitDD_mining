@@ -1,132 +1,134 @@
-# lit_pheno_db
-Map peer-reviewed literature for genetic disease and extract data
+# LitDD
 
-# DDG2P PubMed → Disease Model Pipeline
+Maps PubMed literature to Gene2Phenotype (G2P) developmental-disorder entries. For every
+eligible PubMed record the pipeline decides whether the paper reports a gene-disease
+relationship, finds the G2P genes the title and abstract name, and asks a language model
+which of those genes' entries the paper is about. The output is a table of (PMID, G2P id)
+pairs; the released map is `results/litdd_pubmed2026_final_v6.csv`.
 
-A pipeline for mining PubMed for publications relevant to G2P (Gene2Phenotype)
-developmental disease records. The pipeline screens abstracts with a fine-tuned
-BERT classifier, ranks candidate G2P records with a cross-encoder, and assigns
-final mappings with an LLM (DeepSeek-R1-Distill-Qwen-14B). Downstream steps
-add HPO phenotype annotations and 2D visualisations of the literature space.
+```
+PubMed title and abstract shards
+  -> screen        litdd.pipeline.bert_predict_vllm     fine-tuned ModernBERT classifier (tmy100000001/LitDD_BERT)
+  -> gene gate     litdd.pipeline.gene_candidates       PubTator3 mentions and HGNC names resolved to HGNC ids
+  -> shards        litdd.pipeline.build_llm_shards      one candidate list per abstract
+  -> adjudication  litdd.pipeline.llm_map               openai/gpt-oss-20b under vLLM, contextualised candidate blocks
+  -> clean         litdd.pipeline.final_data_clean      keep ids that exist in the panel and were offered as candidates
+```
 
-## System requirements
+`supplementary/RUN_FINAL_PIPELINE.md` gives the commands, inputs and evaluation procedure.
+`supplementary/DESIGN_NOTES.md` records the reasons behind the design; `CHANGELOG.md` records
+dated changes and their measurements.
 
-### Hardware
-- **GPU is required.** All training and inference steps assume CUDA-capable
-  NVIDIA GPUs.
-- Reference hardware used for development:
-  - BERT classifier inference over PubMed: ~24 h on 1× NVIDIA A100 (80 GB).
-  - Cross-encoder inference over candidate pairs: ~24 h on 1× NVIDIA A100.
-  - LLM mapping step (DeepSeek-R1-Distill-Qwen-14B via vLLM): ~3 days on
-    3× NVIDIA A100.
-- ~1–2 TB of disk for downloaded PubMed baseline + intermediate parquet shards.
+## Requirements
 
-### Operating system
-- Tested on Linux (Ubuntu 22.04, kernel 5.15).
-- Not tested on macOS or Windows.
-
-### Software
-- Python 3.10 or 3.11
-- CUDA 12.x with a compatible NVIDIA driver
-- Java 8+ runtime (only required for the `cadmus` PMC full-text fetcher; a
-  bundled JRE is included under `cadmus/jre1.8.0_471/`)
-- Python package versions are pinned in requirements.txt. 
-  Versions used during development:
-  - torch 2.4, transformers 4.44, datasets 2.20, sentence-transformers 3.0
-  - vllm 0.10.1.1
-  - pandas 2.2, polars 1.5, pyarrow 17, scikit-learn 1.5
-  - pubmed_parser 0.5, lxml 5.2, requests 2.32
-  - networkx 3.3, node2vec 0.4.6, owlready2 0.46
-  - FastHPOCR 1.0
-  - umap-learn 0.5, datamapplot 0.4, matplotlib 3.8
-  - (optional, for GPU UMAP/HDBSCAN in visualisation) RAPIDS cuML / cuPy 24.x
+- Linux, Python 3.10 or 3.11, an NVIDIA GPU with CUDA 12 for the screen and adjudication stages
+  (the released run used H100 and A100 nodes). The gene gate, shard builder, clean stage,
+  evaluation and tests run on CPU.
+- About 1 to 2 TB of disk for the PubMed baseline and its parquet conversion.
 
 ## Installation
 
+The GPU stages are built on the vLLM image, which supplies torch, vLLM and transformers:
+
 ```bash
-# 1. Create a Python environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 2. Install PyTorch matching your CUDA version (see https://pytorch.org)
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-
-# 3. Install the remaining dependencies
-pip install -r requirements.txt
+docker pull ghcr.io/biomedicalinformaticsgroup/litdd_mining:sha-<commit>   # built by .github/workflows/image.yml
+apptainer build litdd.sif containers/litdd.def                          # HPC alternative
 ```
 
-Typical install time on a normal desktop computer: **15–30 minutes**, dominated
-by the PyTorch and vLLM downloads. RAPIDS cuML (optional, used by the
-visualisation scripts for GPU UMAP) is best installed via conda following the
-official RAPIDS instructions.
+For a local environment, install vLLM first (it brings the torch and transformers builds it
+was released with; the released run used vLLM 0.23.0, torch 2.11 and transformers 5.12), then
+the remaining dependencies and the package:
 
-## Demo
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install vllm==0.23.*
+pip install -r requirements.txt
+pip install -e .
+```
 
-**A demo on a "normal" desktop computer is not possible.** Each stage of the
-pipeline (BERT inference, cross-encoder inference, and LLM mapping) requires
-a high-memory NVIDIA GPU (A100-class) and takes from many hours to several
-days end-to-end on the full PubMed baseline. The fine-tuned models and the
-DeepSeek-R1-Distill-Qwen-14B LLM together exceed typical consumer GPU memory.
+`environment.yml` builds the same environment with conda. Every stage is run as a module
+from the repository root, for example `python -m litdd.pipeline.gene_candidates --help`.
 
-To reproduce results on suitable hardware, see *Instructions for use* below.
+## Repository layout
 
-## Instructions for use
+```
+litdd/
+├── pipeline/       the corpus pipeline, in stage order: download_pubmed, pubmed_to_parquet,
+│                   extract_deleted_pmids, extract_corrections, dedupe_pmids, bert_predict_vllm,
+│                   build_bert_positives, gene_candidates, build_llm_shards, llm_map,
+│                   final_data_clean; build_context_threads and build_disease_name_aliases
+│                   prepare the adjudication stage's inputs
+├── genes.py        gene-mention primitives: PubTator loaders, HGNC name matcher, symbol rules
+├── gene_resolution.py   HGNC identifier resolution and the MONDO disease lexicon
+├── threads.py      the G2P entry label used in the annotated data
+├── training/       screen training data and training (litdd/training/README.md)
+├── evaluation/     adjudication evaluation, external recall, precision audit
+├── experiments/    screen ablations not on the release path
+└── viz/            the literature datamap (figure only): embed_papers (MedEmbed bi-encoder),
+                    layout_clusters (UMAP and HDBSCAN), datamap_plot (Mondo labels, rendering)
+data/               annotation inputs and the released context-thread JSON
+results/            the released map
+supplementary/      run guide, design notes, result tables
+demo/               CPU run of the screen training path
+tests/              CPU unit tests (pytest tests/ -q)
+containers/         Dockerfile and Apptainer definition
+run_pipeline.sh     screen training runner (--demo | --full)
+```
 
-The pipeline runs in sequence. Working directories for each step are noted.
+## Inputs
 
-1. **Download PubMed baseline + daily updates** (`annotate_pubmed/`)
-   - `download_pubmed.py` — fetch PubMed XML
-   - `pubmed_to_parquet.py` — convert to parquet shards
-   - `get_pmids.sh` — collect PMC OA PMIDs
+| Input | Source |
+|---|---|
+| G2P developmental-disorder panel and all-panel CSVs | https://www.ebi.ac.uk/gene2phenotype/downloads |
+| `gene2pubtator3.gz` | https://ftp.ncbi.nlm.nih.gov/pub/lu/PubTator3/ |
+| `hgnc_complete_set.txt` | https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt |
+| `Homo_sapiens.gene_info.gz` | https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/ |
+| `mondo.obo`, `hp.obo` | http://purl.obolibrary.org/obo/ |
+| PubMed baseline and update files | `python -m litdd.pipeline.download_pubmed` |
 
-2. **BERT screening of abstracts** (`annotate_pubmed/`)
-   - `bert_predict.py` (or the vLLM variant `bert_predict_vllm.py`) using the
-     fine-tuned model in `models/precrossencoder_lit_dd_BERT/`.
-   - Writes per-shard parquet to `data/bert_processed/`.
+The annotation used for training and evaluation is `data/annotated_pmid.csv` (columns
+`pmid`, `g2p_lgmde`, `label`), with reviewed corrections in `data/annotation_corrections.csv`.
 
-3. **Cross-encoder ranking** (`annotate_pubmed/`)
-   - `crossencode.py` — scores `(abstract, G2P record)` pairs using
-     `models/finetuned_ncbi_medcpt_cross/` and emits the top-5 candidates.
+## Models
 
-4. **LLM mapping** (`annotate_pubmed/`)
-   - `llm_map.py` — runs `DeepSeek-R1-Distill-Qwen-14B` under vLLM to pick the
-     final G2P ID(s) for each abstract from the top-5 candidates.
+- `tmy100000001/LitDD_BERT` (branch `main`, release `v2.5`): the screen, a fine-tune of
+  `thomas-sounack/BioClinical-ModernBERT-large` (training: `litdd/training/README.md`).
+- `openai/gpt-oss-20b` (revision `6cee5e81` in the released run): the adjudication model,
+  downloaded by vLLM at run time.
 
-5. **Final clean / dataset assembly** (`annotate_pubmed/`)
-   - `final_data_clean.py` and `create_final_dataset_and_plot.ipynb`.
+## Results
 
-6. **HPO phenotype annotation** (`hpo_annotations/`)
-   - `extract_hpo.py` — annotates abstracts/full text with HPO terms via
-     FastHPOCR and the included `hp.obo` / `hp.index`.
+On the annotated test split (2,731 abstracts, 645 curated; exact set match end to end):
+precision 0.865, recall 0.806, F1 0.835. Per-stage confusion matrices:
+`supplementary/stage_confusion_matrices.csv`. Configurations evaluated during development:
+`supplementary/llm_ablation_ledger.csv` (`supplementary/README_ablation_ledger.md`).
 
-7. **Visualisation** (`visualisation/`)
-   - `mapped_pmid_2d_space.py` / `mapped_pmid_2d_space_v2.py` — UMAP/t-SNE
-     embeddings of mapped PMIDs and Mondo layers (uses RAPIDS cuML where
-     available, falls back to CPU `umap-learn`).
-   - `gene_pathway_nodes_clean.ipynb` — gene/pathway graph.
+## Training the screen
 
-### Training and evaluation
+```bash
+./run_pipeline.sh --demo    # 100-abstract sample, small model, CPU
+./run_pipeline.sh --full    # full annotated set, released base model, GPU
+```
 
-- **Train/test split and fine-tuning** — `train_test/`
-  - `bert_finetune_vals.py`, `crossencode_finetune.py`, `mine_hard_negatives.py`,
-    `run_pipeline.py`.
-- **5-fold cross-validation** — `cross_validation/`
-  - End-to-end driver: `bash run_cv5.sh` (creates folds, trains BERT + cross-
-    encoder per fold, runs LLM eval, and aggregates metrics).
-- **Benchmarking** — `benchmarking/`
-  - `run_bert_benchmark.py`, `run_cross_encoder_benchmark.py`.
+Both run the group-stratified split (`litdd.training.final_traintest_dataset`), a
+cross-validated hyperparameter search on the training portion (`cv_hp_search_bert`) and one
+refit with a single evaluation on the test portion (`bert_finetune`). The released checkpoint
+was trained by `litdd.training.finetune_seeds` on the augmented set described in
+`litdd/training/README.md`. `litdd.evaluation.run_bert_benchmark` fine-tunes baseline
+encoders with the same protocol for comparison.
 
-### Models
+## Tests
 
-Place / keep fine-tuned weights under `models/`:
-- `models/precrossencoder_lit_dd_BERT/` — BERT screening classifier
-- `models/finetuned_ncbi_medcpt_cross/` — cross-encoder
-- `models/deepseek-ai/DeepSeek-R1-Distill-Qwen-14B/` — LLM (download from
-  Hugging Face)
+```bash
+pip install pytest
+pytest tests/ -q
+```
 
-### Inputs
+The suite runs on CPU with inline fixtures and covers the gene gate, the disease lexicon,
+the shard builder, prompt rendering and answer parsing, the clean stage, the screen's I/O
+helpers, the context-thread builder, the evaluator and the training helpers. Continuous
+integration (`.github/workflows/ci.yml`) runs ruff and the same suite on every push.
 
-The pipeline expects a current G2P developmental disease panel CSV
-(e.g. `train_test/G2P_DD_2025-02-15.csv`) and a PubMed baseline + updatefiles
-download in `annotate_pubmed/data/pubmed_download/`.
+## Licence
 
+MIT (see `LICENSE`).

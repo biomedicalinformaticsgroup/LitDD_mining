@@ -1,0 +1,13 @@
+# Conda environment for LitDD. Python packages are installed from requirements.txt; vllm brings
+# the torch and transformers builds it was released with (see README, Installation).
+# The GPU visualisation path (RAPIDS cuML) needs a separate environment; the scripts fall
+# back to CPU umap-learn without it.
+name: litdd
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - vllm==0.23.*
+      - -r requirements.txt

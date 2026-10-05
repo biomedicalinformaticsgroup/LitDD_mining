@@ -1,0 +1,35 @@
+[project]
+name = "litdd"
+version = "1.0.0"
+description = "PubMed-wide classification and disease-level mapping of peer-reviewed literature for genetic developmental disorders in Gene2Phenotype (LitDD)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Michael Yates", email = "Michael.yates@ed.ac.uk" }]
+keywords = ["bioinformatics", "literature-mining", "Gene2Phenotype", "NLP", "developmental-disorders"]
+
+[project.urls]
+Repository = "https://github.com/biomedicalinformaticsgroup/LitDD_mining"
+
+[tool.setuptools.packages.find]
+include = ["litdd*"]
+
+[tool.setuptools.package-data]
+litdd = ["pipeline/prompts/*.txt", "pipeline/data/*.tsv"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

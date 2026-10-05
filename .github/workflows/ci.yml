@@ -1,0 +1,49 @@
+name: CI
+
+# Lint and CPU unit tests. The GPU stages import torch and vllm lazily, so their
+# deterministic helpers are tested here without the GPU stack.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.11"
+
+      - name: Lint (ruff)
+        # Pinned so that rule changes in new ruff releases do not fail unchanged code.
+        run: uvx ruff@0.16.4 check .
+
+      - name: Unit tests (CPU only)
+        run: >-
+          uv run --no-project
+          --with numpy --with pandas --with polars --with pyarrow --with pytest
+          pytest tests/ -q
+
+  secret-scan:
+    # Scans the history for committed credentials.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for committed secrets (gitleaks)
+        run: |
+          GITLEAKS_VERSION=8.24.3
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks git --redact --no-banner --exit-code 1 .

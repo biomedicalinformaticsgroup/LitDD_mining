@@ -1,0 +1,32 @@
+# Apptainer / Singularity definition for the LitDD GPU stack, built from the same vLLM base
+# image as containers/Dockerfile.
+#
+#   apptainer build litdd.sif containers/litdd.def
+#   apptainer exec --nv litdd.sif python -m litdd.pipeline.bert_predict_vllm --help
+#
+# --nv exposes the host GPUs to the container. The GPU visualisation path (RAPIDS cuML) is
+# not included.
+Bootstrap: docker
+From: vllm/vllm-openai:v0.23.0
+
+%files
+    requirements.txt /opt/litdd/requirements.txt
+    . /opt/litdd
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates git
+    rm -rf /var/lib/apt/lists/*
+    python3 -m pip install --no-cache-dir -r /opt/litdd/requirements.txt
+    python3 -m pip install --no-cache-dir --no-deps -e /opt/litdd
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export HF_HOME=/tmp/hf_cache
+
+%runscript
+    exec python3 "$@"
+
+%labels
+    Description LitDD literature-mapping pipeline (vLLM base image)
