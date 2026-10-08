@@ -10,15 +10,17 @@ Helpers shared by these scripts, `litdd/evaluation/run_bert_benchmark.py` and
 The released screen, [`tmy100000001/LitDD_BERT`](https://huggingface.co/tmy100000001/LitDD_BERT),
 was trained by `finetune_seeds.py` on the training set described in the manuscript's Methods
 (the annotated set with the confirmed positives, the external curated positives and the corpus
-negatives). Every seed is saved under `<save_dir>/seed_<n>`; the released checkpoint is seed 44.
+negatives): step 3a builds the set without negatives and step 5 adds 20,000 corpus negatives
+(the `add20000` arm). Every seed is saved under `<save_dir>/seed_<n>`; the released checkpoint is seed 44.
 
 | # | Script | Reads | Writes |
 |---|---|---|---|
 | 1 | `final_traintest_dataset.py` | `data/annotated_pmid.csv` | `ds_bert_train`, `ds_test` (group-level split, `--group_col {tiab,pmid,gene,g2p_id}`) |
 | 2 | `merge_screen_annotations.py` | annotated CSV, annotation worksheet, G2P CSV | the annotated set with the confirmed worksheet rows, collapsed per PMID |
 | 3 | `finetune_external_recall.py` | `ds_bert_train`, `ds_test`, worksheet, external truth CSV, random sample | per-variant metrics and per-paper scores for the base set plus external positives |
+| 3a | `build_screen_training_set.py` | `ds_bert_train`, worksheet, external curated CSV | the training set before negatives: annotated split + confirmed worksheet rows + curated external positives (genes outside the 10% held-out bucket) |
 | 4 | `build_corpus_negatives.py` | converted PubMed shards, G2P snapshots, truth and exclusion CSVs | decade-stratified corpus negatives CSV |
-| 5 | `build_prevalence_ladder.py` | a training dataset, the corpus negatives CSV | one dataset per `--add` count under `<out_root>/add<n>` |
+| 5 | `build_prevalence_ladder.py` | the step 3a training set, the corpus negatives CSV | one dataset per `--add` count under `<out_root>/add<n>` |
 | 6 | `cv_hp_search_bert.py` | a training dataset | `--out_json` with fold F1 per grid point and the selected hyperparameters |
 | 7 | `finetune_seeds.py` | a training dataset, `ds_test`, external truth CSV, random sample | per-seed metrics CSV and, with `--save_dir`, every seed's checkpoint |
 
