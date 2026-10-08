@@ -1,0 +1,61 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the software and the associated paper."
+title: "LitDD: PubMed-wide classification and disease-level mapping of peer-reviewed literature for genetic developmental disorders in Gene2Phenotype"
+type: software
+repository-code: "https://github.com/biomedicalinformaticsgroup/LitDD_mining"
+license: MIT
+version: "2.0.0"
+date-released: 2026-10-08
+doi: 10.5281/zenodo.17779641
+keywords:
+  - biocuration
+  - developmental disorders
+  - Gene2Phenotype
+  - PubMed
+  - NLP
+  - large language models
+authors: &authors
+  - family-names: Yates
+    given-names: T. Michael
+    email: Michael.yates@ed.ac.uk
+    affiliation: "School of Informatics, University of Edinburgh"
+  - family-names: Hunt
+    given-names: Sarah E.
+    affiliation: "European Molecular Biology Laboratory, European Bioinformatics Institute"
+  - family-names: Lemos
+    given-names: Diana
+    affiliation: "European Molecular Biology Laboratory, European Bioinformatics Institute"
+  - family-names: Pericherla
+    given-names: Seeta Ramaraju
+    affiliation: "European Molecular Biology Laboratory, European Bioinformatics Institute"
+  - family-names: Cibrian Uhalte
+    given-names: Elena
+    affiliation: "European Molecular Biology Laboratory, European Bioinformatics Institute"
+  - family-names: Ansari
+    given-names: Morad
+    affiliation: "South East Scotland Genetic Service, Western General Hospital"
+  - family-names: Thompson
+    given-names: Louise
+    affiliation: "South East Scotland Genetic Service, Western General Hospital"
+  - family-names: Rott
+    given-names: Fabian
+    affiliation: "School of Informatics, University of Edinburgh"
+  - family-names: Doneva
+    given-names: Simona E.
+    affiliation: "Center for Reproducible Science, University of Zurich"
+  - family-names: Wright
+    given-names: Caroline F.
+    affiliation: "Department of Clinical and Biomedical Sciences, University of Exeter"
+  - family-names: Firth
+    given-names: Helen V.
+    affiliation: "East Anglian Medical Genetics Service, Addenbrooke's Hospital"
+  - family-names: Simpson
+    given-names: T. Ian
+    affiliation: "School of Informatics, University of Edinburgh"
+preferred-citation:
+  type: article
+  title: "PubMed-wide Classification and Disease-level Mapping of Peer-reviewed Literature for Genetic Developmental Disorders in Gene2Phenotype"
+  journal: "Nature Communications"
+  year: 2026
+  # doi: add the article DOI on publication
+  authors: *authors
