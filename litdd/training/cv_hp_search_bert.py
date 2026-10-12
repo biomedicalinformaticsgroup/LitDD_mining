@@ -114,7 +114,7 @@ def evaluate_one_fold(
         model=model,
         args=targs,
         train_dataset=tok_train,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         data_collator=collator,
         compute_metrics=make_compute_metrics(),
     )
@@ -201,6 +201,7 @@ def main() -> int:
         "results": results,
         "best": {k: best[k] for k in ("learning_rate", "weight_decay", "epochs", "train_bs")},
     }
+    os.makedirs(os.path.dirname(os.path.abspath(args.out_json)), exist_ok=True)
     with open(args.out_json, "w") as f:
         json.dump(out, f, indent=2)
     print(f"\n[Info] best HPs (mean F1 {best['mean_f1']:.4f}): {out['best']}")

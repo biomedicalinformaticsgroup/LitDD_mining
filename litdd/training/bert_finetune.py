@@ -91,7 +91,7 @@ def main(args: argparse.Namespace) -> None:
         model=model,
         args=training_args,
         train_dataset=tokenized_train,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         data_collator=collator,
         compute_metrics=make_compute_metrics(accuracy=True),
     )

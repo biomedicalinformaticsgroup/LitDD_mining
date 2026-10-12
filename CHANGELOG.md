@@ -3,6 +3,23 @@
 Dated changes to the pipeline, with the measurement that motivated each. Measurements refer
 to the 2026 PubMed baseline and the 2026-06-24 G2P developmental-disorder export unless stated.
 
+## 2.0.1 (2026-10-12) data deposit and documentation
+
+- `data/supplementary_data/` holds Supplementary Data 1–7 of the paper (Supplementary Data 1
+  without abstract text) and `data/source_data/` the Source Data of its figures and tables.
+- The README gives the command for every corpus stage; the run guide, design notes, result
+  tables (`supplementary/`) and unit tests (`tests/`) are no longer part of the repository, and
+  CI runs ruff and a secret scan.
+- `llm_map` defaults to the released settings: openai/gpt-oss-20b at revision 6cee5e81
+  (`--llm_revision`), `--max_model_len 32768` and `--context_drop_fields "Disease
+  Definition,Phenotypes"`. `bert_predict_vllm` loads tmy100000001/LitDD_BERT at revision v2.5
+  (`--revision`).
+- `litdd.training.attach_tiab` adds title-and-abstract text to `data/annotated_pmid.csv`, which
+  ships with PMIDs only; the demo set carries title text so that `./run_pipeline.sh --demo` runs
+  without it. The `--full` grid includes learning rate 1.7e-5 (Supplementary Table 2).
+- Entries below are dated working notes; counts in them may differ from the released figures
+  in the paper, which are authoritative.
+
 ## 2026-09 repository reduction to the released pipeline
 
 - The public repository now implements only the released (v6) pipeline: vLLM screen, HGNC

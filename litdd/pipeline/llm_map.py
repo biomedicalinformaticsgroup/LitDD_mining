@@ -22,8 +22,8 @@ is parsed by ``llm_answer``. Generation runs once per ``--save_every`` window an
 resumable per shard from the partially written parquet. Rows can be striped across
 workers with ``--shard_index``/``--num_shards``.
 
-The released configuration is GPT-OSS-20B at temperature 0 with medium reasoning effort;
-the full command is in ``supplementary/RUN_FINAL_PIPELINE.md``.
+The released configuration is GPT-OSS-20B (revision 6cee5e81) at temperature 0 with medium
+reasoning effort; the defaults reproduce it and the full command is in the README.
 
 torch and vllm are imported inside ``run_llm_over_shards`` so that the module imports and
 its helpers unit-test without the GPU stack.
@@ -74,24 +74,30 @@ EXTRA_COLS = ["llm_answer_raw", "llm_dis_map", "llm_dis_map_all_panels",
 # --------------------------------------------------------------------------------------
 # Configuration
 # --------------------------------------------------------------------------------------
+# Settings of the released run (manuscript Methods; Supplementary Table 1), used as defaults.
+RELEASED_LLM_REVISION = "6cee5e81ee83917806bbde320786a8fb61efebee"   # openai/gpt-oss-20b
+RELEASED_DROP_FIELDS = "Disease Definition,Phenotypes"
+
+
 @dataclass
 class LlmMapConfig:
     """Settings of one adjudication run. Field names equal the CLI flag names."""
 
     shards_dir: str
     llm_model: str
+    llm_revision: str | None = RELEASED_LLM_REVISION
     out_dir: str | None = None
     temperature: float = 0.0
     top_p: float = 1.0
     max_tokens: int = 8192
-    max_model_len: int = 16384
+    max_model_len: int = 32768
     gpu_memory_utilization: float = 0.90
     dtype: str = "auto"
     seed: int = 0
     reasoning_effort: str | None = "medium"
     prompt_file: str = DEFAULT_PROMPT_FILE
     context_json: str = ""
-    context_drop_fields: str | None = None
+    context_drop_fields: str | None = RELEASED_DROP_FIELDS
     panel_siblings_csv: str | None = None
     final_panel_csv: str | None = None
     shard_index: int | None = None
@@ -418,12 +424,12 @@ def run_llm_over_shards(cfg: LlmMapConfig) -> None:
         chat_kwargs["reasoning_effort"] = cfg.reasoning_effort
 
     t_engine = time.time()
-    llm = LLM(model=cfg.llm_model, **llm_kwargs)
+    llm = LLM(model=cfg.llm_model, revision=cfg.llm_revision, **llm_kwargs)
     logger.info("Engine up in %.0fs", time.time() - t_engine)
 
     settings: dict[str, Any] = {
         "stage": "llm_map",
-        "model": cfg.llm_model,
+        "model": cfg.llm_model, "model_revision": cfg.llm_revision,
         "prompt_file": os.path.abspath(cfg.prompt_file),
         "reasoning_effort": cfg.reasoning_effort,
         "context_json": os.path.abspath(cfg.context_json) if cfg.context_json else None,
@@ -505,6 +511,9 @@ def parse_args(argv: list[str] | None = None) -> LlmMapConfig:
                    help="Directory of shard parquets from build_llm_shards.py (pmid, tiab, candidates).")
     p.add_argument("--llm_model", required=True, type=str,
                    help="HF id or local path; released run: openai/gpt-oss-20b")
+    p.add_argument("--llm_revision", type=str, default=RELEASED_LLM_REVISION,
+                   help="HF revision of --llm_model (default: the released run's openai/gpt-oss-20b "
+                        "commit); pass 'main' for the latest, or 'none' for a local path.")
     p.add_argument("--out_dir", type=str, default=None,
                    help="Output directory (default: the shards directory).")
     p.add_argument("--temperature", type=float, default=0.0)
@@ -512,7 +521,7 @@ def parse_args(argv: list[str] | None = None) -> LlmMapConfig:
     p.add_argument("--max_tokens", type=int, default=8192,
                    help="Generation budget including the reasoning trace; rows that hit it are "
                         "flagged finish_reason=length and counted in run_meta.json.")
-    p.add_argument("--max_model_len", type=int, default=16384)
+    p.add_argument("--max_model_len", type=int, default=32768, help="vLLM context length (released run: 32768).")
     p.add_argument("--gpu_memory_utilization", type=float, default=0.90)
     p.add_argument("--dtype", type=str, default="auto")
     p.add_argument("--seed", type=int, default=0)
@@ -524,9 +533,9 @@ def parse_args(argv: list[str] | None = None) -> LlmMapConfig:
     p.add_argument("--context_json", type=str, required=True,
                    help="Contextualised threads from build_context_threads.py, built from the same "
                         "all-panel G2P export as --panel_siblings_csv.")
-    p.add_argument("--context_drop_fields", type=str, default=None,
-                   help="Comma-separated field labels to remove from contextualised threads, "
-                        "e.g. 'Disease Definition,Phenotypes'.")
+    p.add_argument("--context_drop_fields", type=str, default=RELEASED_DROP_FIELDS,
+                   help="Comma-separated field labels to remove from contextualised threads "
+                        "(default: those the released run removed); pass '' to keep every field.")
     p.add_argument("--panel_siblings_csv", type=str, default=None,
                    help="All-panel G2P export: offer every entry of each candidate gene, from "
                         "any panel, so a paper about a non-DD disorder can map there instead of "
@@ -547,6 +556,8 @@ def parse_args(argv: list[str] | None = None) -> LlmMapConfig:
     fields = {f.name for f in dataclasses.fields(LlmMapConfig)}
     values = {k: v for k, v in vars(args).items() if k in fields}
     values["reasoning_effort"] = None if args.reasoning_effort == "none" else args.reasoning_effort
+    values["llm_revision"] = None if args.llm_revision in ("none", "") else args.llm_revision
+    values["context_drop_fields"] = args.context_drop_fields or None
     return LlmMapConfig(**values)
 
 

@@ -59,6 +59,7 @@ logger = logging.getLogger("litdd.bert_predict_vllm")
 # ModernBERT sequence classifier; needs transformers >= 4.48 and a vLLM build with
 # ModernBERT sequence-classification pooling.
 MODEL_ID = os.environ.get("MODEL_ID", "tmy100000001/LitDD_BERT")
+MODEL_REVISION = "v2.5"   # the released checkpoint (same weights as main at release)
 
 DEFAULT_INPUT_DIR = "data/pubmed_download/parquet_download_files"
 DEFAULT_PROCESSED_DIR = "data/bert_processed"
@@ -335,7 +336,7 @@ def process_one_parquet_with_tokenizer(
 
 
 def load_vllm_engine(model_id: str, max_length: int, tp_size: int = 1,
-                     dtype: str = "float32") -> LLM:
+                     dtype: str = "float32", revision: str | None = None) -> LLM:
     """Construct the vLLM engine for the screen model.
 
     ``dtype`` defaults to float32, the numerics the released checkpoint was trained and
@@ -347,6 +348,7 @@ def load_vllm_engine(model_id: str, max_length: int, tp_size: int = 1,
     _enable_tf32()
     base = dict(
         model=model_id,
+        revision=revision,
         dtype=dtype,
         max_model_len=max_length,
         tensor_parallel_size=tp_size,
@@ -382,10 +384,11 @@ def process_all_parquets(
     tp_size: int = 1,
     dtype: str = "float32",
     keep_parquet: str | None = None,
+    revision: str | None = None,
 ) -> None:
     """Screen the shard's share of the parquet files in ``input_dir`` into ``processed_dir``."""
     keep_by_shard = load_keep_pmids(keep_parquet) if keep_parquet else None
-    llm = load_vllm_engine(model_id, max_length, tp_size=tp_size, dtype=dtype)
+    llm = load_vllm_engine(model_id, max_length, tp_size=tp_size, dtype=dtype, revision=revision)
 
     # Reserve room for the special tokens the tokenizer adds.
     tokenizer = llm.get_tokenizer()
@@ -432,6 +435,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--model", type=str, default=MODEL_ID,
                     help="Screen classifier model id or path for vLLM")
+    ap.add_argument("--revision", type=str, default=MODEL_REVISION,
+                    help="HF revision of --model (default: the released v2.5); 'none' for a local path")
     ap.add_argument("--shard", type=int, default=0, help="Shard index for the file list")
     ap.add_argument("--num_shards", type=int, default=1, help="Total number of shards")
     ap.add_argument("--max_length", type=int, default=MAX_LENGTH,
@@ -488,6 +493,7 @@ def main(argv: list[str] | None = None) -> int:
         tp_size=tp_size,
         dtype=args.dtype,
         keep_parquet=args.keep_parquet,
+        revision=None if args.revision in ("none", "") else args.revision,
     )
     return 0
 

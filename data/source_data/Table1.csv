@@ -1,0 +1,6 @@
+﻿Stage (unit),TP,FP,FN,TN,Precision / Recall / F1
+LitDD BERT screen (all TIAB),606,74,39,"2,012",0.891 / 0.940 / 0.915
+Gene gate: ≥1 DDG2P gene named (TIAB classified positive),606,73,0,1,0.892 / 1.000 / 0.943
+Candidates contain every curated entry (TIAB with a curated entry),606,0,0,0,1.000 / 1.000 / 1.000
+"LLM adjudication, exact set (TIAB reaching the LLM)",520,81,86,35,0.865 / 0.858 / 0.862
+"End to end, exact set (all TIAB)",520,81,125,"2,048",0.865 / 0.806 / 0.835

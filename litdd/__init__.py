@@ -1,3 +1,4 @@
-"""LitDD: domain-wide mapping of peer-reviewed literature for genetic developmental disorders."""
+"""LitDD: PubMed-wide classification and disease-level mapping of peer-reviewed literature for genetic
+developmental disorders in Gene2Phenotype."""
 
-__version__ = "1.0.0"
+__version__ = "2.0.1"

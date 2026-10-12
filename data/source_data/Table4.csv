@@ -1,0 +1,5 @@
+﻿Independent manually curated data source,Curated papers not used in training or testing (naming a DDG2P gene),"LitDD BERT recall, all papers","LitDD BERT recall, gene named",Curated pairs (gene of the entry named),"Pipeline recall, all pairs","Pipeline recall, gene named"
+Existing DDG2P,"1,049 (603)",0.797,0.929,"1,112 (515)",0.462,0.843
+HPO Annotations,626 (363),0.746,0.915,662 (319),0.483,0.887
+ClinGen,439 (268),0.866,0.955,455 (216),0.521,0.949
+Combined (de-duplicated),"1,752 (972)",0.763,0.915,"1,882 (814)",0.427,0.851

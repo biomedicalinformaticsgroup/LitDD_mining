@@ -1,0 +1,201 @@
+audit_id,pmid,g2p_id,gene,g2p_disease_name,pubdate,rejection,should_have_been_mapped,notes,in_released_map
+D0001,29384951,G2P00842,TWIST1,TWIST1-related Saethre-Chotzen syndrome,2017.0,candidate shown to the LLM and declined,no,,0
+D0002,40282423,G2P01269,MPV17,MPV17-related mitochondrial DNA depletion syndrome,2025.0,LLM returned NO MATCH,no,,0
+D0003,9486868,G2P00764,GAA,GAA-related glycogen storage disease,1998.0,candidate shown to the LLM and declined,no,,0
+D0004,29341473,G2P01036,PCDH19,PCDH19-related epileptic encephalopathy early infantile,2018.0,candidate shown to the LLM and declined,no,,0
+D0005,29194067,G2P03206,GRIN1,GRIN1-related neurodevelopmental disorder with or without hyperkinetic movements and seizures,2018.0,candidate shown to the LLM and declined,yes,,0
+D0006,1598912,G2P00499,AR,AR-related spinal and bulb muscul atrophy,1992.0,candidate shown to the LLM and declined,no,,0
+D0007,39680213,G2P01209,HSPG2,"HSPG2-related dyssegmental dysplasia, Silverman-Handmaker type",2024.0,LLM returned NO MATCH,no,,0
+D0008,23311542,G2P00906,FANCA,FANCA-related Fanconi anemia,2013.0,candidate shown to the LLM and declined,no,,0
+D0009,7910233,G2P00998,GAD1,GAD1-related cerebral palsy spastic quadriplegic,1994.0,LLM returned NO MATCH,no,,0
+D0010,15868470,G2P01433,SHH,SHH-related holoprosencephaly,2005.0,LLM returned NO MATCH,no,,0
+D0011,16723809,G2P00348,FLVCR2,FLVCR2-related proliferative vasculopathy and hydraencephaly-hydrocephaly syndrome,2006.0,LLM returned NO MATCH,no,,0
+D0012,27040408,G2P01353,PDE6H,PDE6H-related achromatopsia,2016.0,LLM returned NO MATCH,no,,0
+D0013,30859796,G2P00965,IGF1R,"IGF1R-related insulin-like growth factor I, resistance to",2019.0,candidate shown to the LLM and declined,no,,0
+D0014,6862997,G2P03029,MADD,MADD-related developmental disorder,1983.0,candidate shown to the LLM and declined,no,,1
+D0015,31317654,G2P00658,FMR1,FMR1-related fragile X syndrome,2019.0,LLM returned NO MATCH,no,,0
+D0016,29459630,G2P00507,AR,AR-related androgen insensitivity syndrome,2018.0,LLM returned NO MATCH,no,,0
+D0017,12819471,G2P01300,GLI3,GLI3-related Pallister-Hall syndrome,2003.0,candidate shown to the LLM and declined,no,,0
+D0018,17259707,G2P01007,GJB3,GJB3-related deafness (biallelic),2007.0,candidate shown to the LLM and declined,uncertain,"Cx31/GJB3 variant reported but no mention if monoallelic or biallelic, unable to know if relevant for this record.",1
+D0019,34740236,G2P00008,YAP1,"YAP1-related coloboma, ocular, with or without hearing impairment, cleft lip/palate, and/or intellectual developmental disorder",2022.0,LLM returned NO MATCH,no,,0
+D0020,24336230,G2P02773,CSF1R,"CSF1R-related brain abnormalities, neurodegeneration, and dysosteosclerosis",2014.0,LLM returned NO MATCH,no,,0
+D0021,10594514,G2P01578,IGF1,IGF1-related insulin-like growth factor I deficiency,1999.0,candidate shown to the LLM and declined,no,,0
+D0022,18611979,G2P02897,SRSF1,SRSF1-related developmental disorder,2009.0,LLM returned NO MATCH,no,,0
+D0023,29216801,G2P00843,SOX10,SOX10-related Waardenburg syndrome,2018.0,LLM returned NO MATCH,no,,0
+D0024,38854326,G2P02755,DHX37,DHX37-related intellectual disability and central nervous system anomalies,2024.0,candidate shown to the LLM and declined,no,,0
+D0025,14735064,G2P00446,MLYCD,MLYCD-related malonyl-CoA decarboxylase deficiency,2003.0,LLM returned NO MATCH,no,,0
+D0026,41367535,G2P03432,ATP1A2,ATP1A2-related neuronal migration disorder with epilepsy,2025.0,candidate shown to the LLM and declined,no,,0
+D0027,39969775,G2P01869,ODAD4,ODAD4-related primary ciliary dyskinesia with left-right body asymmetry randomization,2026.0,LLM returned NO MATCH,no,,0
+D0028,11039578,G2P01681,ALDH18A1,ALDH18A1-related cutis laxa,2000.0,candidate shown to the LLM and declined,no,,0
+D0029,38083999,G2P01168,AKT1,AKT1-related Proteus syndrome,2024.0,LLM returned NO MATCH,no,,0
+D0030,25480730,G2P00351,OCRL,OCRL-related Dent Disease,2015.0,candidate shown to the LLM and declined,no,,0
+D0031,9589672,G2P00764,GAA,GAA-related glycogen storage disease,1998.0,LLM returned NO MATCH,no,,0
+D0032,24498942,G2P00377,PCBD1,"PCBD1-related hyperphenylalaninemia, BH4-deficient, D",2014.0,candidate shown to the LLM and declined,no,,0
+D0033,9610619,G2P00749,SRY,SRY-related 46XY sex reversal,1998.0,candidate shown to the LLM and declined,no,,0
+D0034,29184351,G2P01537,SPTLC2,"SPTLC2-related neuropathy, hereditary sensory and autonomic",2017.0,candidate shown to the LLM and declined,no,,0
+D0035,41356217,G2P01014,ATP8B1,ATP8B1-related intrahepatic cholestasis,2025.0,LLM returned NO MATCH,no,,0
+D0036,15635068,G2P01392,MECP2,MECP2-related encephalopathy neonatal severe,2005.0,candidate shown to the LLM and declined,no,,0
+D0037,31900140,G2P03917,HMGA2,HMGA2-related Silver-Russell-like syndrome,2020.0,LLM returned NO MATCH,no,,0
+D0038,33296530,G2P00749,SRY,SRY-related 46XY sex reversal,2021.0,candidate shown to the LLM and declined,no,,0
+D0039,12673280,G2P00708,COL11A1,COL11A1-related fibrochondrogenesis,2003.0,candidate shown to the LLM and declined,no,,0
+D0040,19169489,G2P00999,HNF4A,HNF4A-related maturity-onset diabetes of the young (MODY),2008.0,LLM returned NO MATCH,no,,0
+D0041,22543975,G2P00418,GRIK2,GRIK2-related intellectual developmental disorder,2012.0,candidate shown to the LLM and declined,no,,0
+D0042,30959842,G2P00567,FMR1,FMR1-related fragile X tremor/ataxia syndrome,2019.0,candidate shown to the LLM and declined,no,,0
+D0043,16858015,G2P02007,DNAH5,DNAH5-related primary ciliary dyskinesia,2006.0,LLM returned NO MATCH,no,,0
+D0044,30543681,G2P01050,RAPSN,RAPSN-related fetal akinesia deformation sequence,2018.0,LLM returned NO MATCH,no,,0
+D0045,29087246,G2P00710,KCNJ11,KCNJ11-related familial hyperinsulinism,2017.0,LLM returned NO MATCH,no,,0
+D0046,21990111,G2P01639,CLN6,"CLN6-related neuronal ceroid lipofuscinosis, Kufs Type, adult onset",2012.0,candidate shown to the LLM and declined,yes,,0
+D0047,39615461,G2P01071,KIF2A,KIF2A-related malformations of cortical development and microcephaly,2024.0,LLM returned NO MATCH,no,,0
+D0048,15126570,G2P01572,GUCY2C,GUCY2C-related familial diarrhea,2004.0,LLM returned NO MATCH,no,,0
+D0049,20803643,G2P00502,IRF6,IRF6-related Van der Woude syndrome,2010.0,candidate shown to the LLM and declined,no,,0
+D0050,21477668,G2P01291,ERCC8,ERCC8-related Cockayne syndrome,2011.0,candidate shown to the LLM and declined,no,,0
+D0051,29932076,G2P00867,PAX6,PAX6-related Peters anomaly,2018.0,candidate shown to the LLM and declined,no,,0
+D0052,26197705,G2P03039,MAPK1,MAPK1-related Noonan syndrome,2015.0,LLM returned NO MATCH,no,,0
+D0053,20510657,G2P02314,CREBBP,CREBBP-related intellectual disability without typical RTS features (Menke-Hennekam syndrome),2010.0,candidate shown to the LLM and declined,no,,0
+D0054,17923481,G2P00684,PDHA1,PDHA1-related pyruvate dehydrogenase E1-alpha deficiency,2008.0,LLM returned NO MATCH,no,,0
+D0055,31942423,G2P02971,MYL1,"MYL1-related myopathy, congenital, with fast-twitch (type II) fiber atrophy",2019.0,candidate shown to the LLM and declined,no,,0
+D0056,22921514,G2P00733,EXT1,EXT1-related multiple exostoses,2012.0,LLM returned NO MATCH,no,,0
+D0057,28943498,G2P00388,FLG,FLG-related ichthyosis vulgaris,2017.0,LLM returned NO MATCH,no,,0
+D0058,29947567,G2P01086,RPE65,RPE65-related Leber congenital amaurosis,2018.0,LLM returned NO MATCH,no,,0
+D0059,31079053,G2P01655,MAPRE2,"MAPRE2-related circumferential skin creases, Kunze type",2020.0,LLM returned NO MATCH,no,,0
+D0060,18007692,G2P03014,DSP,DSP-related developmental disorder,2007.0,candidate shown to the LLM and declined,no,,0
+D0061,29948256,G2P00841,PTPN11,PTPN11-related Noonan syndrome with multiple lentigines,2018.0,candidate shown to the LLM and declined,no,,0
+D0062,19641633,G2P00749,SRY,SRY-related 46XY sex reversal,2009.0,candidate shown to the LLM and declined,no,,0
+D0063,33687104,G2P01355,GTF2H5,GTF2H5-related trichothiodystrophy photosensitive,2021.0,candidate shown to the LLM and declined,no,,0
+D0064,17141510,G2P00833,BRAF,BRAF-related cardiofaciocutaneous syndrome,2007.0,LLM returned NO MATCH,no,,0
+D0065,1917344,G2P00677,NDST1,NDST1-related intellectual disability with or without seizures,1991.0,candidate shown to the LLM and declined,no,,0
+D0066,27807076,G2P00925,DAG1,DAG1-related muscular dystrophy-dystroglycanopathy limb-girdle,2016.0,LLM returned NO MATCH,no,,0
+D0067,23304584,G2P03125,FBN1,FBN1-related Marfan syndrome (biallelic),2012.0,candidate shown to the LLM and declined,uncertain,FBN1 variant for Marfan syndrome confirmed but unable to assign to monoallelic or biallelic G2P record.,0
+D0068,42011331,G2P02844,USP9X,USP9X-related intellectual developmental disorder (hemizygous),2026.0,LLM returned NO MATCH,no,,0
+D0069,15216543,G2P01104,ERCC5,"ERCC5-related xeroderma pigmentosum, group G",2004.0,LLM returned NO MATCH,no,,0
+D0070,21049026,G2P01408,KCNJ11,"KCNJ11-related diabetes mellitus, transient neonatal",2010.0,LLM returned NO MATCH,no,,0
+D0071,25944529,G2P01422,IKBKG,IKBKG-related ectodermal dysplasia and immunodeficiency,2015.0,candidate shown to the LLM and declined,no,,0
+D0072,31836334,G2P01268,CACNA1G,CACNA1G-related intellectual developmental disorder,2020.0,candidate shown to the LLM and declined,no,,0
+D0073,19112531,G2P01276,SKI,SKI-related Shprintzen-Goldberg craniosynostosis syndrome,2008.0,candidate shown to the LLM and declined,no,,0
+D0074,31837202,G2P01459,SMAD4,SMAD4-related juvenile polyposis/hereditary hemorrhagic telangiectasia syndrome,2020.0,candidate shown to the LLM and declined,no,,0
+D0075,31914175,G2P01476,IL11,IL11-related craniosynostosis,2020.0,LLM returned NO MATCH,no,,0
+D0076,22773132,G2P00160,PYCR1,PYCR1-related cutis laxa,2012.0,LLM returned NO MATCH,no,,0
+D0077,27624449,G2P01384,PTH,PTH-related familial isolated hypoparathyroidism,2016.0,LLM returned NO MATCH,no,,0
+D0078,22883144,G2P00007,NTRK1,NTRK1-related congenital insensitivity to pain with anhidrosis,2012.0,LLM returned NO MATCH,no,,0
+D0079,31618474,G2P00887,KCNT1,KCNT1-related malignant migrating partial seizures of infancy,2019.0,LLM returned NO MATCH,yes,,1
+D0080,15043528,G2P01238,FASN,FASN-related intellectual developmental disorder,2004.0,LLM returned NO MATCH,no,,0
+D0081,34479534,G2P02956,KMT2D,KMT2D-related multiple malformations syndrome (BCAHH),2021.0,candidate shown to the LLM and declined,no,,0
+D0082,30354297,G2P02892,KCNK3,KCNK3-related developmental delay with sleep apnea,2018.0,LLM returned NO MATCH,no,,0
+D0083,33304404,G2P00655,DNAAF3,DNAAF3-related primary ciliary dyskinesia,2020.0,LLM returned NO MATCH,no,,0
+D0084,41334634,G2P03029,MADD,MADD-related developmental disorder,2026.0,LLM returned NO MATCH,no,,0
+D0085,22615010,G2P01401,DHCR7,DHCR7-related Smith-Lemli-Opitz syndrome,2012.0,LLM returned NO MATCH,no,,0
+D0086,2712232,G2P01392,MECP2,MECP2-related encephalopathy neonatal severe,1989.0,candidate shown to the LLM and declined,no,,0
+D0087,18952055,G2P03039,MAPK1,MAPK1-related Noonan syndrome,2008.0,candidate shown to the LLM and declined,no,,0
+D0088,19704083,G2P00377,PCBD1,"PCBD1-related hyperphenylalaninemia, BH4-deficient, D",2009.0,candidate shown to the LLM and declined,no,,0
+D0089,35855076,G2P02314,CREBBP,CREBBP-related intellectual disability without typical RTS features (Menke-Hennekam syndrome),2021.0,candidate shown to the LLM and declined,no,,0
+D0090,37221934,G2P00355,TTN,TTN-related titinopathy with arthrogryposis and/or myopathy,2024.0,LLM returned NO MATCH,no,,0
+D0091,34976019,G2P02315,FLNA,FLNA-related periventricular nodular heterotopia,2021.0,LLM returned NO MATCH,no,,0
+D0092,24866383,G2P00329,SHROOM3,SHROOM3-related neural tube defect,2014.0,candidate shown to the LLM and declined,no,,0
+D0093,16404586,G2P01261,EVC2,"EVC2-related acrofacial dysostosis, Weyers type",2006.0,LLM returned NO MATCH,no,,0
+D0094,25758903,G2P00833,BRAF,BRAF-related cardiofaciocutaneous syndrome,2015.0,LLM returned NO MATCH,no,,0
+D0095,31778168,G2P01384,PTH,PTH-related familial isolated hypoparathyroidism,2020.0,LLM returned NO MATCH,no,,0
+D0096,15947997,G2P00984,EGR2,"EGR2-related neuropathy, congenital hypomyelinating",2005.0,LLM returned NO MATCH,no,,0
+D0097,18162831,G2P03082,EDNRB,EDNRB-related Waardenburg syndrome with Hirschsprung,2008.0,LLM returned NO MATCH,no,,0
+D0098,14976260,G2P01116,TYRP1,TYRP1-related oculocutaneous albinism,2004.0,LLM returned NO MATCH,no,,0
+D0099,28109507,G2P00168,COL2A1,COL2A1-related achondrogenesis,2017.0,candidate shown to the LLM and declined,no,,0
+D0100,1634050,G2P00785,SLC35A2,SLC35A2-related epileptic encephalopathy due to congenital disorder of glycosylation,1992.0,LLM returned NO MATCH,no,,0
+D0101,8704215,G2P00171,SLC4A1,"SLC4A1-related renal tubular acidosis, distal (monoallelic)",1996.0,LLM returned NO MATCH,no,,0
+D0102,38971858,G2P00763,RPS19,RPS19-related Diamond-Blackfan anemia,2024.0,LLM returned NO MATCH,no,,0
+D0103,29928180,G2P01005,FGFR2,FGFR2-related Jackson-Weiss syndrome,2018.0,candidate shown to the LLM and declined,no,,0
+D0104,23799168,G2P03310,PTPN11,PTPN11-related Noonan syndrome,2013.0,candidate shown to the LLM and declined,no,,0
+D0105,24468609,G2P01408,KCNJ11,"KCNJ11-related diabetes mellitus, transient neonatal",2014.0,LLM returned NO MATCH,no,,1
+D0106,16340425,G2P03430,HMGB1,"HMGB1-related brachyphalangy, polydactyly and tibial aplasia syndrome",2005.0,LLM returned NO MATCH,uncertain,Correct gene. But it is not possible to know form the abstract to know what the publication is about.,0
+D0107,18399931,G2P00999,HNF4A,HNF4A-related maturity-onset diabetes of the young (MODY),2008.0,LLM returned NO MATCH,no,,0
+D0108,17060380,G2P02923,ANK2,ANK2-related neurodevelopmental disorder,2006.0,LLM returned NO MATCH,no,,0
+D0109,28674683,G2P00698,ADA,ADA-related adenosine deaminase deficiency,2017.0,LLM returned NO MATCH,no,,0
+D0110,38296613,G2P02630,DNAH9,DNAH9-related motile cilia defects and situs inversus,2024.0,candidate shown to the LLM and declined,no,,0
+D0111,34212862,G2P00586,GRIN2B,GRIN2B-related intellectual developmental disorder,2021.0,candidate shown to the LLM and declined,no,,1
+D0112,8217562,G2P01337,EDA,EDA-related tooth agenesis selective,1993.0,candidate shown to the LLM and declined,yes,Likely review confirming the link of EDA to the phenotype in the G2P record and.,0
+D0113,40898246,G2P01392,MECP2,MECP2-related encephalopathy neonatal severe,2025.0,candidate shown to the LLM and declined,no,,0
+D0114,32492864,G2P01756,POT1,POT1-related Coats plus,2020.0,LLM returned NO MATCH,no,,0
+D0115,16738054,G2P01503,EZH2,EZH2-related Weaver syndrome,2006.0,candidate shown to the LLM and declined,no,,0
+D0116,28903413,G2P01245,PMS2,PMS2-related constitutional mismatch repair deficiency syndrome (CMMRD),2017.0,LLM returned NO MATCH,no,,0
+D0117,31150550,G2P01007,GJB3,GJB3-related deafness (biallelic),2020.0,LLM returned NO MATCH,no,,0
+D0118,34988664,G2P01270,TSC1,TSC1-related tuberous sclerosis,2022.0,LLM returned NO MATCH,no,,0
+D0119,8723100,G2P01002,SLC26A2,SLC26A2-related multiple epiphyseal dysplasia,1996.0,candidate shown to the LLM and declined,no,,0
+D0120,16329098,G2P00139,NKX2-5,NKX2-5-related atrial septal defect with atrioventricular conduction defects,2006.0,LLM returned NO MATCH,yes,Multiple diagnosis,0
+D0121,21085708,G2P00677,NDST1,NDST1-related intellectual disability with or without seizures,2010.0,candidate shown to the LLM and declined,no,,0
+D0122,33147667,G2P01159,GLB1,"GLB1-related GM1-gangliosidosis, type 3",2020.0,candidate shown to the LLM and declined,no,,0
+D0123,38967890,G2P00867,PAX6,PAX6-related Peters anomaly,2024.0,candidate shown to the LLM and declined,no,,0
+D0124,34762194,G2P02384,FN1,FN1-related spondylometaphyseal dysplasia with corner fractures,2022.0,LLM returned NO MATCH,no,,0
+D0125,19346217,G2P01469,NODAL,NODAL-related heterotaxy syndrome,2009.0,candidate shown to the LLM and declined,no,,0
+D0126,27777503,G2P03320,PRDM13,PRDM13-related olivopentocerebellar hypoplasia syndrome,2016.0,LLM returned NO MATCH,no,,0
+D0127,12414879,G2P00591,GNAS,GNAS-related pseudohypoparathyroidism,2002.0,candidate shown to the LLM and declined,no,,0
+D0128,26116559,G2P02160,MAB21L2,MAB21L2-related syndromic microphthalmia,2015.0,candidate shown to the LLM and declined,no,,0
+D0129,22559284,G2P01257,FGFR3,FGFR3-related hypochondroplasia,2012.0,candidate shown to the LLM and declined,no,,0
+D0130,8338207,G2P00235,FH,FH-related fumarase deficiency,1993.0,LLM returned NO MATCH,no,,1
+D0131,41591478,G2P00710,KCNJ11,KCNJ11-related familial hyperinsulinism,2026.0,candidate shown to the LLM and declined,no,,0
+D0132,29223504,G2P00658,FMR1,FMR1-related fragile X syndrome,2018.0,candidate shown to the LLM and declined,no,,0
+D0133,39158191,G2P03224,SUFU,SUFU-related Joubert and congenital ocular motor apraxia,2025.0,LLM returned NO MATCH,no,,0
+D0134,32170967,G2P01977,ACTB,ACTB-related haploinsufficiency syndrome,2020.0,LLM returned NO MATCH,no,,0
+D0135,8364574,G2P00867,PAX6,PAX6-related Peters anomaly,1993.0,candidate shown to the LLM and declined,no,,0
+D0136,20573158,G2P01408,KCNJ11,"KCNJ11-related diabetes mellitus, transient neonatal",2011.0,candidate shown to the LLM and declined,no,,0
+D0137,19384091,G2P01342,LMNA,LMNA-related Emery-Dreifuss muscular dystrophy,2009.0,LLM returned NO MATCH,no,,0
+D0138,42365546,G2P00525,PKHD1,PKHD1-related polycystic kidney disease,2026.0,LLM returned NO MATCH,no,,0
+D0139,33953997,G2P01101,FGFR3,"FGFR3-related thanatophoric dysplasia, type 2",2021.0,candidate shown to the LLM and declined,no,,0
+D0140,18247426,G2P01005,FGFR2,FGFR2-related Jackson-Weiss syndrome,2008.0,candidate shown to the LLM and declined,no,,0
+D0141,35526022,G2P00179,PIK3R1,PIK3R1-related SHORT syndrome,2022.0,candidate shown to the LLM and declined,no,,0
+D0142,26944947,G2P00392,SCN4A,SCN4A-related hyperkalemic periodic paralysis,2016.0,candidate shown to the LLM and declined,no,,0
+D0143,23701190,G2P00802,LMNA,LMNA-related Hutchinson-Gilford progeria syndrome,2013.0,candidate shown to the LLM and declined,no,,0
+D0144,12601708,G2P00236,POMGNT1,POMGNT1-related muscular dystrophy-dystroglycanopathy congenital with brain and eye anomalies,2003.0,candidate shown to the LLM and declined,no,,0
+D0145,25500790,G2P00231,HESX1,HESX1-related septooptic dysplasia,2015.0,candidate shown to the LLM and declined,no,,0
+D0146,28298193,G2P01189,TYR,TYR-related oculocutaneous albinism,2017.0,LLM returned NO MATCH,no,,0
+D0147,25941960,G2P03528,HMGCR,HMGCR-related limb-girdle muscular dystrophy,2016.0,candidate shown to the LLM and declined,no,,0
+D0148,22131258,G2P00680,RET,RET-related multiple endocrine neoplasia IIB,2012.0,LLM returned NO MATCH,no,,0
+D0149,39282880,G2P02630,DNAH9,DNAH9-related motile cilia defects and situs inversus,2024.0,candidate shown to the LLM and declined,no,,0
+D0150,32060405,G2P00020,PAFAH1B1,PAFAH1B1-related lissencephaly,2020.0,LLM returned NO MATCH,no,,0
+D0151,23372769,G2P03109,SEMA3A,SEMA3A-related skeletal dysplasia,2013.0,LLM returned NO MATCH,no,,0
+D0152,41483114,G2P01506,COL4A4,COL4A4-related Alport syndrome,2026.0,LLM returned NO MATCH,no,,0
+D0153,26301083,G2P01269,MPV17,MPV17-related mitochondrial DNA depletion syndrome,2015.0,LLM returned NO MATCH,no,,0
+D0154,41486651,G2P01273,FGFR2,FGFR2-related Beare-Stevenson cutis gyrata syndrome,2026.0,candidate shown to the LLM and declined,uncertain,"Unspecific FGFR2 phenptype, diffocutl to say if it is relevant to this particular record. ",0
+D0155,37749763,G2P01307,AGXT,"AGXT-related hyperoxaluria, primary",2024.0,LLM returned NO MATCH,no,,0
+D0156,23633213,G2P01578,IGF1,IGF1-related insulin-like growth factor I deficiency,2013.0,LLM returned NO MATCH,no,,0
+D0157,10086790,G2P00831,PIGA,PIGA-related multiple congenital anomalies-hypotonia-seizures syndrome,1999.0,LLM returned NO MATCH,no,,0
+D0158,21665003,G2P01061,WNT5A,WNT5A-related Robinow syndrome,2011.0,candidate shown to the LLM and declined,no,,0
+D0159,20652329,G2P00463,TMEM67,TMEM67-related COACH syndrome,2011.0,candidate shown to the LLM and declined,no,,0
+D0160,17431922,G2P01543,TP63,TP63-related limb-mammary syndrome,2007.0,candidate shown to the LLM and declined,no,,0
+D0161,2373113,G2P01368,BTD,BTD-related biotinidase deficiency,1990.0,LLM returned NO MATCH,no,,1
+D0162,34149849,G2P01167,GNAS,GNAS-related McCune-Albright syndrome,2021.0,candidate shown to the LLM and declined,no,,0
+D0163,22011815,G2P00020,PAFAH1B1,PAFAH1B1-related lissencephaly,2011.0,LLM returned NO MATCH,no,,0
+D0164,1700190,G2P00377,PCBD1,"PCBD1-related hyperphenylalaninemia, BH4-deficient, D",1990.0,LLM returned NO MATCH,no,,0
+D0165,2073741,G2P01743,TKT,"TKT-related short stature, developmental delay, and congenital heart defects",1990.0,LLM returned NO MATCH,no,,0
+D0166,11305791,G2P01578,IGF1,IGF1-related insulin-like growth factor I deficiency,2001.0,LLM returned NO MATCH,no,,0
+D0167,37170076,G2P00086,PRRT2,PRRT2-related neurodevelopmental and movement disorder with or without seizures,2023.0,candidate shown to the LLM and declined,no,,0
+D0168,25433535,G2P00842,TWIST1,TWIST1-related Saethre-Chotzen syndrome,2014.0,LLM returned NO MATCH,no,,0
+D0169,21892620,G2P00272,GLI3,GLI3-related Greig cephalopolysyndactyly syndrome,2011.0,candidate shown to the LLM and declined,no,,0
+D0170,41549465,G2P01614,GALNS,GALNS-related mucopolysaccharidosis,2026.0,candidate shown to the LLM and declined,no,,0
+D0171,20422495,G2P00318,ABCB6,"ABCB6-related microphthalmia, isolated, with coloboma",2010.0,candidate shown to the LLM and declined,no,,0
+D0172,30186759,G2P01213,SETBP1,SETBP1-related developmental and expressive language delay,2018.0,LLM returned NO MATCH,no,,0
+D0173,36553343,G2P00499,AR,AR-related spinal and bulb muscul atrophy,2022.0,candidate shown to the LLM and declined,no,,0
+D0174,28472301,G2P00109,CACNA1D,CACNA1D-related sinoatrial node dysfunction and deafness,2017.0,candidate shown to the LLM and declined,no,,0
+D0175,33809266,G2P02933,CDC42,CDC42-related neurodevelopmental disorder,2021.0,LLM returned NO MATCH,no,,0
+D0176,39301178,G2P01099,TSHR,"TSHR-related hypothyroidism, congenital, nongoitrous",2024.0,candidate shown to the LLM and declined,no,,0
+D0177,18510548,G2P01201,PTEN,PTEN-related Proteus syndrome,2008.0,LLM returned NO MATCH,no,,0
+D0178,29712845,G2P00777,HNF1B,HNF1B-related renal cysts and diabetes syndrome,2018.0,LLM returned NO MATCH,no,,0
+D0179,33889011,G2P01106,VDR,VDR-related rickets vitamin D-dependent,2021.0,LLM returned NO MATCH,no,,0
+D0180,24876279,G2P00234,FANCF,FANCF-related Fanconi anemia,2014.0,LLM returned NO MATCH,no,,0
+D0181,12952177,G2P01658,SCYL1,"SCYL1-related episodes of liver failure, peripheral neuropathy, cerebellar atrophy, and ataxia",2003.0,LLM returned NO MATCH,no,,0
+D0182,27696642,G2P01340,FMR1,FMR1-related premature ovarian failure syndrome,2016.0,candidate shown to the LLM and declined,no,,0
+D0183,23299470,G2P00234,FANCF,FANCF-related Fanconi anemia,2013.0,candidate shown to the LLM and declined,no,,0
+D0184,9107244,G2P00944,FGFR3,FGFR3-related achondroplasia,1997.0,candidate shown to the LLM and declined,no,,0
+D0185,39398711,G2P01051,WDPCP,WDPCP-related Bardet-Biedl syndrome,2024.0,LLM returned NO MATCH,no,,0
+D0186,34402524,G2P01168,AKT1,AKT1-related Proteus syndrome,2021.0,candidate shown to the LLM and declined,no,,0
+D0187,23757263,G2P00086,PRRT2,PRRT2-related neurodevelopmental and movement disorder with or without seizures,2013.0,candidate shown to the LLM and declined,yes,Review. Dystonia is a movement disorder.,0
+D0188,20132997,G2P01592,HNF4A,HNF4A-related atypical Fanconi syndrome with maturity-onset diabetes of the young (MODY),2010.0,candidate shown to the LLM and declined,no,,0
+D0189,17582161,G2P01768,PRKD1,PRKD1-related syndromic congenital heart defects,2007.0,LLM returned NO MATCH,no,,0
+D0190,15742368,G2P00198,WT1,WT1-related Denys-Drash syndrome,2005.0,LLM returned NO MATCH,no,,0
+D0191,14872199,G2P01768,PRKD1,PRKD1-related syndromic congenital heart defects,2004.0,LLM returned NO MATCH,no,,0
+D0192,31552105,G2P01534,RANBP2,RANBP2-related susceptibility to acute necrotizing encephalopathy,2019.0,LLM returned NO MATCH,no,,0
+D0193,38551204,G2P02161,MAFB,MAFB-related Duane retraction syndrome,2024.0,candidate shown to the LLM and declined,no,,0
+D0194,38610036,G2P02956,KMT2D,KMT2D-related multiple malformations syndrome (BCAHH),2024.0,candidate shown to the LLM and declined,no,,0
+D0195,14649553,G2P01392,MECP2,MECP2-related encephalopathy neonatal severe,2003.0,candidate shown to the LLM and declined,no,,0
+D0196,22567862,G2P02866,PRPF8,PRPF8-related developmental disorder,2012.0,candidate shown to the LLM and declined,no,,0
+D0197,23480352,G2P01040,PLP1,PLP1-related spastic paraplegia,2013.0,candidate shown to the LLM and declined,no,,0
+D0198,29148562,G2P01279,CDH23,CDH23-related Usher syndrome,2018.0,candidate shown to the LLM and declined,no,,0
+D0199,32779812,G2P01708,PPM1D,PPM1D-related developmental disorder (Jansen-de Vries syndrome),2020.0,candidate shown to the LLM and declined,no,,0
+D0200,21642631,G2P01430,TMEM67,TMEM67-related nephronophthisis,2011.0,candidate shown to the LLM and declined,no,,0

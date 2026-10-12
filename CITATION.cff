@@ -4,8 +4,8 @@ title: "LitDD: PubMed-wide classification and disease-level mapping of peer-revi
 type: software
 repository-code: "https://github.com/biomedicalinformaticsgroup/LitDD_mining"
 license: MIT
-version: "2.0.0"
-date-released: 2026-10-08
+version: "2.0.1"
+date-released: 2026-10-12
 doi: 10.5281/zenodo.17779641
 keywords:
   - biocuration

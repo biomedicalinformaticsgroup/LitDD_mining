@@ -1,0 +1,108 @@
+audit_id,pmid,g2p_id,gene,g2p_disease_name,has_abstract,in_50_record_subset,original_label,second_reader_label,record_type,notes
+A0001,28422132,G2P00381,ANKRD11,ANKRD11-related KBG syndrome,1,1,1,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0002,23303949,G2P00526,DCX,DCX-related subcortical band heterotopia,1,1,0,no,functional_only,
+A0003,37240185,G2P03465,STX1A,STX1A-related neurodevelopmental disorder with epilepsy,1,1,0,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0004,16033917,G2P00926,COL11A2,COL11A2-related deafness (biallelic),1,1,1,yes,case_series,
+A0005,22138107,G2P03328,CLDN5,CLDN5-related neurodevelopmental disorder,1,1,0,no,functional_only,Correct gene. Disease does not match the G2P record. 
+A0006,21762454,G2P01128,STXBP1,STXBP1-related epileptic encephalopathy early infantile,1,1,1,yes,case_series,
+A0007,28379373,G2P01716,SCN2A,SCN2A-related infantile epileptic encephalopathy,1,0,1,yes,case_series,
+A0008,155086,G2P01711,SET,SET-related intellectual developmental disorder,1,1,0,no,other,Report for a medical device.
+A0009,28595412,G2P02440,CHD3,CHD3-related macrocephaly and impaired speech and language,1,1,0,no,other,"Acronym_gene_confusion. CHD3 refers to a chemical compound, not the CHD3 gene. 
+Chemistry publication."
+A0010,11850838,G2P00762,MMP13,"MMP13-related spondyloepimetaphyseal dysplasia, Missouri type",1,0,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0011,34822171,G2P01432,PACS1,PACS1-related intellectual disability,1,1,0,no,functional_only,
+A0012,32481405,G2P01149,EDN1,EDN1-related auriculocondylar syndrome,1,1,0,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0013,16977309,G2P01432,PACS1,PACS1-related intellectual disability,1,1,0,no,functional_only,
+A0014,14752048,G2P00424,DNMT3A,DNMT3A-related Tatton-Brown Rahman syndrome (overgrowth syndrome with intellectual disability),1,0,0,no,functional_only,
+A0015,30308082,G2P03184,PUS3,PUS3-related neurodevelopmental disorder with microcephaly and gray sclerae,0,0,1,yes,case_report,
+A0016,8893763,G2P00037,COL2A1,COL2A1-related Kniest dysplasia,1,0,1,yes,case_report,
+A0017,9232624,G2P00577,PAX3,PAX3-related Waardenburg syndrome (monoallelic),1,1,1,yes,case_series,
+A0018,27704,G2P02621,PIGS,PIGS-related neurological syndrome fetal akinesia/epileptic encephalopathy,1,1,0,no,other,"Acronym_gene_confusion. Pigs refers to the animal, not the PIGS gene. 
+Veterinary publication."
+A0019,29906517,G2P00793,EP300,EP300-related Rubinstein-Taybi syndrome,0,1,1,uncertain,other,Not possible to know to which EP300 disorder refers to. Unknown what type of report. 
+A0020,29243232,G2P00192,DYNC1H1,"DYNC1H1-related spinal muscular atrophy, lower extremity-predominant",1,0,0,no,case_report,Correct gene. Disease does not match the G2P record. 
+A0021,21504709,G2P03013,TFE3,TFE3-related intellectual disability with pigmentary mosaicism and coarse features,1,0,0,no,case_report,Correct gene. Disease (cancer) does not match the G2P record. 
+A0022,32633875,G2P00511,KCNMA1,KCNMA1-related generalized epilepsy and paroxysmal dyskinesia,1,0,1,yes,case_report,
+A0023,34005834,G2P01008,ERCC6,ERCC6-related Cockayne syndrome,1,1,0,no,case_series,"Correcy gene. It describes phenotypes in UKBiobank adult population, carrier of rare variants. "
+A0024,23708187,G2P01343,SYNGAP1,SYNGAP1-related intellectual developmental disorder,1,0,1,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0025,34818117,G2P00570,WDR45,WDR45-related neurodegeneration with brain iron accumulation,1,0,0,yes,case_series,
+A0026,22614957,G2P03112,NFE2L2,"NFE2L2-related leukoencephalopathy, immune deficiency and hypohomocysteinaemia",1,1,0,no,case_series,Correct gene. Disease (cancer) does not match the G2P record. 
+A0027,17279346,G2P03013,TFE3,TFE3-related intellectual disability with pigmentary mosaicism and coarse features,1,1,0,no,review,Correct gene. Disease does not match the G2P record. 
+A0028,16158428,G2P00489,OPHN1,OPHN1-related intellectual developmental disorder,1,1,1,yes,case_series,
+A0029,35139903,G2P00353,EHMT1,EHMT1-related Kleefstra syndrome,1,0,0,no,functional_only,
+A0030,23417793,G2P01765,CHD4,CHD4-related syndromic intellectual disability with or without congenital heart disease,1,0,0,no,functional_only,
+A0031,28426960,G2P01786,PIEZO1,PIEZO1-related congenital lymphatic dysplasia with hydrops and/or lymphoedema,0,1,0,no,other,Correct gene. But no description of any disorder.
+A0032,34531236,G2P01404,ITPR1,"ITPR1-related spinocerebellar ataxia, congenital nonprogressive",1,1,0,no,case_report,Correct gene. Adult-onset presentation. Disease does not match the G2P record. 
+A0033,31178390,G2P00498,DDX3X,DDX3X-related intellectual disability,1,0,0,no,functional_only,Correct gene. Disease does not match the G2P record. 
+A0034,37954147,G2P02646,TRRAP,TRRAP-related autism and syndromic intellectual disability,1,1,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0035,22086512,G2P01263,CTNNB1,CTNNB1-related intellectual developmental disorder,1,0,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0036,8844800,G2P01103,PHIP,"PHIP-related developmental delay, intellectual disability, obesity, and dysmorphic features",1,0,0,no,functional_only,"Acronym_gene_confusion. Pigs refers to the animal, not the PIGS gene. 
+Veterinary publication."" PhIP is for (2-amino-1-methyl-6-phenylimidazo[4, 5-b]pyridine), not PHIP gene. "
+A0037,19056937,G2P00590,BCL11A,BCL11A-related intellectual disability,1,0,0,no,functional_only,Correct gene. Disease does not match the G2P record. 
+A0038,2038322,G2P00410,NF1,NF1-related neurofibromatosis,1,0,0,no,functional_only,
+A0039,26265695,G2P01765,CHD4,CHD4-related syndromic intellectual disability with or without congenital heart disease,1,1,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0040,10705577,G2P00965,IGF1R,"IGF1R-related insulin-like growth factor I, resistance to",1,1,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0041,26355235,G2P00747,MED12,MED12-related Opitz-Kaveggia syndrome,1,1,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0042,14934205,G2P01211,NEB,NEB-related typical nemaline myopathy,0,0,0,no,other,Probably 'acronym_gene_confusion'. Neb's triangle in the title of the publication. Gene NEB.
+A0043,23494950,G2P01366,HNRNPU,HNRNPU-related epileptic encephalopathy,0,1,0,uncertain,other,Unable to know what the publication is reporting about HNRNPU.
+A0044,21686261,G2P00063,IQSEC2,IQSEC2-related intellectual developmental disorder,1,0,1,no,functional_only,
+A0045,33661577,G2P00684,PDHA1,PDHA1-related pyruvate dehydrogenase E1-alpha deficiency,1,1,1,yes,case_report,
+A0046,12684693,G2P00144,FGFR2,FGFR2-related Crouzon syndrome,1,0,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0047,20726879,G2P01630,DCX,DCX-related lissencephaly,1,1,1,uncertain,case_series,There are 2 G2P records for this gene with overlapping phenotypes. It is not possible to know which is the correct match.
+A0048,36856321,G2P01760,ATAD3A,"ATAD3A-related disorder with global developmental delay, hypotonia, optic atrophy, axonal neuropathy, and hypertrophic cardiomyopathy",1,1,1,no,case_report,"Wrong_allelic_sibling. Correct gene and disease. But incorrect allelic requirement. Although not mentioned in the abstract, the report is from a consanguineous family."
+A0049,21182142,G2P03013,TFE3,TFE3-related intellectual disability with pigmentary mosaicism and coarse features,1,1,0,no,case_report,Correct gene. Disease (cancer) does not match the G2P record. 
+A0050,3681906,G2P00505,SACS,"SACS-related spastic ataxia, Charlevoix-Saguenay type",1,0,0,no,case_report,No gene/molecular or disease information. 
+A0051,11292680,G2P00762,MMP13,"MMP13-related spondyloepimetaphyseal dysplasia, Missouri type",0,0,0,no,functional_only,
+A0052,23260667,G2P01894,MORC2,MORC2-related axonal neuropathy and neurodevelopmental disorder (DIGFAN syndrome),1,0,0,no,functional_only,
+A0053,19694741,G2P00033,SCN2A,SCN2A-related nonspecific severe intellectual disability,1,0,0,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0054,36797062,G2P01862,KMT2B,KMT2B-related complex early-onset dystonia,0,1,1,uncertain,case_report,"Report of an adult patient, but unknown of the onset was in childhood."
+A0055,28665687,G2P01008,ERCC6,ERCC6-related Cockayne syndrome,1,1,0,no,case_series,Correct gene. Disease (cancer) does not match the G2P record. 
+A0056,8406497,G2P01013,FBN1,FBN1-related Marfan syndrome (monoallelic),1,1,1,uncertain,case_series,"There are 2 G2P records for this FBN-related Marfan syndrome, monoallelic and biallelic. It is not possible to know which is the correct match."
+A0057,25613381,G2P03111,MYSM1,MYSM1-related congenital bone marrow failure,1,0,0,no,functional_only,
+A0058,25374186,G2P00526,DCX,DCX-related subcortical band heterotopia,1,1,0,no,case_series,Correct gene. Disease (cancer) does not match the G2P record. 
+A0059,24942867,G2P01640,RECQL4,RECQL4-related Baller-Gerold syndrome,1,1,0,no,functional_only,
+A0060,32375900,G2P00180,VPS13B,VPS13B-related Cohen syndrome,1,1,0,no,functional_only,
+A0061,31297882,G2P01767,CDK13,CDK13-related syndromic intellectual disability with or without congenital heart disease,1,1,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0062,21901269,G2P01620,SHANK1,SHANK1-related autism,1,0,0,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0063,15024691,G2P01234,LRP5,LRP5-related exudative vitreoretinopathy,1,0,1,yes,case_series,
+A0064,16790443,G2P01234,LRP5,LRP5-related exudative vitreoretinopathy,1,0,0,no,functional_only,
+A0065,33825867,G2P02792,FAT4,FAT4-related Hennekam lymphangiectasia-lymphedema syndrome,0,0,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0066,29307761,G2P00694,PURA,PURA-related intellectual disability,1,0,1,yes,case_report,
+A0067,39079,G2P00616,CA2,CA2-related osteopetrosis,1,1,0,no,functional_only,"Acronym_gene_confusion. Ca2 refers to a chemical compound calcium, not the CA2 gene. 
+Chemistry publication."
+A0068,20888264,G2P00526,DCX,DCX-related subcortical band heterotopia,1,0,0,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0069,28951171,G2P00756,SETD5,SETD5-related intellectual developmental disorder,0,0,1,no,case_report,Large deletion including correct gene.
+A0070,34719831,G2P03173,KCNA1,KCNA1-related epileptic encephalopathy,0,1,0,no,case_report,Wrong_allelic_sibling.
+A0071,30771,G2P00616,CA2,CA2-related osteopetrosis,1,1,0,no,other,"Acronym_gene_confusion. Ca2 refers to a chemical compound calcium, not the CA2 gene. 
+Chemistry publication."
+A0072,18068532,G2P01583,NSD1,NSD1-related Sotos syndrome,1,0,0,no,case_report,Correct gene. Disease (cancer) does not match the G2P record. 
+A0073,21565795,G2P01263,CTNNB1,CTNNB1-related intellectual developmental disorder,1,0,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0074,27462448,G2P00653,USP9X,USP9X-related intellectual developmental disorder (heterozygous),1,1,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0075,31776469,G2P02373,CLTC,CLTC-related epilepsy and intellectual disability,1,1,1,yes,case_series,
+A0076,25316095,G2P00699,GRIN2B,GRIN2B-related epileptic encelopathy,1,0,0,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0077,32980524,G2P00055,ACAN,ACAN-related spondyloepiphyseal dysplasia,1,1,1,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0078,25078585,G2P03370,RRM1,RRM1-related mitochondrial DNA depletion/deletions syndrome,1,1,0,no,case_series,Correct gene. Disease (cancer) does not match the G2P record. 
+A0079,12872825,G2P03310,PTPN11,PTPN11-related Noonan syndrome,0,0,1,yes,case_report,
+A0080,36317203,G2P00636,NRXN1,NRXN1-related autism,1,1,0,no,case_series,Correct gene. Disease does not match the G2P record. 
+A0081,35026660,G2P00180,VPS13B,VPS13B-related Cohen syndrome,1,0,0,no,functional_only,
+A0082,30113454,G2P01008,ERCC6,ERCC6-related Cockayne syndrome,1,0,1,yes,case_report,
+A0083,26469284,G2P00396,SMARCA4,SMARCA4-related Coffin Siris,0,1,0,no,case_report,Correct gene. Disease (cancer) does not match the G2P record. 
+A0084,9302254,G2P00577,PAX3,PAX3-related Waardenburg syndrome (monoallelic),1,0,0,no,functional_only,
+A0085,23932654,G2P01399,CHD7,CHD7-related CHARGE syndrome,1,0,0,no,case_series,non_human
+A0086,36239909,G2P01414,PIGN,PIGN-related multiple congenital anomalies-hypotonia-seizures syndrome,0,0,0,no,other,"Acronym_gene_confusion. PIGN refiers to post-infectious glomerulonephritis. Not the PIGN gene. 
+"
+A0087,24941761,G2P00495,CASK,CASK-related intellectual developmental disorder,1,0,0,no,functional_only,
+A0088,34316408,G2P01008,ERCC6,ERCC6-related Cockayne syndrome,1,1,0,no,functional_only,Correct gene. Disease (cancer) does not match the G2P record. 
+A0089,32194709,G2P00164,TBL1XR1,TBL1XR1-related intellectual disability with autism spectrum disorder,1,0,0,no,functional_only,Correct gene. Disease does not match the G2P record. 
+A0090,12325025,G2P03310,PTPN11,PTPN11-related Noonan syndrome,1,0,1,yes,case_series,
+A0091,11956954,G2P01085,GCH1,GCH1-related dystonia,1,0,1,yes,review,
+A0092,9153393,G2P00827,NOTCH1,NOTCH1-related Adams Oliver syndrome with or without LV outflow tract obstruction,1,0,0,no,functional_only,Correct gene. Disease does not match the G2P record. 
+A0093,25786798,G2P01420,CHD2,CHD2-related epileptic encephalopathy,1,0,0,no,functional_only,
+A0094,1408952,G2P03460,BSN,BSN-related epilepsy,1,1,0,no,other,"Acronym_gene_confusion. BSN refers to baccalaureate, not the BSN gene. 
+"
+A0095,2064461,G2P03460,BSN,BSN-related epilepsy,0,0,0,no,other,"Only title, not enough information. Probably, Acronym_gene_confusion. BSN refers to baccalaureate, not the BSN gene. "
+A0096,35146069,G2P03173,KCNA1,KCNA1-related epileptic encephalopathy,0,0,0,no,case_report,Wrong_allelic_sibling.
+A0097,11274169,G2P00762,MMP13,"MMP13-related spondyloepimetaphyseal dysplasia, Missouri type",1,1,0,no,functional_only,
+A0098,20111900,G2P01608,SCN8A,"SCN8A-related epileptic encephalopathy, early infantile",1,1,0,no,functional_only,
+A0099,142094,G2P01711,SET,SET-related intellectual developmental disorder,1,1,0,no,functional_only,No gene or disease.
+A0100,9787075,G2P00495,CASK,CASK-related intellectual developmental disorder,1,0,0,no,functional_only,
