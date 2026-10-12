@@ -114,17 +114,65 @@ was trained by `litdd.training.finetune_seeds` on the augmented set described in
 `litdd/training/README.md`. `litdd.evaluation.run_bert_benchmark` fine-tunes baseline
 encoders with the same protocol for comparison.
 
-## Tests
+## Running the LitDD pipeline
+
+The pipeline maps PubMed titles and abstracts to Gene2Phenotype (G2P) developmental-disorder
+entries in four stages, with two preparatory steps. Every stage is a module under `litdd/`
+and is run as `python -m litdd.<package>.<module>`; each prints its options with `--help`.
+
+    PubMed TIAB parquet shards
+      -> 1. screen        litdd.pipeline.bert_predict_vllm     HF tmy100000001/LitDD_BERT
+      -> 2. gene gate     litdd.pipeline.gene_candidates       HGNC-identifier resolution
+      -> 3. shards        litdd.pipeline.build_llm_shards      adjudication inputs
+      -> 4. adjudication  litdd.pipeline.llm_map               openai/gpt-oss-20b, contextualised threads
+      -> 5. clean         litdd.pipeline.final_data_clean      candidate-membership check
+
+### Inputs
+
+| Input | Source |
+|---|---|
+| G2P developmental-disorder panel CSV (`G2P_DD.csv`) | https://www.ebi.ac.uk/gene2phenotype/downloads |
+| G2P all-panel CSV (`G2P_all.csv`) | same page, every panel; used for the context threads and the adjudication stage |
+| `gene2pubtator3.gz` | https://ftp.ncbi.nlm.nih.gov/pub/lu/PubTator3/ |
+| `hgnc_complete_set.txt` | https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt |
+| `gene_info.gz` (Homo sapiens) | https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz |
+| `mondo.obo`, `hp.obo` | http://purl.obolibrary.org/obo/mondo.obo, http://purl.obolibrary.org/obo/hp.obo |
+| PubMed baseline and update files | `python -m litdd.pipeline.download_pubmed`, then `pubmed_to_parquet` and `dedupe_pmids` |
+
+The models (`tmy100000001/LitDD_BERT`, branch `main`, release `v2.5`; `openai/gpt-oss-20b`,
+revision `6cee5e81` in the released run) are downloaded from Hugging Face by vLLM. On compute nodes without internet access, stage them into a Hugging Face cache
+first and point `HF_HOME` at it.
+
+### Preparatory step: context threads
+
+The adjudication stage shows each candidate G2P entry as a multi-line block built from the
+all-panel export, MONDO and HPO. The released block set is
+`data/context_threads_G2P_all_2026-09-10.json`. To rebuild it for a new export:
 
 ```bash
-pip install pytest
-pytest tests/ -q
+python -m litdd.pipeline.build_context_threads --g2p_csv G2P_all.csv \
+  --mondo_obo mondo.obo --hp_obo hp.obo --out_json context_threads.json
 ```
 
-The suite runs on CPU with inline fixtures and covers the gene gate, the disease lexicon,
-the shard builder, prompt rendering and answer parsing, the clean stage, the screen's I/O
-helpers, the context-thread builder, the evaluator and the training helpers. Continuous
-integration (`.github/workflows/ci.yml`) runs ruff and the same suite on every push.
+The builder removes disease-name aliases from each entry's former gene symbols using
+`litdd/pipeline/data/disease_name_aliases.tsv`, which `litdd.pipeline.build_disease_name_aliases`
+regenerates from HGNC and MONDO.
+
+### Run on a corpus (GPU)
+
+Container: `ghcr.io/biomedicalinformaticsgroup/litdd_mining` (built by `.github/workflows/image.yml`
+from `containers/Dockerfile`; vLLM 0.23.0). Use the SHA-tagged image in job manifests.
+
+```bash
+# 1. screen. Pass the Hugging Face id; the positive rate on random PubMed is about 0.5%.
+python -m litdd.pipeline.bert_predict_vllm --model tmy100000001/LitDD_BERT \
+  --input_dir <parquet shards with pmid,tiab,languages,pubdate> --processed_dir screened/ \
+  --keep_parquet <download_dir>/pmid_keep.parquet
+python -m litdd.pipeline.build_bert_positives --processed_dir screened/ --out_path screened/bert_positive.parquet
+
+# 2. gene gate. --audit_prefix writes every HGNC symbol and name considered and why it was
+#    kept or excluded, with per-rule counts.
+```
 
 ## Licence
 
