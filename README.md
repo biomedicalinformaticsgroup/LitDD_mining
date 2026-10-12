@@ -15,9 +15,6 @@ PubMed title and abstract shards
   -> clean         litdd.pipeline.final_data_clean      keep ids that exist in the panel and were offered as candidates
 ```
 
-`supplementary/RUN_FINAL_PIPELINE.md` gives the commands, inputs and evaluation procedure.
-`supplementary/DESIGN_NOTES.md` records the reasons behind the design; `CHANGELOG.md` records
-dated changes and their measurements.
 
 ## Requirements
 
