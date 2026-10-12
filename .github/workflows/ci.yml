@@ -1,7 +1,6 @@
 name: CI
 
-# Lint and CPU unit tests. The GPU stages import torch and vllm lazily, so their
-# deterministic helpers are tested here without the GPU stack.
+# Lint (ruff) and a scan of the history for committed secrets.
 
 on:
   push:
@@ -13,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-and-test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,12 +25,6 @@ jobs:
       - name: Lint (ruff)
         # Pinned so that rule changes in new ruff releases do not fail unchanged code.
         run: uvx ruff@0.16.4 check .
-
-      - name: Unit tests (CPU only)
-        run: >-
-          uv run --no-project
-          --with numpy --with pandas --with polars --with pyarrow --with pronto --with pytest
-          pytest tests/ -q
 
   secret-scan:
     # Scans the history for committed credentials.

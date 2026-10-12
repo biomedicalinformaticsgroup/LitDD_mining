@@ -1,0 +1,10 @@
+﻿stage,unit,n,note
+0. eligible TIAB records screened,unique PMIDs,31905666,English AND pubdate>1980 AND on the post-dedupe keep list
+1. LitDD-BERT screen positive,unique PMIDs,179747,fire rate 0.5634%; add20k seed 44
+2. gene gate: >=1 DDG2P gene named,unique PMIDs,100756,56.1% of screen positives retained
+"2b. (abstract, G2P entry) pairs offered to the LLM",pairs,233296,"every G2P entry, from all panels, of each DDG2P gene named; mean 2.32 / median 1 / p95 7 / max 64 per abstract; of which 195,004 (abstract, DDG2P entry) pairs, mean 1.94 / median 1 / p95 5 / max 59"
+3. LLM adjudication: >=1 mapping returned,unique PMIDs,72941,72.4% of gated abstracts
+3b. LLM adjudication: NO MATCH,unique PMIDs,27815,27.6% of gated abstracts; 27351 explicit NO MATCH + 464 unparseable
+4. final map (after clean),"(paper, entry) pairs",86513,candidate-membership check: valid DDG2P entry offered for that abstract; non-DDG2P answers discarded
+4b. final map,unique PMIDs,72939,
+4c. final map,distinct DDG2P entries,2826,of 2861 in the panel

@@ -5,16 +5,16 @@ before a full GPU run.
 
 ## What the demo does
 
-1. Uses a 100-abstract stratified sample of the annotated dataset
+1. Uses a 100-PMID (102-row) stratified sample of the annotated dataset
    (`demo/data/annotated_pmid_demo.csv`) and a 134-row G2P CSV (`demo/data/g2p_demo.csv`).
 2. Builds the group-stratified train/test split.
 3. Runs a 2-fold cross-validated hyperparameter search for the screen with a one-combination
    grid, on a small model (`distilbert-base-uncased`).
 4. Refits the screen on the demo training portion and evaluates once on the demo test portion.
 
-The corpus stages (PubMed download, screen inference, gene gate, adjudication, clean) are not
-exercised; they need a GPU and the PubMed baseline. Their deterministic logic is covered by
-`pytest tests/ -q`, which runs on CPU with inline fixtures.
+The text of each demo row is its title only (the public annotation carries no abstract text; see
+`litdd.training.attach_tiab`). The corpus stages (PubMed download, screen inference, gene gate,
+adjudication, clean) are not exercised; they need a GPU and the PubMed baseline.
 
 ## Run
 
@@ -44,4 +44,6 @@ demo/
 
 ```bash
 python -m demo.build_demo_data --g2p_csv G2P_DD.csv
+python -m litdd.training.attach_tiab --annotated_csv demo/data/annotated_pmid_demo.csv \
+  --tiab_source data/supplementary_data/Supplementary_Data_1.csv --out_csv demo/data/annotated_pmid_demo.csv
 ```

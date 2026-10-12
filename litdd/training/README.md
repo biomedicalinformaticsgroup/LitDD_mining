@@ -37,4 +37,6 @@ checkpoint.
 ## Not here
 
 - `litdd/experiments/` — ablations that are not on the release path (see its README).
-- `data/annotated_pmid.csv` — the annotation input, kept out of the code directories.
+- `data/annotated_pmid.csv` — the annotation input (PMIDs and labels, corrections applied), kept out of
+  the code directories. `attach_tiab.py` adds the title-and-abstract text the scripts above read, from
+  Supplementary Data 1 of the paper or the PubMed parquet of `litdd.pipeline.pubmed_to_parquet`.

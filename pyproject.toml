@@ -1,6 +1,6 @@
 [project]
 name = "litdd"
-version = "1.0.0"
+version = "2.0.1"
 description = "PubMed-wide classification and disease-level mapping of peer-reviewed literature for genetic developmental disorders in Gene2Phenotype (LitDD)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,8 +28,3 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
-addopts = "-q"

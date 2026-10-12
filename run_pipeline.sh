@@ -2,12 +2,14 @@
 # Training runner for the LitDD screen.
 #
 # Modes:
-#   --demo   100-row sample of the annotated dataset, a small CPU model and a 1-combination
-#            2-fold CV grid; runs in a few minutes on CPU.
-#   --full   full annotated dataset, the released base model and the full grid; hours on a GPU.
+#   --demo   102-row sample of the annotated dataset (title text only), a small CPU model and a
+#            1-combination 2-fold CV grid; runs in a few minutes on CPU.
+#   --full   full annotated dataset with title and abstract text (data/annotated_pmid_tiab.csv,
+#            built by litdd.training.attach_tiab), the released base model and the grid of
+#            Supplementary Table 2; hours on a GPU.
 #
-# The corpus pipeline (screen, gene gate, shards, adjudication, clean) is documented in
-# supplementary/RUN_FINAL_PIPELINE.md and needs a GPU node.
+# The corpus pipeline (screen, gene gate, shards, adjudication, clean) is documented in the
+# README and needs a GPU node.
 #
 # Usage:
 #   ./run_pipeline.sh --demo
@@ -46,19 +48,24 @@ if [[ "$MODE" == "demo" ]]; then
     BERT_HP_JSON="demo/results/bert_hp.json"
     BERT_BEST_DIR="demo/models/lit_dd_BERT_demo"
     BERT_OUT_DIR="demo/results/bert_finetune"
-    BERT_GRID=(--lr_grid "1e-5" --wd_grid "0.1" --epochs_grid "1")
+    BERT_GRID=(--lr_grid "5e-5" --wd_grid "0.1" --epochs_grid "3")
     N_FOLDS=2
     TRAIN_BS=8
     EVAL_BS=8
-    REFIT_EPOCHS=1
+    REFIT_EPOCHS=3
 else
-    ANNOTATED_CSV="data/annotated_pmid.csv"
+    ANNOTATED_CSV="${ANNOTATED_CSV:-data/annotated_pmid_tiab.csv}"
+    if [[ ! -f "$ANNOTATED_CSV" ]]; then
+        echo "Missing $ANNOTATED_CSV. Build it first (see README, 'Training the screen'):" >&2
+        echo "  python -m litdd.training.attach_tiab --tiab_source <Supplementary Data 1.csv or PubMed parquet dir>" >&2
+        exit 1
+    fi
     OUT_DIR="data"
     BERT_MODEL="${BERT_MODEL:-thomas-sounack/BioClinical-ModernBERT-large}"
     BERT_HP_JSON="litdd/training/bert_hp_search.json"
     BERT_BEST_DIR="litdd/training/lit_dd_BERT_best"
     BERT_OUT_DIR="litdd/training/bert_finetune_results"
-    BERT_GRID=(--lr_grid "1e-5" "3e-5" --wd_grid "0.1" "0.3" --epochs_grid "5")
+    BERT_GRID=(--lr_grid "1e-5" "1.7e-5" "3e-5" --wd_grid "0.1" "0.3" --epochs_grid "5")   # Supplementary Table 2
     N_FOLDS=5
     TRAIN_BS=32
     EVAL_BS=32
@@ -101,7 +108,7 @@ if [[ "$MODE" == "full" ]]; then
     cat <<'EOF'
 
 The released screen was trained with litdd.training.finetune_seeds on the augmented
-annotation set (see litdd/training/README.md). To run the corpus pipeline, follow
-supplementary/RUN_FINAL_PIPELINE.md. Unit tests: pytest tests/ -q
+annotation set (see litdd/training/README.md). To run the corpus pipeline, follow the
+README section "Running the LitDD pipeline".
 EOF
 fi
